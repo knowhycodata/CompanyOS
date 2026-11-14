@@ -179,7 +179,7 @@ function CaptureAuthorize() {
           </div>
 
           <div className="space-y-3">
-            <p className="text-muted-foreground text-sm font-medium">{tWorkspaces('workspaceLabel')}</p>
+            <p className="text-foreground text-sm font-medium">{tWorkspaces('workspaceLabel')}</p>
             {workspaces.length === 0 ? (
               <p className="text-muted-foreground text-xs text-pretty">{tWorkspaces('noCaptureWorkspace')}</p>
             ) : (

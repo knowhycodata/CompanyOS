@@ -1,6 +1,7 @@
 'use client';
 
 import { appLink } from './app-links';
+import { ArtifactLink, isArtifactLink } from './artifact-link';
 import { Github } from '../internal/icons/github';
 import { SlackLogoIcon } from '@phosphor-icons/react';
 import { LinearMark, FigmaMark, NotionMark, GoogleDocsMark, GoogleSheetsMark, GoogleSlidesMark } from './app-link-icons';
@@ -35,6 +36,7 @@ import {
   isStreamingLinkPlaceholder,
   prepareMarkdownSource,
   remoteImageHost,
+  sameOriginAppPath,
   shouldUseNextLink,
 } from './unified-markdown-utils';
 import { remarkSetupLinkBlocks } from './setup-link-blocks';
@@ -53,7 +55,7 @@ import { useSandboxProxy } from '../internal/hooks/use-sandbox-proxy';
 import { useOpenPreviewLink } from '../internal/hooks/use-open-preview-link';
 import { cn } from '../lib/utils';
 import { ImageIcon } from '@phosphor-icons/react';
-import { useUiLink } from '../providers/ui-provider';
+import { useUiLink, useUiRouter } from '../providers/ui-provider';
 import React, { useCallback, useContext, useMemo, useState } from 'react';
 import { parseMarkdownIntoBlocks, Streamdown } from 'streamdown';
 
@@ -166,15 +168,27 @@ function bareLinkText(children: React.ReactNode): string | null {
   return text;
 }
 
-export function MarkdownLink({
+export function MarkdownLink({ href, children }: { href?: string; children?: React.ReactNode }) {
+  const { variant } = useContext(MarkdownRenderContext);
+  if (variant !== 'document' && href && isArtifactLink(href)) {
+    return <ArtifactLink href={href} raw={bareLinkText(children) === href}>
+      {(label) => <PlainMarkdownLink href={href}>{label ?? children}</PlainMarkdownLink>}
+    </ArtifactLink>;
+  }
+  return <PlainMarkdownLink href={href}>{children}</PlainMarkdownLink>;
+}
+
+function PlainMarkdownLink({
   href,
   children,
+  ...anchorProps
 }: {
   href?: string;
   children?: React.ReactNode;
-}) {
+} & React.ComponentPropsWithRef<'a'>) {
   const tAppLink = useTranslations('markdownAppLinks');
   const Link = useUiLink();
+  const router = useUiRouter();
   const { proxy, policy, variant } = useContext(MarkdownRenderContext);
   const openPreview = useOpenPreviewLink();
   // Only agent content may turn a setup link into the in-app card. From any
@@ -280,6 +294,7 @@ export function MarkdownLink({
   if (openPreview && href && resolvedHref !== href) {
     return (
       <a
+        {...anchorProps}
         href={href}
         className={anchorClass}
         title={presentation ? resolvedHref : undefined}
@@ -298,13 +313,25 @@ export function MarkdownLink({
   // treats those as app routes and prefetches them, including typos such
   // as `/legal/terms.`. Only trusted root-relative/hash paths belong in
   // the app router; every other href stays a plain anchor.
+  // An absolute URL on this app's own origin (an agent writes
+  // `https://kortix.com/workspaces/…`) navigates in place through the app
+  // router on a plain click. Decided at click time, so the server markup and
+  // the prefetcher never see it; a modified click keeps the native new tab.
   if (!shouldUseNextLink(resolvedHref)) {
     return (
       <a
+        {...anchorProps}
         href={resolvedHref}
         className={anchorClass}
         title={presentation ? resolvedHref : undefined}
         {...(isExternal && !isHash ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+        onClick={(e) => {
+          if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+          const appPath = sameOriginAppPath(resolvedHref);
+          if (!appPath) return;
+          e.preventDefault();
+          router.push(appPath);
+        }}
       >
         <InsideLinkContext.Provider value={true}>
           {linkContent}
@@ -315,6 +342,7 @@ export function MarkdownLink({
 
   return (
     <Link
+      {...anchorProps}
       href={resolvedHref}
       onClick={isHash ? (e) => handleHashClick(e, resolvedHref) : undefined}
       className={anchorClass}

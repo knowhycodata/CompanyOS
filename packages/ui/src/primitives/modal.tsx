@@ -107,6 +107,7 @@ const ModalOverlay = React.forwardRef<
 
   return (
     <DialogPrimitive.Backdrop
+      forceRender
       render={stateRender('div', openState)}
       className={cn(
         'fixed inset-0 ',
