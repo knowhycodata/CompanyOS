@@ -154,7 +154,8 @@ import {
   useVisibleAgents,
   useFeatureFlags,
 } from '@kortix/sdk/react';
-import { capitalizeWords, formatRelativeTime } from '@kortix/shared';
+import { agentDisplayName, capitalizeWords, formatRelativeTime } from '@kortix/shared';
+import { InlineCodeText } from '@kortix/ui/markdown';
 import {
   RobotIcon as Bot,
   CheckIcon as Check,
@@ -2937,11 +2938,11 @@ export function CommandPalette() {
                       <AgentMark slug={agent.name} size={21} />
                       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
                         <span className="truncate text-sm font-medium">
-                          {capitalizeWords(agent.name)}
+                          {agentDisplayName(agent.name)}
                         </span>
                         {agent.description && (
                           <span className="text-muted-foreground/50 truncate text-xs">
-                            {agent.description}
+                            <InlineCodeText text={agent.description} />
                           </span>
                         )}
                       </div>
