@@ -2,6 +2,7 @@
 
 import { DesignSystemShell } from './_docs/shell';
 import AccordionSection from './_docs/sections/accordion';
+import ActionBarSection from './_docs/sections/action-bar';
 import AlertSection from './_docs/sections/alert';
 import AvatarSection from './_docs/sections/avatar';
 import BadgeSection from './_docs/sections/badge';
@@ -101,6 +102,7 @@ const SECTIONS = {
   tabs: TabsSection,
   breadcrumb: BreadcrumbSection,
   kbd: KbdSection,
+  'action-bar': ActionBarSection,
   avatar: AvatarSection,
   badge: BadgeSection,
   card: CardSection,

@@ -114,6 +114,7 @@ export const DOC_GROUPS: DocGroup[] = [
       { slug: 'tabs', title: 'Tabs', summary: 'Default and underline, sm to 2xl', source: `${UI}/tabs.tsx` },
       { slug: 'breadcrumb', title: 'Breadcrumb', summary: 'Where you are in a hierarchy', source: `${UI}/breadcrumb.tsx` },
       { slug: 'kbd', title: 'Kbd', summary: 'Keys and shortcuts', source: `${UI}/kbd.tsx` },
+      { slug: 'action-bar', title: 'Action Bar', summary: 'The floating bar for a selection or unsaved edits', source: `${UI}/action-bar.tsx` },
     ],
   },
   {
