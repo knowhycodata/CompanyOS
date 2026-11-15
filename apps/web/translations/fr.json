@@ -1681,8 +1681,8 @@
         "needsInput": "Réponse requise",
         "starting": "Réveil",
         "running": "En cours",
-        "done": "Prête",
-        "stopped": "En veille",
+        "done": "Terminée",
+        "stopped": "Arrêtée",
         "failed": "Échouée",
         "legacy": "Ancienne"
       }
@@ -1894,7 +1894,15 @@
       "noMessages": "Aucun message pour l’instant",
       "more": "Plus"
     },
-    "calendar": "Calendrier"
+    "calendar": "Calendrier",
+    "running": "En cours",
+    "runningCount": "{count, plural, one {# session en cours} other {# sessions en cours}}",
+    "runningTitle": "En cours",
+    "runningEmpty": "Rien n’est en cours.",
+    "runningFailed": "Impossible de lire ce qui est en cours.",
+    "runningRetry": "Réessayer",
+    "runningIn": "dans {title}",
+    "runningFirst": "Les {count} premières sont affichées."
   },
   "dashboard": {
     "title": "Tableau de bord",
@@ -2363,6 +2371,8 @@
     "chatInputMachine": "Machine",
     "chatInputMachineDescription": "Le modèle de machine sur lequel cette session démarre.",
     "sending": "Envoi en cours",
+    "notSentYet": "Pas encore envoyé · sera envoyé dès que vous serez de nouveau en ligne",
+    "offlineReconnecting": "Hors ligne — reconnexion…",
     "stop": "Arrêter",
     "startingSession": "Démarrage de la session…",
     "sessionStarted": "Session démarrée",
@@ -3350,7 +3360,17 @@
       "jsonKeys": "{count, plural, one {JSON · # clé} other {JSON · # clés}}",
       "jsonItems": "{count, plural, one {JSON · # élément} other {JSON · # éléments}}",
       "failedSentence": "Le workflow s’est arrêté avant d’avoir fini.",
-      "runningCount": "{count} en cours"
+      "runningCount": "{count} en cours",
+      "spent": "{credits} crédits dépensés",
+      "spentHint": "Ce que Kortix a facturé jusqu’ici pour cette exécution : appels au modèle et temps de calcul de l’exécution et de ses agents.",
+      "waitingForYou": "En attente de vous · pas démarré",
+      "cancelled": "Annulé — rien n’a tourné",
+      "answeredInChat": "Répondu dans le chat — rien n’a tourné",
+      "stoppedByYou": "Arrêté par vous",
+      "attempt": "essai {count}",
+      "quietFor": "Silencieux depuis {minutes} min",
+      "quietCount": "{count} silencieux",
+      "holdingWorking": "En attente · {count} travaillent encore"
     },
     "agent": {
       "backgroundWorking": "Travaille en arrière-plan",
@@ -10797,6 +10817,10 @@
       "text0b2e0f1bf47e": "Chaque appel effectué, et la personne qui l’a autorisé",
       "text0b2ecc210632": "Le seul canal en direct. Posez la question dans le fil où elle est apparue ; la réponse, le graphique et la requête reviennent dans ce même fil.",
       "text0b348466332c": "Aucune modification pour le moment",
+      "textf83916135509": "utilisé",
+      "texta251c18205f1": "En cache",
+      "text64cd989efc14": "Espace libre",
+      "textcc6d004b577f": "Ce fichier n’a aucune modification par rapport à la base.",
       "text0b38e3daeb93": "Tous les secrets",
       "text0b3dbab0c668": "- Déployer le correctif, rédiger le post-mortem",
       "text0b495c90447a": "Le calendrier, la boîte de réception, le système de candidatures.",
@@ -11666,6 +11690,7 @@
       "text2522f9d16f3b": "Le CompanyOS",
       "text25330787f710": "+3",
       "text2534086de9fe": "Afficher le panneau",
+      "text40cd6293d193": "Masquer le panneau",
       "text2534e74d5120": "Que doit modifier l’agent ?",
       "text253923d0f0c5": "Connexions → Applications → +",
       "text253b18a02165": "Démarrage",
@@ -26546,7 +26571,11 @@
         "resume": "Impossible de reprendre l’exécution",
         "stop": "Impossible d’arrêter l’exécution",
         "restart": "Impossible de redémarrer {label}"
-      }
+      },
+      "hold": "Retenir les nouveaux agents",
+      "holdShort": "Retenir les nouveaux agents",
+      "holdHint": "Retenir les nouveaux agents : aucun ne démarre avant la reprise ; ceux qui travaillent continuent (p)",
+      "holding": "Nouveaux agents retenus"
     },
     "board": {
       "layoutLabel": "Affichage",

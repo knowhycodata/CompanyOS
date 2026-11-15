@@ -1175,8 +1175,8 @@ const catalog = {
         "needsInput": "Needs input",
         "starting": "Waking",
         "running": "Working",
-        "done": "Ready",
-        "stopped": "Asleep",
+        "done": "Done",
+        "stopped": "Stopped",
         "failed": "Failed",
         "legacy": "Legacy"
       }
@@ -1388,7 +1388,15 @@ const catalog = {
       "noMessages": "No messages yet",
       "more": "More"
     },
-    "calendar": "Calendar"
+    "calendar": "Calendar",
+    "running": "Running",
+    "runningCount": "{count, plural, one {# session running} other {# sessions running}}",
+    "runningTitle": "Running now",
+    "runningEmpty": "Nothing is running.",
+    "runningFailed": "Couldn't read what is running.",
+    "runningRetry": "Try again",
+    "runningIn": "in {title}",
+    "runningFirst": "Showing the first {count}."
   },
   "sessionPage": {
     "backToProject": "Back to workspace",
@@ -1686,6 +1694,8 @@ const catalog = {
     "chatInputMachine": "Machine",
     "chatInputMachineDescription": "The machine template this session starts on.",
     "sending": "Sending",
+    "notSentYet": "Not sent yet · sends when you’re back online",
+    "offlineReconnecting": "Offline — reconnecting…",
     "stop": "Stop",
     "startingSession": "Starting session…",
     "sessionStarted": "Session started",
@@ -2108,7 +2118,17 @@ const catalog = {
       "jsonKeys": "{count, plural, one {JSON · # key} other {JSON · # keys}}",
       "jsonItems": "{count, plural, one {JSON · # item} other {JSON · # items}}",
       "failedSentence": "The workflow stopped before it finished.",
-      "runningCount": "{count} running"
+      "runningCount": "{count} running",
+      "spent": "Spent {credits} credits",
+      "spentHint": "What Kortix billed for this run so far: model calls and computer time of the run and its agents.",
+      "waitingForYou": "Waiting for you · not started",
+      "cancelled": "Cancelled — nothing ran",
+      "answeredInChat": "Answered in chat — nothing ran",
+      "stoppedByYou": "Stopped by you",
+      "attempt": "attempt {count}",
+      "quietFor": "Quiet for {minutes} min",
+      "quietCount": "{count} quiet",
+      "holdingWorking": "Holding · {count} still working"
     },
     "agent": {
       "backgroundWorking": "Working in the background",
@@ -2851,6 +2871,10 @@ const catalog = {
       "text0af465ef42c0": "On failure",
       "text0b1bdec38bf0": "Default template",
       "text0b348466332c": "Nothing changed yet",
+      "textf83916135509": "used",
+      "texta251c18205f1": "Cached",
+      "text64cd989efc14": "Free space",
+      "textcc6d004b577f": "This file has no changes against the base.",
       "text0b38e3daeb93": "All secrets",
       "text0b5260e1b405": "Updating",
       "text0b5796519393": "SCIM keeps users and groups in sync, including offboarding",
@@ -3152,6 +3176,7 @@ const catalog = {
       "text25054dad693a": "Searched sessions",
       "text2515f730f2e2": "Reuses our existing DB and backups. Simplest to operate.",
       "text2534086de9fe": "Show panel",
+      "text40cd6293d193": "Hide panel",
       "text2534e74d5120": "What should the agent change?",
       "text253b18a02165": "Starting up",
       "text25c9ab3f2bf6": "Can't show these links",
@@ -9837,7 +9862,11 @@ const catalog = {
         "resume": "Could not resume the run",
         "stop": "Could not stop the run",
         "restart": "Could not restart {label}"
-      }
+      },
+      "hold": "Hold new agents",
+      "holdShort": "Hold new agents",
+      "holdHint": "Hold new agents: none starts until you resume; agents already working go on (p)",
+      "holding": "Holding new agents"
     },
     "board": {
       "layoutLabel": "Layout",
