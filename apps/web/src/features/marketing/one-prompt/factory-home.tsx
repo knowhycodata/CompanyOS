@@ -1,14 +1,17 @@
 'use client';
 
 import { KortixLogo } from '@/components/sidebar/kortix-logo';
+import { useGitHubStars } from '@/hooks/use-github-stars';
 import { FaqSection } from '@/features/marketing/faq';
 import { PricingPlanCard } from '@/features/billing/pricing-plan-card';
 import { PRICING_PLANS } from '@/features/billing/pricing-plans';
 import { usePricingPlans } from '@/features/billing/use-pricing-plans';
 import { DitherField } from '@/features/marketing/kit/dither-field';
+import { MarketingButton } from '@/features/marketing/kit/marketing-button';
 import { CreditLadder } from '@/features/marketing/pricing/credit-ladder';
 import { loopPrompt, REFERENCE_REPOS, setupPromptFor } from '@kortix/shared/setup-guide';
 import { cn } from '@kortix/ui';
+import { Github } from '@kortix/ui/internal/icons/github';
 import { DEFAULT_COMPUTE_SPEC, ENTRY_TIER_USD } from '@kortix/ui/internal/billing/compute-pricing';
 import { ArrowRightIcon, ArrowUpRightIcon } from '@phosphor-icons/react';
 import Link from 'next/link';
@@ -171,8 +174,15 @@ function PlansBand({ prompt }: { prompt: string }) {
                 </p>
               ) : undefined
             }
-            // Every plan starts the same way: the prompt (founder call 2026-11-18). The hero's button owns the C key.
-            action={<CopyButton text={prompt} icon="shortcut" bindKey={false} className="w-full" />}
+            // Free and Credits start the same way, by copying the prompt: one Copy prompt under the band covers both.
+            // Enterprise keeps its demo request (founder calls 2026-11-18).
+            action={
+              plan.id === 'enterprise' ? (
+                <MarketingButton variant="secondary" size="md" className="hit-area-y-1 w-full" asChild>
+                  <a href={`${KORTIX}/enterprise`}>Request demo</a>
+                </MarketingButton>
+              ) : null
+            }
           />
         ))}
       </div>
@@ -181,6 +191,10 @@ function PlansBand({ prompt }: { prompt: string }) {
           <span className="text-foreground">Credits pay only for the cloud computer your agents run on.</span> {COMPUTE_HOURLY} an hour for the
           default {DEFAULT_COMPUTE_SPEC} machine, billed per second. Nothing while it is stopped.
         </p>
+        {/* The band's one action. The hero's button owns the C key. */}
+        <span className="w-full shrink-0 md:w-auto [&>button]:w-full">
+          <CopyButton text={prompt} icon="shortcut" bindKey={false} />
+        </span>
       </div>
     </div>
   );
@@ -254,6 +268,28 @@ function useSectionInView(): string | null {
 }
 
 /**
+ * The repo's GitHub stars, as the site navbar shows them: the mark always, the
+ * count once it loads. `stars`, not `formattedStars`, decides: the formatter
+ * returns an en dash for a missing count, and a missing count shows nothing.
+ */
+function GitHubStars() {
+  const { stars, formattedStars, loading } = useGitHubStars();
+  const known = stars !== null && !loading;
+  return (
+    <a
+      href="https://github.com/kortix-ai/CompanyOS"
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={known ? `Kortix on GitHub, ${formattedStars} stars` : 'Kortix on GitHub'}
+      className="text-muted-foreground hover:text-foreground mr-2 inline-flex h-8 items-center gap-1.5 text-sm transition-colors"
+    >
+      <Github className="size-4 shrink-0" />
+      {known ? <span className="tabular-nums">{formattedStars}</span> : null}
+    </a>
+  );
+}
+
+/**
  * Loopmaxxing (loopmaxxing.sh), the developer landing. One job: get a developer
  * to copy the prompt. The hero is the headline, the copy button and a reel of
  * agent sessions, the first of them running that prompt. Each section after it
@@ -302,6 +338,7 @@ export function FactoryHome({ loops }: { loops: LoopView[] }) {
               </a>
             </nav>
             <div className="flex items-center gap-2">
+              <GitHubStars />
               <span className="hidden sm:contents">
                 <GhostButton href={`${KORTIX}/auth`}>Sign in</GhostButton>
               </span>
