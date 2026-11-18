@@ -12,7 +12,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: 'Loopmaxxing by Kortix: add a software factory to your repo with 1 prompt',
     description:
-      'For dev teams. Agents that work on your repo and your tools, in the cloud, 24/7. One prompt in Claude Code or Codex sets them up, on the plan you already pay for. You approve what ships.',
+      'For dev teams. Agents that work on your repo and your tools, in the cloud, 24/7. One prompt sets them up, on the Claude or Codex subscription or API key you already pay for.',
     alternates: { canonical: 'https://loopmaxxing.sh' },
     ...(announced ? {} : { robots: { index: false, follow: false } }),
   };

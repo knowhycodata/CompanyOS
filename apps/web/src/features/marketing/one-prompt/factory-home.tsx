@@ -188,7 +188,7 @@ export function FactoryHome({ loops }: { loops: LoopView[] }) {
               with 1 prompt.
             </h1>
             <p className="text-muted-foreground max-w-xl text-lg text-pretty">
-              Agents that work on your repo and your tools, in the cloud, 24/7. One prompt sets them up, on the plan you already pay for. You approve what ships.
+              Agents that work on your repo and your tools, in the cloud, 24/7. One prompt sets them up, on the Claude or Codex subscription or API key you already pay for.
             </p>
             <PromptCta prompt={prompt} className="mt-2" />
           </div>
