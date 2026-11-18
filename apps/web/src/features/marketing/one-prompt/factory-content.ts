@@ -38,8 +38,8 @@ export const DEMO = {
 /** A small, valid kortix.yaml: one agent, what starts it, and the registries it draws on. */
 export const MANIFEST = [
   'agents:',
-  '  factory:',
-  '    prompt_file: agents/factory.md',
+  '  engineer:',
+  '    prompt_file: agents/engineer.md',
   '    skills: [software-factory]',
   '    tools: [lookup_order]',
   '    extensions: [review-gate]',
@@ -50,7 +50,7 @@ export const MANIFEST = [
   '  - slug: nightly-tests',
   '    on: { cron: "0 0 2 * * *" }',
   '    run:',
-  '      agent: factory',
+  '      agent: engineer',
   '      prompt: Run the tests. File what fails.',
   '',
   'skills:',

@@ -518,8 +518,8 @@ function SessionPanel({
   );
 }
 
-/** The agents the picker offers: the factory and the teams a description can loop. */
-const PICKER_AGENTS = ['factory', 'marketing', 'sales', 'support', 'recruiting'];
+/** The agents the picker offers: the engineer and the teams a description can loop. */
+const PICKER_AGENTS = ['engineer', 'marketing', 'sales', 'support', 'recruiting'];
 
 /**
  * The Kortix chat input, live: type into it, Enter sends (Shift+Enter is a new

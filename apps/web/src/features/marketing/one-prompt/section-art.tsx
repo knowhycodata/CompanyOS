@@ -82,7 +82,7 @@ const SIGNALS: ReadonlyArray<{ slug?: ToolSlug; name: string; when: string }> = 
   { name: 'Every night at 02:00', when: '2m' },
   { slug: 'sentry', name: 'New error in production', when: '4m' },
   { slug: 'stripe', name: 'Payment failed', when: '9m' },
-  { slug: 'slack', name: '@factory in #eng', when: '12m' },
+  { slug: 'slack', name: '@engineer in #eng', when: '12m' },
   { slug: 'intercom', name: 'Customer asks for a refund', when: '18m' },
   { slug: 'hubspot', name: 'Deal moved to Won', when: '25m' },
   { slug: 'gmail', name: 'Email from a customer', when: '31m' },
@@ -94,8 +94,8 @@ const SIGNALS: ReadonlyArray<{ slug?: ToolSlug; name: string; when: string }> = 
 
 /** Runs the agents finished: the steps each took and what it left for a person. */
 const RUNS: ReadonlyArray<{ agent: string; loop: string; steps: string[]; result: string }> = [
-  { agent: 'factory', loop: 'nightly-tests', steps: ['Ran 412 tests on main', 'Reproduced 3 failures', 'Filed 3 issues with the request'], result: '3 bugs filed' },
-  { agent: 'factory', loop: 'fix #6', steps: ['Reproduced the crash', 'Fixed the parser', 'Tests pass on the branch'], result: 'Pull request waits for you' },
+  { agent: 'engineer', loop: 'nightly-tests', steps: ['Ran 412 tests on main', 'Reproduced 3 failures', 'Filed 3 issues with the request'], result: '3 bugs filed' },
+  { agent: 'engineer', loop: 'fix #6', steps: ['Reproduced the crash', 'Fixed the parser', 'Tests pass on the branch'], result: 'Pull request waits for you' },
   { agent: 'support', loop: 'refunds', steps: ['Read the conversation', 'Checked the order in Stripe', 'Drafted the reply'], result: 'Refund waits for you' },
   { agent: 'sales', loop: 'new-signups', steps: ['Researched 9 companies', 'Scored each against your ICP', 'Drafted the outreach'], result: '9 drafts wait for you' },
 ];
@@ -304,8 +304,8 @@ function Approval({ slug, title, status, time, className }: { slug: string; titl
 export function ApprovalArt() {
   return (
     <div className="flex w-full max-w-sm min-w-0 flex-col gap-2">
-      <Approval slug="factory" title={`Pull request #${DEMO.pr.number}`} status="Waiting for you to merge" time="now" />
-      <Approval slug="factory" title="Deploy to production" status="Waiting for your approval" time="2m" className="opacity-70" />
+      <Approval slug="engineer" title={`Pull request #${DEMO.pr.number}`} status="Waiting for you to merge" time="now" />
+      <Approval slug="engineer" title="Deploy to production" status="Waiting for your approval" time="2m" className="opacity-70" />
     </div>
   );
 }

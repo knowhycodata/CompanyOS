@@ -1,4 +1,4 @@
-import { extraRuns, leadRuns } from './agent-sessions';
+import { closingRuns, engineeringRuns, leadRuns } from './agent-sessions';
 import { DEMO } from './factory-content';
 import type { LoopView } from './loops-content';
 
@@ -32,13 +32,14 @@ export interface HeroRun {
 }
 
 /**
- * The sessions the hero plays. It opens on runs an integration started (a
- * Sentry alert, a pull request, a Slack message), then the prompt that sets
- * the factory up, then the factory's real demo run. Example sessions are
- * labelled.
+ * The sessions the hero plays, every one a loop that fired on its own except
+ * the setup. It opens on runs an integration started (a Sentry alert, a pull
+ * request, a Slack message), then the prompt that sets the factory up, then
+ * the engineer's real demo run and more engineering loops. Two other teams'
+ * loops close it. Example sessions are labelled.
  */
 export function heroRuns(loop: LoopView | undefined, prompt: string): HeroRun[] {
-  const agent = { kind: 'agent' as const, slug: loop?.agent ?? 'factory', name: loop?.agent ?? 'factory' };
+  const agent = { kind: 'agent' as const, slug: loop?.agent ?? 'engineer', name: loop?.agent ?? 'engineer' };
   const issue = DEMO.tickets[0]!;
   const [setup, nightly, fix, review, changelog, support]: HeroRun[] = [
     {
@@ -70,7 +71,7 @@ export function heroRuns(loop: LoopView | undefined, prompt: string): HeroRun[] 
       host: agent,
       source: 'Schedule · 02:00',
       via: 'schedule',
-      ask: 'Run the tests. File what fails.',
+      ask: 'nightly-tests · main',
       context: 'nightly-tests',
       work: [{ text: 'npm test', cmd: true }, ...DEMO.tickets.map((ticket) => ({ text: `Filed issue #${ticket.number}` }))],
       answer: `Found ${DEMO.tickets.length} bugs and filed each one with the request that reproduces it.`,
@@ -98,9 +99,9 @@ export function heroRuns(loop: LoopView | undefined, prompt: string): HeroRun[] 
       caption: 'Proves every change',
       kind: 'real',
       host: agent,
-      source: `Pull request #${DEMO.pr.number}`,
+      source: `Pull request #${DEMO.pr.number} opened`,
       via: 'github',
-      ask: `Review pull request #${DEMO.pr.number} before a person sees it.`,
+      ask: DEMO.pr.title,
       context: DEMO.pr.branch,
       work: DEMO.pr.checks.map((check) => ({ text: check })),
       answer: 'Ran every check on main and on the branch.',
@@ -135,7 +136,8 @@ export function heroRuns(loop: LoopView | undefined, prompt: string): HeroRun[] 
       result: { kind: 'Draft', title: 'Reply to the customer, bug ticket linked', status: 'Waiting for you to send' },
     },
   ];
-  const [sentry, slack] = leadRuns();
-  // The reel opens on runs nobody typed: a Sentry alert, a pull request, a Slack message. The setup follows.
-  return [sentry!, review!, slack!, setup!, nightly!, fix!, changelog!, support!, ...extraRuns()];
+  const [sentry, slack] = leadRuns(agent.slug);
+  // The reel opens on runs nobody typed: a Sentry alert, a pull request, a Slack message. The setup follows,
+  // then engineering loops; the other teams close it.
+  return [sentry, review!, slack, setup!, nightly!, fix!, ...engineeringRuns(agent.slug), changelog!, support!, ...closingRuns()];
 }

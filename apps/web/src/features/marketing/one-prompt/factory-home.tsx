@@ -363,7 +363,7 @@ export function FactoryHome({ loops }: { loops: LoopView[] }) {
             <div className="mt-16 grid grid-cols-[minmax(0,1fr)] gap-3 lg:grid-cols-3">
               <TallCard
                 light
-                art={<ComposerArt tone="light" agent={first?.agent ?? 'factory'} text="Run the tests. File what fails." />}
+                art={<ComposerArt tone="light" agent={first?.agent ?? 'engineer'} text="Run the tests. File what fails." />}
                 title={name}
                 body={`1 agent, ${first?.triggers ?? 3} triggers and ${first?.skills ?? 1} ${first?.skills === 1 ? 'skill' : 'skills'}, from a public template your agent adapts to your repo.`}
                 action={<CopyButton text={prompt} icon="shortcut" bindKey={false} />}
