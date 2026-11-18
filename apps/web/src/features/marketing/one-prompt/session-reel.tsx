@@ -1,5 +1,6 @@
 'use client';
 
+import { FULL_COLOR_LOGOS } from '@/features/marketing/landing-sections/works-with-logos';
 import { Button } from '@kortix/ui/button';
 import { ChainOfThought } from '@kortix/ui/chain-of-thought';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@kortix/ui/dropdown-menu';
@@ -12,7 +13,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 
 import { sessionPool } from './agent-sessions';
 import type { HeroRun } from './hero-runs';
-import { hoop } from './hoop';
 import { AgentTile } from './section-art';
 
 /** A horizontal trackpad swipe this long (px of `deltaX`) moves the reel one session. */
@@ -360,7 +360,7 @@ function RunPanels({ run, index, count, pos, live, still, instant }: { run: Hero
         .map((slot) => (
           <div key={slot} aria-hidden style={{ width: PANEL, order: slot }} className="shrink-0" />
         ))}
-      {shown === undefined ? null : <SessionPanel key="panel" order={shown} hue={index} run={play.run} play={play} instant={instant} onHold={hold} onSend={send} />}
+      {shown === undefined ? null : <SessionPanel key="panel" order={shown} run={play.run} play={play} instant={instant} onHold={hold} onSend={send} />}
     </>
   );
 }
@@ -375,6 +375,11 @@ function TriggerMark({ via, terminal }: { via?: string; terminal: boolean }) {
   if (terminal) return <TerminalWindowIcon aria-hidden className={glyph} />;
   if (via === 'schedule') return <ClockIcon aria-hidden className={glyph} />;
   if (!via) return <LightningIcon aria-hidden className={glyph} />;
+  // The brand's own colors where a color file exists; a one-color mark (GitHub) stays white.
+  if (FULL_COLOR_LOGOS.has(via)) {
+    // eslint-disable-next-line @next/next/no-img-element -- a 16px static SVG; next/image adds nothing here
+    return <img src={`/media/landing/logos/color/${via}.svg`} alt="" width={16} height={16} className="size-4 shrink-0" />;
+  }
   return (
     <span
       aria-hidden
@@ -387,7 +392,6 @@ function TriggerMark({ via, terminal }: { via?: string; terminal: boolean }) {
 /** One session window: what started it, the agent, the conversation and a reply box. */
 function SessionPanel({
   order,
-  hue,
   run,
   play,
   instant,
@@ -396,8 +400,6 @@ function SessionPanel({
 }: {
   /** The panel's slot in the tripled list. */
   order: number;
-  /** The panel's hoop color: side by side, the panels are the pieces of one hoop. */
-  hue: number;
   run: HeroRun;
   /** Where this run's session stands; the reel keeps it, so every copy of the run shows the same. */
   play: Play;
@@ -425,7 +427,6 @@ function SessionPanel({
         'bg-card border-border flex h-[520px] shrink-0 flex-col overflow-hidden rounded-xl border',
       )}
     >
-      <span aria-hidden className="h-0.5 shrink-0" style={{ background: hoop(hue) }} />
       {/* What started the run, first: most runs are started by an integration, not by a person typing. */}
       <div className="border-border flex h-11 shrink-0 items-center gap-2.5 border-b px-4">
         <TriggerMark via={run.via} terminal={run.host.kind === 'claude-code'} />

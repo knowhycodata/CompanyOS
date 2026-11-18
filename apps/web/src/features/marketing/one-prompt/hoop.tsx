@@ -1,7 +1,7 @@
 'use client';
 
 import { cn } from '@kortix/ui';
-import { useSyncExternalStore, type CSSProperties } from 'react';
+import type { CSSProperties } from 'react';
 
 import { HOOP_PALETTE } from './hoop-palette';
 
@@ -37,20 +37,8 @@ const SEGMENTS: ReadonlyArray<{ color: number; length: number }> = [
 /** Where each segment starts on the ring, in percent. */
 const STARTS = SEGMENTS.map((_, index) => SEGMENTS.slice(0, index).reduce((sum, segment) => sum + segment.length, 0));
 
-const REDUCED_MOTION = '(prefers-reduced-motion: reduce)';
-function subscribeReducedMotion(onChange: () => void) {
-  const query = window.matchMedia(REDUCED_MOTION);
-  query.addEventListener('change', onChange);
-  return () => query.removeEventListener('change', onChange);
-}
-
-/** True when the reader asked for less motion. */
-function useStill(): boolean {
-  return useSyncExternalStore(subscribeReducedMotion, () => window.matchMedia(REDUCED_MOTION).matches, () => false);
-}
-
-/** The segments along an ellipse. With `seconds`, each segment travels the ring once per period, so the hoop spins. */
-function Segments({ cx, cy, rx, ry, width, seconds }: { cx: number; cy: number; rx: number; ry: number; width: number; seconds?: number }) {
+/** The segments along an ellipse. */
+function Segments({ cx, cy, rx, ry, width }: { cx: number; cy: number; rx: number; ry: number; width: number }) {
   return SEGMENTS.map((segment, index) => {
     const offset = -STARTS[index]!;
     return (
@@ -66,36 +54,15 @@ function Segments({ cx, cy, rx, ry, width, seconds }: { cx: number; cy: number; 
         strokeWidth={width}
         strokeDasharray={`${segment.length} ${100 - segment.length}`}
         strokeDashoffset={offset}
-      >
-        {seconds ? <animate attributeName="stroke-dashoffset" from={offset} to={offset - 100} dur={`${seconds}s`} repeatCount="indefinite" /> : null}
-      </ellipse>
+      />
     );
   });
 }
 
-/**
- * The hero's hoop: one thin ring, tilted like a hoop on a moving hip, spinning
- * slowly inside the colored grain. It sits beside the copy, never on it.
- */
-export function HeroHoop({ className }: { className?: string }) {
-  const still = useStill();
+/** A ring seen from above: one O of the wordmark. It spins without end; the two O's turn opposite ways. */
+function HoopRing({ className, style }: { className?: string; style?: CSSProperties }) {
   return (
-    <svg aria-hidden viewBox="0 0 600 600" className={cn('pointer-events-none overflow-visible', className)}>
-      <g transform="rotate(-16 300 300)">
-        <Segments cx={300} cy={300} rx={270} ry={84} width={3.5} seconds={still ? undefined : 14} />
-      </g>
-    </svg>
-  );
-}
-
-/** A ring seen from above: one O of the wordmark. It turns half a turn when its link is hovered. */
-function HoopRing({ className }: { className?: string }) {
-  return (
-    <svg
-      aria-hidden
-      viewBox="0 0 100 100"
-      className={cn('duration-slower shrink-0 transition-transform ease-out group-hover/wordmark:rotate-180 motion-reduce:transition-none', className)}
-    >
+    <svg aria-hidden viewBox="0 0 100 100" style={style} className={cn('shrink-0 animate-[spin_6s_linear_infinite] motion-reduce:animate-none', className)}>
       <Segments cx={50} cy={50} rx={40} ry={40} width={11} />
     </svg>
   );
@@ -106,10 +73,11 @@ export function LoopmaxxingWordmark({ className }: { className?: string }) {
   return (
     <span className={cn('inline-flex items-center', className)}>
       <span className="sr-only">Loopmaxxing</span>
+      {/* The rings are sized in em, not on the spacing scale, so the word scales as one piece: the header's mark, the page's last line. */}
       <span aria-hidden className="inline-flex items-center">
         L
-        <HoopRing className="ml-px size-3.5" />
-        <HoopRing className="-ml-0.5 mr-px size-3.5" />
+        <HoopRing style={{ width: '0.8em', height: '0.8em', marginLeft: '0.05em' }} />
+        <HoopRing className="[animation-direction:reverse]" style={{ width: '0.8em', height: '0.8em', marginLeft: '-0.1em', marginRight: '0.05em' }} />
         PMAXXING
       </span>
     </span>

@@ -1,7 +1,6 @@
 'use client';
 
 import { KortixLogo } from '@/components/sidebar/kortix-logo';
-import Footer from '@/components/home/footer';
 import { FaqSection } from '@/features/marketing/faq';
 import { PricingPlanCard } from '@/features/billing/pricing-plan-card';
 import { PRICING_PLANS } from '@/features/billing/pricing-plans';
@@ -11,14 +10,14 @@ import { MarketingButton } from '@/features/marketing/kit/marketing-button';
 import { CreditLadder } from '@/features/marketing/pricing/credit-ladder';
 import { loopPrompt, REFERENCE_REPOS, setupPromptFor } from '@kortix/shared/setup-guide';
 import { cn } from '@kortix/ui';
-import { DEFAULT_COMPUTE_SPEC, DEFAULT_TIER_USD } from '@kortix/ui/internal/billing/compute-pricing';
-import { ArrowRightIcon } from '@phosphor-icons/react';
+import { DEFAULT_COMPUTE_SPEC, ENTRY_TIER_USD } from '@kortix/ui/internal/billing/compute-pricing';
+import { ArrowRightIcon, ArrowUpRightIcon } from '@phosphor-icons/react';
 import Link from 'next/link';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { COMPUTE_HOURLY, FAQ, FREE_COMPUTE_USD, TEAMS } from './factory-content';
 import { heroRuns } from './hero-runs';
-import { HeroHoop, hoop, HoopDots, HoopLine, hoopVars, LoopmaxxingWordmark } from './hoop';
+import { HoopDots, HoopLine, hoopVars, LoopmaxxingWordmark } from './hoop';
 import { HOOP_PALETTE } from './hoop-palette';
 import type { LoopView } from './loops-content';
 import { CopyButton, CopyPromptMarketingButton, GhostButton, Mark, useForceDarkPage, useSetupTarget } from './parts';
@@ -62,9 +61,6 @@ function PromptCta({ prompt, className }: { prompt?: string; className?: string 
   return (
     <div className={cn('flex flex-wrap items-center gap-x-5 gap-y-3', className)}>
       <CopyButton text={prompt} icon="shortcut" />
-      <span className="text-muted-foreground inline-flex flex-wrap items-center gap-x-1.5 text-sm">
-        Paste it into <Mark name="Claude Code" /> or <Mark name="Codex" />
-      </span>
       <span className="text-muted-foreground text-sm">Free to add.</span>
     </div>
   );
@@ -85,17 +81,14 @@ function SplitHeading({ title, lead, children }: { title: ReactNode; lead: React
 }
 
 /** A cell of a bordered grid: the art on top, faded where the cell crops it, then the words. */
-function ArtCell({ art, title, body, hue, className }: { art: ReactNode; title: string; body: string; hue: number; className?: string }) {
+function ArtCell({ art, title, body, className }: { art: ReactNode; title: string; body: string; className?: string }) {
   return (
     <div className={cn('border-border flex min-w-0 flex-col', className)}>
       <div aria-hidden className="flex h-72 items-center justify-center overflow-hidden px-6 [mask-image:linear-gradient(to_bottom,#000_70%,transparent)] sm:h-80 sm:px-10">
         {art}
       </div>
       <div className="flex flex-col gap-2 px-6 pt-2 pb-8 sm:px-8">
-        <h3 className="text-foreground inline-flex items-center gap-2.5 text-base font-medium">
-          <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: hoop(hue) }} />
-          {title}
-        </h3>
+        <h3 className="text-foreground text-base font-medium">{title}</h3>
         <p className="text-muted-foreground max-w-md text-base text-pretty">{body}</p>
       </div>
     </div>
@@ -159,7 +152,7 @@ function PlansBand({ prompt }: { prompt: string }) {
     ...plan,
     features: plan.features.filter((_, index) => !HIDDEN_FEATURES.has(PRICING_PLANS.find((source) => source.id === plan.id)?.features[index] ?? '')),
   }));
-  const [monthlyUsd, setMonthlyUsd] = useState<number>(DEFAULT_TIER_USD);
+  const [monthlyUsd, setMonthlyUsd] = useState<number>(ENTRY_TIER_USD);
   return (
     <div className="border-border mt-16 overflow-hidden rounded-xl border">
       <HoopLine />
@@ -197,13 +190,81 @@ function PlansBand({ prompt }: { prompt: string }) {
           <span className="text-foreground">Credits pay only for the cloud computer your agents run on.</span> {COMPUTE_HOURLY} an hour for the
           default {DEFAULT_COMPUTE_SPEC} machine, billed per second. Nothing while it is stopped.
         </p>
-        <a href={`${KORTIX}/pricing`} className="text-muted-foreground hover:text-foreground inline-flex shrink-0 items-center gap-1.5 text-sm transition-colors">
-          See every rate
-          <ArrowRightIcon className="size-3.5" />
-        </a>
       </div>
     </div>
   );
+}
+
+/**
+ * The page's end, instead of the site's footer: the hoop's grain, one closing
+ * line with the prompt under it, then the name across the page's width.
+ */
+function PageEnd({ prompt }: { prompt: string }) {
+  return (
+    <footer className="relative">
+      {/* The grain fades by thinning its dots toward the title, which sits on the plain surface below it. */}
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-81.5">
+        <DitherField className="text-kortix-base" palette={HOOP_PALETTE} fade="top" />
+      </div>
+      <div className={cn(COLUMN, 'relative flex flex-col items-center gap-8 pt-64 text-center')}>
+        <h2 className={H2}>
+          One prompt.
+          <br />
+          <span className="text-muted-foreground">Your whole company, looped.</span>
+        </h2>
+        <div className="flex w-full flex-col items-center justify-center gap-3 sm:flex-row">
+          <CopyPromptMarketingButton text={prompt} className="hit-area-y-1 w-full sm:w-auto sm:min-w-36" />
+          <MarketingButton variant="secondary" size="md" className="hit-area-y-1 w-full sm:w-auto sm:min-w-36" asChild>
+            <Link href={`${KORTIX}/docs/developers`}>Read the docs</Link>
+          </MarketingButton>
+        </div>
+      </div>
+      {/* The name closes the page across its width, on clean black. The letters fade from grey into the black;
+          the two hoop O's keep their full colors, which turn muddy at any lower opacity. Its size is a
+          share of the container's width (cqi), so the whole word fits at every width with the page's side gutter. */}
+      <div className="mt-24 px-6 lg:mt-32">
+        <div className="@container">
+          <Link
+            href="/loopmaxxing"
+            aria-label="Loopmaxxing"
+            className="from-foreground/60 flex justify-center bg-linear-to-b to-transparent bg-clip-text pb-10 font-mono text-[14cqi] leading-none font-medium tracking-tight whitespace-nowrap text-transparent uppercase"
+          >
+            <LoopmaxxingWordmark />
+          </Link>
+        </div>
+      </div>
+    </footer>
+  );
+}
+
+/** The header's links, in page order. Docs follows them and leaves the page. */
+const NAV = [
+  { id: 'how', label: 'How it works' },
+  { id: 'factories', label: 'Factories' },
+  { id: 'pricing', label: 'Pricing' },
+] as const;
+
+/** The NAV section in view, under the 64px header: its link reads as current. */
+function useSectionInView(): string | null {
+  const [active, setActive] = useState<string | null>(null);
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) setActive(entry.target.id);
+          else setActive((current) => (current === entry.target.id ? null : current));
+        }
+      },
+      // A section counts once it crosses a line 40% down the view, below the header.
+      { rootMargin: '-64px 0px -60% 0px' },
+    );
+    for (const item of NAV) {
+      const section = document.getElementById(item.id);
+      if (section) observer.observe(section);
+    }
+    return () => observer.disconnect();
+  }, []);
+  return active;
 }
 
 /**
@@ -223,9 +284,10 @@ export function FactoryHome({ loops }: { loops: LoopView[] }) {
   const name = first?.name ?? 'Software Factory';
   const reference = first ? REFERENCE_REPOS[first.id] : undefined;
   useForceDarkPage();
+  const active = useSectionInView();
   return (
     <div style={hoopVars} className="dark bg-background text-foreground relative min-h-screen overflow-x-clip [color-scheme:dark]">
-      <header className="bg-background/80 sticky top-0 z-30 backdrop-blur">
+      <header className="bg-background/80 border-border sticky top-0 z-30 border-b backdrop-blur">
         <div className={cn(COLUMN, 'flex h-16 items-center justify-between gap-4')}>
           <div className="flex items-center gap-4">
             <a href={KORTIX} aria-label="Kortix" className="text-foreground">
@@ -237,21 +299,29 @@ export function FactoryHome({ loops }: { loops: LoopView[] }) {
             </Link>
           </div>
           <nav className="text-muted-foreground hidden items-center gap-8 text-sm md:flex">
-            <Link href="#how" className="hover:text-foreground transition-colors">How it works</Link>
-            <Link href="#factories" className="hover:text-foreground transition-colors">Factories</Link>
-            <Link href="#engine" className="hover:text-foreground transition-colors">kortix.yaml</Link>
-            <Link href="#pricing" className="hover:text-foreground transition-colors">Pricing</Link>
-            <Link href={`${KORTIX}/docs/developers`} className="hover:text-foreground transition-colors">Docs</Link>
+            {NAV.map((item) => (
+              <Link
+                key={item.id}
+                href={`#${item.id}`}
+                aria-current={active === item.id ? 'location' : undefined}
+                className={cn('hover:text-foreground transition-colors', active === item.id && 'text-foreground')}
+              >
+                {item.label}
+              </Link>
+            ))}
+            <a href={`${KORTIX}/docs/developers`} className="hover:text-foreground inline-flex items-center gap-1 transition-colors">
+              Docs
+              <ArrowUpRightIcon aria-hidden className="size-3" />
+            </a>
           </nav>
           <div className="flex items-center gap-2">
             <span className="hidden sm:contents">
               <GhostButton href={`${KORTIX}/auth`}>Sign in</GhostButton>
             </span>
-            <CopyButton size="sm" text={prompt} icon="none" />
+            {/* Shows the C key; the hero's button owns it, so one press copies once. */}
+            <CopyButton size="sm" text={prompt} icon="shortcut" bindKey={false} />
           </div>
         </div>
-        {/* The header's bottom edge is a hairline of hoop. */}
-        <HoopLine />
       </header>
 
       <main>
@@ -260,18 +330,19 @@ export function FactoryHome({ loops }: { loops: LoopView[] }) {
           <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-48 sm:h-[560px]">
             <DitherField className="text-kortix-base" palette={HOOP_PALETTE} fade="top-right" />
           </div>
-          {/* The hoop spins in the grain, to the right of the copy. */}
-          <HeroHoop className="absolute top-10 right-0 hidden w-5/12 lg:block" />
           <div className={cn(COLUMN, 'relative')}>
           <div className="flex flex-col items-start gap-6 pt-20 pb-14 lg:pt-32 lg:pb-20">
-            <span className="text-muted-foreground text-sm">Loopmaxxing for dev teams</span>
+            <span className="text-muted-foreground text-sm">For dev teams</span>
             <h1 className="text-foreground max-w-5xl text-4xl font-medium tracking-tight text-balance sm:text-6xl lg:text-7xl">
               Add a {name}
               <br />
               with 1 prompt.
             </h1>
             <p className="text-muted-foreground max-w-xl text-lg text-pretty">
-              Agents that work on your repo and your tools, in the cloud, 24/7. One prompt sets them up, on the Claude or Codex subscription or API key you already pay for.
+              Agents that work on your repo and your tools, in the cloud, 24/7, without you prompting them. One prompt sets them up, on the Claude or Codex subscription or API key you already pay for.
+            </p>
+            <p className="text-muted-foreground inline-flex flex-wrap items-center gap-x-1.5 text-sm">
+              Integrates with <Mark name="Claude Code" /> <Mark name="Codex" /> and any API key
             </p>
             <PromptCta prompt={prompt} className="mt-2" />
           </div>
@@ -284,11 +355,11 @@ export function FactoryHome({ loops }: { loops: LoopView[] }) {
         <section id="how" className={cn(COLUMN, SECTION, 'scroll-mt-16')}>
           <SplitHeading
             title="One conversation sets up the whole loop"
-            lead="The prompt walks your coding agent through the setup with you. It asks before every decision and stops when one real run has finished."
+            lead="The prompt walks your coding agent through the setup with you, and stops when one real run has finished."
           />
           <div className="border-border mt-16 grid grid-cols-[minmax(0,1fr)] overflow-hidden rounded-xl border md:grid-cols-2 [&>*]:border-b [&>*:last-child]:border-b-0 md:[&>*:nth-child(odd)]:border-r md:[&>*:nth-last-child(-n+2)]:border-b-0">
-            {STEPS.map((step, index) => (
-              <ArtCell key={step.title} hue={index} {...step} />
+            {STEPS.map((step) => (
+              <ArtCell key={step.title} {...step} />
             ))}
           </div>
         </section>
@@ -360,25 +431,7 @@ export function FactoryHome({ loops }: { loops: LoopView[] }) {
         />
       </main>
 
-      {/* The site's footer: its closing call to action carries this page's copy and the copy action. */}
-      <Footer
-        linkOrigin={KORTIX}
-        themeToggle={false}
-        cta={{
-          title: 'One prompt.',
-          subtitle: 'Your whole company, looped.',
-          trust: 'Paste it into Claude Code or Codex. Your agent asks before every decision.',
-          palette: HOOP_PALETTE,
-          actions: (
-            <>
-              <CopyPromptMarketingButton text={prompt} className="hit-area-y-1 w-full sm:w-auto sm:min-w-36" />
-              <MarketingButton variant="secondary" size="md" className="hit-area-y-1 w-full sm:w-auto sm:min-w-36" asChild>
-                <Link href={`${KORTIX}/docs/developers`}>Read the docs</Link>
-              </MarketingButton>
-            </>
-          ),
-        }}
-      />
+      <PageEnd prompt={prompt} />
     </div>
   );
 }
