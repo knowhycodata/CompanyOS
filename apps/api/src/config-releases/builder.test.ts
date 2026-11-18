@@ -686,6 +686,12 @@ describe('buildConfigRelease', () => {
 
     const other = await buildConfigRelease(project, sha, 'agent:other', { store });
     expect(other.files?.map(([path]) => path)).toEqual(['AGENTS.md', 'harnesses/pi/extensions/unused.ts']);
+
+    // A prompt switched a `lead` session to `other`: one bundle holds both sets.
+    const both = await buildConfigRelease(project, sha, 'agent:lead,other', { store });
+    expect(both.files?.map(([path]) => path)).toEqual([...lead.files!.map(([path]) => path), 'harnesses/pi/extensions/unused.ts'].sort());
+    expect(Object.keys(JSON.parse(both.compiled_governance!).agent)).toEqual(expect.arrayContaining(['lead', 'helper', 'other']));
+    expect(both.archive?.url).toContain(`&agent=${encodeURIComponent('lead,other')}`);
   });
 
   test('an unknown selected agent produces no release and names the reason', async () => {

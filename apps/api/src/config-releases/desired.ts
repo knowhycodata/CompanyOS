@@ -63,9 +63,20 @@ export interface DesiredReleaseInput {
    */
   bootTip?: string | null;
   /**
-   * May the session's OWNER run `agent`? Asked only when the manifest dropped
-   * the session's agent and a declared default exists to move it to. Omitted ⇒
-   * the answer is no, so a caller that cannot ask never widens anything.
+   * The agent a prompt switched the box to from the session agent (`agent` in
+   * the daemon's request). The release is then `agent:<session>,<switched>`,
+   * only when the session has repository access, the manifest declares and
+   * enables the agent at this commit, and the owner may run it
+   * (`ownerMayUseAgent`): the checks the grant re-mint applies before the box
+   * may run that agent at all (`remintGrantForAgentSwitch`). Any other value
+   * serves the session agent alone, as with none.
+   */
+  releaseAgent?: string | null;
+  /**
+   * May the session's OWNER run `agent`? Asked when the manifest dropped the
+   * session's agent and a declared default exists to move it to, and for a
+   * `releaseAgent`. Omitted ⇒ the answer is no, so a caller that cannot ask
+   * never widens anything.
    */
   ownerMayUseAgent?: (agent: string) => Promise<boolean>;
   /**
@@ -215,7 +226,25 @@ export async function resolveDesiredRelease(
           'an agent and holds no agent access. Ask a project manager for access to that agent.',
     };
   }
-  const variant = releaseVariantFor(agent, input.repositoryAccess, roster.enabled);
+  let variant = releaseVariantFor(agent, input.repositoryAccess, roster.enabled);
+  // A prompt switched the box to another declared agent: the bundle holds the
+  // session agent and that agent (the session's extensions load at start, and
+  // a plain prompt still runs the session agent).
+  const switched = input.releaseAgent?.trim();
+  if (
+    switched &&
+    switched !== agent &&
+    agent &&
+    variant === `agent:${agent}` &&
+    input.repositoryAccess &&
+    decision.kind === 'declared' &&
+    roster.readable &&
+    roster.enabled.includes(switched) &&
+    input.ownerMayUseAgent &&
+    (await input.ownerMayUseAgent(switched))
+  ) {
+    variant = `agent:${agent},${switched}`;
+  }
 
   const base = await deps.build(input.project, baseSha, variant);
   const shape = { repositoryAccess: input.repositoryAccess, agentRepoint, format: input.format };

@@ -248,7 +248,8 @@ async function composedArchiveBuilder(
   if (!commit || !/^[0-9a-f]{40}$/.test(commit)) return null;
   const known = await runGitCapture(['cat-file', '-e', `${commit}^{commit}`], repo);
   if (known.exitCode !== 0) return null;
-  if (agent && !/^[a-zA-Z0-9_-]+$/.test(agent)) return null;
+  // One agent, or `<session agent>,<switched agent>` (`releaseVariantFor`).
+  if (agent && !/^[a-z0-9][a-z0-9_-]*(,[a-z0-9][a-z0-9_-]*)?$/.test(agent)) return null;
   if (agent) {
     // The agent variant's release holds only the files its compiled set names (`agentRelease`).
     const release = await buildConfigRelease(project, commit, `agent:${agent}`).catch(() => null);

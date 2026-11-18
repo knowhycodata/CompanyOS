@@ -253,3 +253,66 @@ describe('a read that cannot be trusted never re-points', () => {
     expect(desired.descriptor.agent_repoint).toBeNull();
   });
 });
+
+// 2026-11-18: a prompt that switches the box to another agent gets that agent's
+// boot bundle, under the checks that let the agent run at all.
+describe('the agent a prompt switched the box to', () => {
+  const asked: string[] = [];
+  const input = (releaseAgent: string | null, ownerMay: (agent: string) => boolean = () => true) => ({
+    project: PROJECT,
+    baseRef: 'main',
+    sessionAgent: 'kortix',
+    releaseAgent,
+    repositoryAccess: true,
+    ownerMayUseAgent: async (agent: string) => {
+      asked.push(agent);
+      return ownerMay(agent);
+    },
+  });
+
+  beforeEach(() => {
+    asked.length = 0;
+  });
+
+  test('a declared agent the owner may run joins the session agent in one bundle', async () => {
+    const desired = await resolveDesiredRelease(input('reviewer'), deps());
+    expect(built).toEqual(['agent:kortix,reviewer']);
+    expect(desired.variant).toBe('agent:kortix,reviewer');
+    expect(asked).toEqual(['reviewer']);
+    expect(desired.descriptor.agent_repoint).toBeNull();
+  });
+
+  test('an agent the owner may not run serves the session agent', async () => {
+    const desired = await resolveDesiredRelease(input('reviewer', () => false), deps());
+    expect(desired.variant).toBe('agent:kortix');
+  });
+
+  test('an agent the manifest does not declare serves the session agent, and the owner is never asked', async () => {
+    const desired = await resolveDesiredRelease(input('chief-of-staff'), deps());
+    expect(desired.variant).toBe('agent:kortix');
+    expect(asked).toEqual([]);
+  });
+
+  test('the session agent itself, or none, asks nothing', async () => {
+    for (const releaseAgent of ['kortix', null]) {
+      expect((await resolveDesiredRelease(input(releaseAgent), deps())).variant).toBe('agent:kortix');
+    }
+    expect(asked).toEqual([]);
+  });
+
+  test('a caller that cannot ask the owner never switches', async () => {
+    const withoutCheck = { ...input('reviewer'), ownerMayUseAgent: undefined };
+    expect((await resolveDesiredRelease(withoutCheck, deps())).variant).toBe('agent:kortix');
+  });
+
+  test('a session without repository access never switches', async () => {
+    const desired = await resolveDesiredRelease({ ...input('reviewer'), repositoryAccess: false }, deps());
+    expect(desired.variant).toBe('agent:kortix');
+    expect(asked).toEqual([]);
+  });
+
+  test('an unreadable manifest never switches', async () => {
+    const desired = await resolveDesiredRelease(input('reviewer'), deps({ ...ROSTER, readable: false }));
+    expect(desired.variant).toBe('agent:kortix');
+  });
+});

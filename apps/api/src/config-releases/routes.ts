@@ -73,17 +73,21 @@ interface SessionRow {
  * (`base_sha`). The tip only lets the route skip a redundant mirror fetch
  * (`DesiredReleaseInput.bootTip`); it never chooses the release.
  */
-async function readDescriptorRequest(c: Context): Promise<{ format: ConfigReleaseFormat; bootTip: string | null; capabilities: string[] }> {
+/** An agent name as kortix.yaml declares one (`SLUG_RE`). Anything else is ignored. */
+const AGENT_NAME = /^[a-z0-9][a-z0-9_-]{0,127}$/;
+
+async function readDescriptorRequest(c: Context): Promise<{ format: ConfigReleaseFormat; bootTip: string | null; capabilities: string[]; agent: string | null }> {
   try {
-    const body = (await c.req.json()) as { accept?: unknown; base_sha?: unknown; capabilities?: unknown } | null;
+    const body = (await c.req.json()) as { accept?: unknown; base_sha?: unknown; capabilities?: unknown; agent?: unknown } | null;
     const format =
       Array.isArray(body?.accept) && body.accept.includes(CONFIG_RELEASE_FORMAT_V3) ? CONFIG_RELEASE_FORMAT_V3 : CONFIG_RELEASE_FORMAT_V2;
     const bootTip = typeof body?.base_sha === 'string' && HEX40.test(body.base_sha) ? body.base_sha : null;
     const capabilities = Array.isArray(body?.capabilities) ? body.capabilities.filter((item): item is string => typeof item === 'string') : [];
-    return { format, bootTip, capabilities };
+    const agent = typeof body?.agent === 'string' && AGENT_NAME.test(body.agent) ? body.agent : null;
+    return { format, bootTip, capabilities, agent };
   } catch {
     // Not JSON: v2.
-    return { format: CONFIG_RELEASE_FORMAT_V2, bootTip: null, capabilities: [] };
+    return { format: CONFIG_RELEASE_FORMAT_V2, bootTip: null, capabilities: [], agent: null };
   }
 }
 
@@ -227,13 +231,16 @@ export function registerConfigReleaseRoutes(): void {
         );
       }
 
-      // The request has no inputs. The desired release is the base branch's
-      // current tip for this session's variant, full stop: nothing the caller
-      // sends can change which config it is assigned. The body picks the
-      // descriptor format, and a booting box's `base_sha` can only spare a
-      // redundant mirror fetch; any other body is ignored, so a daemon built
-      // against an older shape of this route still converges.
-      const { format, bootTip, capabilities } = await readDescriptorRequest(c);
+      // The desired release is the base branch's current tip for this
+      // session's agent. The body picks the descriptor format, and a booting
+      // box's `base_sha` can only spare a redundant mirror fetch. The daemon's
+      // `agent` names the agent a prompt switched the box to: its bundle is
+      // served only when the manifest declares it and the session's owner may
+      // run it (`resolveDesiredRelease`), the same checks the grant re-mint
+      // applies before that agent may run at all, so it widens nothing. Any
+      // other body is ignored, so a daemon built against an older shape of
+      // this route still converges.
+      const { format, bootTip, capabilities, agent: requestedAgent } = await readDescriptorRequest(c);
       //
       // EVERY session of this project is served, including one created before
       // the project replaced its repository. A release is the project's CURRENT
@@ -262,6 +269,7 @@ export function registerConfigReleaseRoutes(): void {
           project: gitProject(project),
           baseRef,
           sessionAgent: session.agentName,
+          releaseAgent: isDaemon ? requestedAgent : null,
           repositoryAccess,
           // Only the daemon's own request is an assignment. A human read is not.
           recordAssignment: isDaemon,
@@ -276,8 +284,9 @@ export function registerConfigReleaseRoutes(): void {
         // A push made directly on the upstream reaches the API only through a read like this one.
         if (isDaemon) notePublishedTip(projectId, baseRef, desired.baseSha);
         if (format === CONFIG_RELEASE_FORMAT_V3) {
-          // The snapshot is the whole commit: never for an agent-scoped release.
-          descriptor.snapshot = descriptor.files && repositoryAccess
+          // The snapshot is the whole commit: never for an agent-scoped release,
+          // whose small archive the box downloads instead.
+          descriptor.snapshot = descriptor.files && repositoryAccess && desired.variant === 'project'
             ? await configReleaseSnapshot(project, baseRef, descriptor.source_commit)
             : null;
         }

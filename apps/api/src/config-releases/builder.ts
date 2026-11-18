@@ -441,8 +441,8 @@ const ROOT_INSTRUCTIONS = ['AGENTS.md', 'CLAUDE.md'];
  * The release of one agent (`agent:<name>`, `none`): exactly the files its
  * compiled set names, and nothing else. The compiled set is the agent and every
  * subagent it may start (`compileSelectedAgentConfig`). The files are:
- *   - the modules of the project tools the agent may call, and every file they
- *     import by a relative path;
+ *   - the modules of the project tools an agent of the set may call, and every
+ *     file they import by a relative path;
  *   - every file of the registered skill folders an agent of the set is granted
  *     (`permission.skill`);
  *   - the `./` pi extensions the agents of the set load: a module with its
@@ -461,10 +461,11 @@ async function agentRelease(
 ): Promise<ConfigRelease> {
   const etag = withGovernance.compiled_governance_etag;
   const compiled = JSON.parse(withGovernance.compiled_governance ?? '{}') as Partial<CompiledAgentSet>;
-  const agent = variant.startsWith('agent:') ? compiled.agent?.[variant.slice('agent:'.length)] : undefined;
-  const modules = agent
-    ? Object.entries(compiled.project_tools ?? {}).filter(([name]) => toolAllowed(agent.tools, name)).map(([, path]) => path)
-    : [];
+  // The modules of the project tools any enabled agent of the set may call: a subagent's too.
+  const agents = Object.values(compiled.agent ?? {}).filter((agent) => agent && !agent.disable);
+  const modules = Object.entries(compiled.project_tools ?? {})
+    .filter(([name]) => agents.some((agent) => toolAllowed(agent.tools, name)))
+    .map(([, path]) => path);
   // A `none` release compiles no agent: it reads nothing from the tree.
   const named = variant !== 'none';
   const skillFolders = grantedSkillFolders(compiled);

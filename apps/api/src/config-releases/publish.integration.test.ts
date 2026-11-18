@@ -7,11 +7,11 @@
  */
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { randomUUID } from 'node:crypto';
-import { accounts, configReleaseHeads, projects } from '@kortix/db';
+import { accounts, configReleaseAgentHeads, configReleaseHeads, projects } from '@kortix/db';
 import { eq } from 'drizzle-orm';
 import { db } from '../shared/db';
 import { configReleaseId, type ConfigRelease } from './builder';
-import { configReleaseEnvForSession, publishConfigRelease, readReleaseHead, REPUBLISH_AFTER_MS, type PublishDeps } from './publish';
+import { configReleaseEnvForSession, listPublishedAgents, publishConfigRelease, readAgentReleaseHead, readReleaseHead, REPUBLISH_AFTER_MS, type PublishDeps } from './publish';
 import type { DeclaredAgentRoster } from './session-agent';
 import { MemoryConfigArchiveStore, MemoryConfigReleaseLedger } from './__tests__/fakes';
 
@@ -24,9 +24,10 @@ let projectId: string;
 let store: MemoryConfigArchiveStore;
 let ledger: MemoryConfigReleaseLedger;
 let builds: string[];
-let scheduled: Array<[string, string, string | null] | [string, string, string | null, string]>;
-const schedule = (projectId: string, ref: string, commit: string | null, staleReleaseId?: string) =>
-  void scheduled.push(staleReleaseId ? [projectId, ref, commit, staleReleaseId] : [projectId, ref, commit]);
+let variants: string[];
+let scheduled: Array<[string, string, string | null] | [string, string, string | null, string | undefined] | [string, string, string | null, string | undefined, string]>;
+const schedule = (projectId: string, ref: string, commit: string | null, staleReleaseId?: string, agent?: string) =>
+  void scheduled.push(agent ? [projectId, ref, commit, staleReleaseId, agent] : staleReleaseId ? [projectId, ref, commit, staleReleaseId] : [projectId, ref, commit]);
 
 const release = (commit: string, overrides: Partial<ConfigRelease> = {}): ConfigRelease => ({
   release_id: `${commit.slice(0, 8)}${'0'.repeat(56)}`,
@@ -41,12 +42,15 @@ const release = (commit: string, overrides: Partial<ConfigRelease> = {}): Config
   ...overrides,
 });
 
-const ROSTER: DeclaredAgentRoster = { enabled: ['build'], defaultAgent: 'build', readable: true, governed: true };
+// `kortix` is declared: its sessions boot its own bundle. `build` is a runtime
+// built-in the manifest does not declare: its sessions boot the project release.
+const ROSTER: DeclaredAgentRoster = { enabled: ['kortix'], defaultAgent: 'kortix', readable: true, governed: true };
 
 function deps(now: Date, overrides: Partial<ConfigRelease> = {}): PublishDeps {
   return {
-    build: async (_project, commit) => {
+    build: async (_project, commit, variant) => {
       builds.push(commit);
+      variants.push(variant);
       return release(commit, overrides);
     },
     roster: async () => ROSTER,
@@ -66,6 +70,7 @@ beforeEach(async () => {
   store = new MemoryConfigArchiveStore();
   ledger = new MemoryConfigReleaseLedger();
   builds = [];
+  variants = [];
   scheduled = [];
   await db.insert(accounts).values({ accountId, name: 'publish test' });
   await db.insert(projects).values({ projectId, accountId, name: 'publish test', repoUrl: 'https://example.test/r.git' });
@@ -196,5 +201,62 @@ describe('configReleaseEnvForSession', () => {
     await publishConfigRelease(project(), 'main', TIP_A, deps(new Date()));
     await db.delete(projects).where(eq(projects.projectId, projectId));
     expect(await db.select().from(configReleaseHeads).where(eq(configReleaseHeads.projectId, projectId))).toEqual([]);
+  });
+});
+
+describe('agent boot bundles', () => {
+  const read = (value: string | null) => (value ? JSON.parse(Buffer.from(value, 'base64').toString()) : null);
+  const agentRelease = (commit: string) => ({ release_id: `${commit.slice(0, 6)}${'f'.repeat(58)}`, config_tree_id: 'f'.repeat(40) });
+
+  test('a declared agent with no head yet gives no env and starts its own publish', async () => {
+    const now = new Date();
+    await publishConfigRelease(project(), 'main', TIP_A, deps(now));
+    scheduled = [];
+    const env = await configReleaseEnvForSession({ projectId, ref: 'main', agentName: 'kortix', tip: TIP_A }, { store: () => store, ledger, now: () => now, schedule });
+    expect(env).toBeNull();
+    expect(scheduled).toEqual([[projectId, 'main', TIP_A, undefined, 'kortix']]);
+  });
+
+  test('the agent head is built from its own variant and serves its sessions, the default sentinel included', async () => {
+    const now = new Date();
+    await publishConfigRelease(project(), 'main', TIP_A, deps(now));
+    expect(await publishConfigRelease(project(), 'main', TIP_A, deps(now, agentRelease(TIP_A)), { agent: 'kortix' })).toBe('published');
+    expect(variants).toEqual(['project', 'agent:kortix']);
+    expect(await listPublishedAgents(projectId, 'main')).toEqual(['kortix']);
+    const head = (await readAgentReleaseHead(projectId, 'main', 'kortix'))!;
+    expect(head.releaseId).toBe(agentRelease(TIP_A).release_id);
+    // A box's proof updates the ledger row of the variant it runs.
+    expect(ledger.assigned.map(({ variant, releaseId }) => [variant, releaseId])).toContainEqual(['agent:kortix', head.releaseId]);
+
+    for (const agentName of ['kortix', 'default']) {
+      const env = read(await configReleaseEnvForSession({ projectId, ref: 'main', agentName, tip: TIP_A }, { store: () => store, ledger, now: () => now, schedule }));
+      expect(env.release_id).toBe(head.releaseId);
+      expect(env.archive_url).toBe(`https://store.example.com/projects/${projectId}/trees/${'f'.repeat(40)}.tar.gz?expiresIn=900`);
+    }
+    // The project head still serves a session that runs no declared agent.
+    const builtin = read(await configReleaseEnvForSession({ projectId, ref: 'main', agentName: 'build', tip: TIP_A }, { store: () => store, ledger, now: () => now, schedule }));
+    expect(builtin.release_id).toBe((await readReleaseHead(projectId, 'main'))!.releaseId);
+    expect(scheduled).toEqual([]);
+  });
+
+  test('an agent head one commit behind the project head still serves and starts its republish', async () => {
+    const now = new Date();
+    await publishConfigRelease(project(), 'main', TIP_A, deps(now, agentRelease(TIP_A)), { agent: 'kortix' });
+    await publishConfigRelease(project(), 'main', TIP_B, deps(now));
+    const env = read(await configReleaseEnvForSession({ projectId, ref: 'main', agentName: 'kortix', tip: TIP_B }, { store: () => store, ledger, now: () => now, schedule }));
+    expect(env.source_commit).toBe(TIP_A);
+    expect(scheduled).toEqual([[projectId, 'main', TIP_B, undefined, 'kortix']]);
+  });
+
+  test('an agent the tip does not declare is never published', async () => {
+    expect(await publishConfigRelease(project(), 'main', TIP_A, deps(new Date()), { agent: 'retired' })).toBe('unpublishable');
+    expect(builds).toEqual([]);
+    expect(await readAgentReleaseHead(projectId, 'main', 'retired')).toBeNull();
+  });
+
+  test('agent head rows go with the project', async () => {
+    await publishConfigRelease(project(), 'main', TIP_A, deps(new Date(), agentRelease(TIP_A)), { agent: 'kortix' });
+    await db.delete(projects).where(eq(projects.projectId, projectId));
+    expect(await db.select().from(configReleaseAgentHeads).where(eq(configReleaseAgentHeads.projectId, projectId))).toEqual([]);
   });
 });

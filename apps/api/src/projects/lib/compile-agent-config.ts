@@ -133,18 +133,19 @@ export function compileAgentConfig(
 }
 
 /**
- * Compile one selected agent for a restricted session: that agent, the
- * subagents it may start (transitively), and only the commands and extensions
- * those agents enable. A selected agent that is missing, off, or without its
+ * Compile one selected agent (a session's boot bundle, `agent:<name>`): that
+ * agent, the subagents it may start (transitively), and only the commands and
+ * extensions those agents enable. A selected agent that is missing, off, or without its
  * prompt file throws `CompileAgentConfigError`.
  */
 export function compileSelectedAgentConfig(
   manifest: Record<string, unknown>,
-  agentName: string,
+  /** One agent, or the session agent then the agent a prompt switched to: the set holds both and every subagent they may start. */
+  agentName: string | readonly string[],
   files: Record<string, string> = {},
   issues: ManifestIssue[] = [],
 ): CompiledAgents {
-  return compileManifest(manifest, files, issues, agentName);
+  return compileManifest(manifest, files, issues, typeof agentName === 'string' ? [agentName] : agentName);
 }
 
 /**
@@ -296,7 +297,8 @@ function compileManifest(
   manifest: Record<string, unknown>,
   files: Record<string, string>,
   issues: ManifestIssue[],
-  selected?: string,
+  /** The selected agents; the first is the set's primary. Undefined: every agent. */
+  selection?: readonly string[],
 ): CompiledAgents {
   const m = manifest as unknown as ManifestV3;
   const blocks = mapOf<AgentBlockV3>(m.agents);
@@ -305,11 +307,14 @@ function compileManifest(
   const extensions = mapOf<ExtensionV3>(m.extensions);
   const skillNames = [...KORTIX_SKILL_NAMES, ...Object.keys(skills)];
 
+  const selected = selection?.[0];
   let names = Object.keys(blocks);
-  if (selected !== undefined) {
-    if (!blocks[selected]) throw new CompileAgentConfigError(`Agent "${selected}" is not declared.`, selected);
-    if (blocks[selected]!.enabled === false) throw new CompileAgentConfigError(`Agent "${selected}" is disabled.`, selected);
-    const reach = new Set([selected]);
+  if (selection !== undefined) {
+    for (const name of selection) {
+      if (!blocks[name]) throw new CompileAgentConfigError(`Agent "${name}" is not declared.`, name);
+      if (blocks[name]!.enabled === false) throw new CompileAgentConfigError(`Agent "${name}" is disabled.`, name);
+    }
+    const reach = new Set(selection);
     for (const name of reach) {
       for (const sub of grantedNames(blocks[name]!.subagents, subagentUniverse(blocks, name))) reach.add(sub);
     }
@@ -324,8 +329,10 @@ function compileManifest(
       extensions: Object.keys(extensions),
     });
   }
-  if (selected !== undefined && agent[selected]?.disable) {
-    throw new CompileAgentConfigError(`Agent "${selected}" is off. ${manifestIssueSummary(issues.filter((i) => i.severity === 'error' && !i.unknownKey && i.path.startsWith(`agents.${selected}.`)))}`, selected);
+  for (const name of selection ?? []) {
+    if (agent[name]?.disable) {
+      throw new CompileAgentConfigError(`Agent "${name}" is off. ${manifestIssueSummary(issues.filter((i) => i.severity === 'error' && !i.unknownKey && i.path.startsWith(`agents.${name}.`)))}`, name);
+    }
   }
   // Only declared agents run: OpenCode's own build/plan/general/explore are off.
   for (const builtin of RUNTIME_BUILTIN_AGENTS) {
@@ -723,12 +730,14 @@ async function compileProjectFromRead(project: GitBackedProject, read: ManifestR
 }
 
 /**
- * Resolve one selected agent for a restricted session. A project without a
+ * Resolve one selected agent (or `<session agent>,<switched agent>`) for a
+ * session's boot bundle. A project without a
  * manifest, and a selected agent that is missing or off, throw
  * `CompileAgentConfigError` naming the cause.
  */
 export async function resolveSelectedAgentConfigForSession(
   project: GitBackedProject,
+  /** One agent, or several joined by `,` (an `agent:<a>,<b>` release variant). */
   agentName: string,
   baseRef?: string | null,
   options: CompileReadOptions = {},
@@ -744,9 +753,11 @@ export async function resolveSelectedAgentConfigForSession(
   return compileSelectedFromRead(project, read, ref, agentName);
 }
 
-async function compileSelectedFromRead(project: GitBackedProject, read: ManifestRead, ref: string, agentName: string): Promise<string> {
-  const block = mapOf<AgentBlockV3>(read.usable.agents)[agentName];
-  if (!block || block.enabled === false) {
+async function compileSelectedFromRead(project: GitBackedProject, read: ManifestRead, ref: string, agentNames: string): Promise<string> {
+  const names = agentNames.split(',');
+  for (const agentName of names) {
+    const block = mapOf<AgentBlockV3>(read.usable.agents)[agentName];
+    if (block && block.enabled !== false) continue;
     // Unknown keys are ignored at run time: they never explain why an agent is off.
     const errors = read.issues.filter((i) => i.severity === 'error' && !i.unknownKey);
     const own = errors.filter((i) => i.path === `agents.${agentName}` || i.path.startsWith(`agents.${agentName}.`));
@@ -756,11 +767,11 @@ async function compileSelectedFromRead(project: GitBackedProject, read: Manifest
       agentName,
     );
   }
-  const key = commitKey(project, read.found, `agent:${agentName}`);
+  const key = commitKey(project, read.found, `agent:${agentNames}`);
   const hit = compiledAt(key);
   if (hit?.compiled) return hit.compiled;
   // Read at the manifest's own commit, as the full compile does.
-  const compiled = JSON.stringify(compileSelectedAgentConfig(read.usable, agentName, await readPromptFiles(project, read.usable, read.found.commit ?? ref, read.found.legacy?.overlay), [...read.issues]));
+  const compiled = JSON.stringify(compileSelectedAgentConfig(read.usable, names, await readPromptFiles(project, read.usable, read.found.commit ?? ref, read.found.legacy?.overlay), [...read.issues]));
   rememberCompiled(key, { raw: read.usable, compiled });
   return compiled;
 }

@@ -60,6 +60,7 @@ export {
   configReleases,
   configReleaseFailures,
   configReleaseHeads,
+  configReleaseAgentHeads,
   projectConfigSummaries,
   baseTipChecks,
   projectMembers,

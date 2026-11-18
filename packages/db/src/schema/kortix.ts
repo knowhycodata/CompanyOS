@@ -982,6 +982,32 @@ export const configReleaseHeads = kortixSchema.table(
 );
 
 /**
+ * The published `agent:<name>` release of a ref's tip: the boot bundle of one
+ * agent (its compiled set and only the files that set names). Same columns and
+ * meaning as `config_release_heads`, one row per `(project, ref, agent)`. A row
+ * exists once a session of the agent asked for it; a base move republishes
+ * every agent with a row (`config-releases/publish.ts`).
+ */
+export const configReleaseAgentHeads = kortixSchema.table(
+  'config_release_agent_heads',
+  {
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.projectId, { onDelete: 'cascade' }),
+    ref: varchar('ref', { length: 255 }).notNull(),
+    agent: varchar('agent', { length: 255 }).notNull(),
+    releaseId: varchar('release_id', { length: 64 }).notNull(),
+    sourceCommit: varchar('source_commit', { length: 64 }).notNull(),
+    configTreeId: varchar('config_tree_id', { length: 64 }).notNull(),
+    descriptorKey: text('descriptor_key').notNull(),
+    roster: jsonb('roster').$type<{ enabled: string[]; defaultAgent: string | null; readable: boolean; governed: boolean; onlyDeclared?: boolean }>().notNull(),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true }).notNull(),
+    publishedAt: timestamp('published_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.projectId, table.ref, table.agent] })],
+);
+
+/**
  * The project config summary of one ref at one commit: what `GET
  * /projects/:id/detail` serves (agents, skills, commands, manifest health,
  * the file paths). Built once when the ref moves, so a page view runs no git.
