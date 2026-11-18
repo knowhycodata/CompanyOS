@@ -4,6 +4,7 @@ import { KortixLogo } from '@/components/sidebar/kortix-logo';
 import Footer from '@/components/home/footer';
 import { FaqSection } from '@/features/marketing/faq';
 import { PricingPlanCard } from '@/features/billing/pricing-plan-card';
+import { PRICING_PLANS } from '@/features/billing/pricing-plans';
 import { usePricingPlans } from '@/features/billing/use-pricing-plans';
 import { DitherField } from '@/features/marketing/kit/dither-field';
 import { MarketingButton } from '@/features/marketing/kit/marketing-button';
@@ -17,6 +18,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 
 import { COMPUTE_HOURLY, FAQ, FREE_COMPUTE_USD, TEAMS } from './factory-content';
 import { heroRuns } from './hero-runs';
+import { HOOP_PALETTE } from './hoop-palette';
 import type { LoopView } from './loops-content';
 import { CopyButton, CopyPromptMarketingButton, GhostButton, Mark, useForceDarkPage, useSetupTarget } from './parts';
 import { EngineGrid } from './engine-grid';
@@ -115,7 +117,7 @@ function TallCard({ art, title, body, action, light }: { art: ReactNode; title: 
       {hovered ? (
         <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 opacity-60 [mask-image:linear-gradient(to_top,#000,transparent_75%)]">
           <div className="animate-in fade-in duration-slower absolute inset-0">
-            <DitherField className="text-kortix-base" />
+            <DitherField className="text-kortix-base" palette={HOOP_PALETTE} />
           </div>
         </div>
       ) : null}
@@ -132,12 +134,26 @@ function TallCard({ art, title, body, action, light }: { art: ReactNode; title: 
 }
 
 /**
+ * Plan lines this page leaves out (founder call 2026-11-18), matched by their
+ * English source so a reworded line comes back on its own: top-ups and rate
+ * limits are detail for /pricing, and the model controls are on Credits too.
+ */
+const HIDDEN_FEATURES = new Set([
+  'Top up any time. Top-ups never expire',
+  'Higher model rate limits',
+  'BYOK, ChatGPT subscription, and managed model controls',
+]);
+
+/**
  * The plans, as kortix.com/pricing shows them: the same plan cards, copy and
  * credits ladder, so the two pages never disagree. Free leads with this page's
  * action, the prompt. The band's last row says what credits pay for.
  */
 function PlansBand({ prompt }: { prompt: string }) {
-  const plans = usePricingPlans();
+  const plans = usePricingPlans().map((plan) => ({
+    ...plan,
+    features: plan.features.filter((_, index) => !HIDDEN_FEATURES.has(PRICING_PLANS.find((source) => source.id === plan.id)?.features[index] ?? '')),
+  }));
   const [monthlyUsd, setMonthlyUsd] = useState<number>(DEFAULT_TIER_USD);
   return (
     <div className="border-border mt-16 overflow-hidden rounded-xl border">
@@ -232,9 +248,9 @@ export function FactoryHome({ loops }: { loops: LoopView[] }) {
 
       <main>
         <section className="relative">
-          {/* The Kortix dither as a flat band behind the hero copy: it fades out before the reel. */}
-          <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[560px] opacity-60 [mask-image:linear-gradient(to_bottom,#000,transparent_85%),radial-gradient(70%_100%_at_70%_0,#000,transparent)] [mask-composite:intersect]">
-            <DitherField className="text-kortix-base" />
+          {/* The dither in the hoop's colors, a flat band behind the hero copy: it fades out before the reel. */}
+          <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[560px]">
+            <DitherField className="text-kortix-base" palette={HOOP_PALETTE} fade="down-left" />
           </div>
           <div className={cn(COLUMN, 'relative')}>
           <div className="flex flex-col items-start gap-6 pt-20 pb-14 lg:pt-32 lg:pb-20">
@@ -345,6 +361,7 @@ export function FactoryHome({ loops }: { loops: LoopView[] }) {
           title: 'One prompt.',
           subtitle: 'Your whole company, looped.',
           trust: 'Paste it into Claude Code or Codex. Your agent asks before every decision.',
+          palette: HOOP_PALETTE,
           actions: (
             <>
               <CopyPromptMarketingButton text={prompt} className="hit-area-y-1 w-full sm:w-auto sm:min-w-36" />

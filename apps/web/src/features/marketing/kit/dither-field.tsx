@@ -17,6 +17,14 @@ const FRAGMENT = `
   uniform float time;
   uniform float dpr;
   uniform vec3 ink;
+  // An optional palette of four colors: the field paints them as segments that
+  // flow along it, like the pieces of a hula hoop. paletteOn is 0 or 1.
+  uniform vec3 palette[4];
+  uniform float paletteOn;
+  // How the field fades out, by thinning its dots rather than dimming them, so
+  // every dot keeps its full color (a dimmed yellow reads olive). 0: no fade.
+  // 1: it thins toward the bottom. 2: toward the bottom and toward the left.
+  uniform float fadeMode;
 
   float hash(vec2 p) {
     return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -65,11 +73,30 @@ const FRAGMENT = `
     float light = mix(0.35, 1.0, cell.y * pixel / resolution.y);
     float level = light * mix(0.35, 1.0, bands) * mix(0.6, 1.0, flow);
 
-    float on = step(bayer8(cell) + 0.02, level);
-    float alpha = on * 0.55;
-    gl_FragColor = vec4(ink * alpha, alpha);
+    // A palette needs more dots than one ink: sparse colored dots over black read muddy, yellow first.
+    float y = cell.y * pixel / resolution.y;
+    float x = cell.x * pixel / resolution.x;
+    float fade = 1.0;
+    // The dots are gone before the lower part of the band, where the copy sits.
+    if (fadeMode > 0.5) fade *= smoothstep(0.42, 0.95, y);
+    if (fadeMode > 1.5) fade *= mix(0.35, 1.0, smoothstep(0.1, 0.6, x));
+    float on = step(bayer8(cell) + 0.02, level * fade * mix(1.0, 1.2, paletteOn));
+    vec3 color = ink;
+    if (paletteOn > 0.5) {
+      // Long and short segments, as on the hoop, drifting with the flow.
+      float k = fract(p.x * 0.42 - p.y * 0.18 + flow * 0.55 + t * 0.9);
+      color = k < 0.27 ? palette[0] : k < 0.5 ? palette[1] : k < 0.78 ? palette[2] : palette[3];
+    }
+    float alpha = on * mix(0.55, 0.85, paletteOn);
+    gl_FragColor = vec4(color * alpha, alpha);
   }
 `;
+
+/** `#RRGGBB` as 0–1 RGB. */
+function hexToRgb(hex: string): [number, number, number] {
+  const value = Number.parseInt(hex.slice(1), 16);
+  return [((value >> 16) & 255) / 255, ((value >> 8) & 255) / 255, (value & 255) / 255];
+}
 
 /** The canvas's `color` (a theme token) as 0–1 RGB, via a 1px 2D canvas, so an
  *  oklch() token resolves the same way the page paints it. */
@@ -88,7 +115,19 @@ function readInk(canvas: HTMLCanvasElement): [number, number, number] {
  * WebGL at half resolution, 30fps, paused off screen, one still frame under
  * prefers-reduced-motion or with `still`. Without WebGL the canvas stays empty.
  */
-export function DitherField({ className, still: stillProp = false }: { className?: string; still?: boolean }) {
+export function DitherField({
+  className,
+  still: stillProp = false,
+  palette,
+  fade,
+}: {
+  className?: string;
+  still?: boolean;
+  /** Four `#RRGGBB` colors to paint instead of the ink, as segments that flow along the field. */
+  palette?: readonly [string, string, string, string];
+  /** Fade by thinning the dots: toward the bottom, or toward the bottom and the left. Use it instead of a CSS mask with a palette. */
+  fade?: 'down' | 'down-left';
+}) {
   const ref = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -122,6 +161,9 @@ export function DitherField({ className, still: stillProp = false }: { className
     const uTime = gl.getUniformLocation(program, 'time');
     const uDpr = gl.getUniformLocation(program, 'dpr');
     const uInk = gl.getUniformLocation(program, 'ink');
+    gl.uniform1f(gl.getUniformLocation(program, 'paletteOn'), palette ? 1 : 0);
+    gl.uniform1f(gl.getUniformLocation(program, 'fadeMode'), fade === 'down-left' ? 2 : fade === 'down' ? 1 : 0);
+    if (palette) gl.uniform3fv(gl.getUniformLocation(program, 'palette'), palette.flatMap(hexToRgb));
 
     // `still`: draw one frame and never run a loop (static art, no motion cost).
     const still = stillProp || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -182,7 +224,9 @@ export function DitherField({ className, still: stillProp = false }: { className
       // getContext, so killing it here left Strict Mode's second mount (and any
       // remount) drawing into a dead context. The context goes with the canvas.
     };
-  }, [stillProp]);
+    // A palette is a fixed list of literals per caller; its joined value keys the effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stillProp, palette?.join(), fade]);
 
   return (
     <canvas
