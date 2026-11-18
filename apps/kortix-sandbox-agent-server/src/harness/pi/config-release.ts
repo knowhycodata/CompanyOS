@@ -135,6 +135,13 @@ export interface PiConfigReleases {
   boot(mark?: (label: string) => void): Promise<void>
   /** Apply the desired release. Single flight: a call while one runs throws `ConvergeBusyError`. */
   converge(runtime: PiReleaseRuntime | null, options?: { delayBeforeSwapMs?: number }): Promise<HarnessConfigConvergeResult>
+  /**
+   * Put `agent`'s boot bundle on this box beside the session agent's before a
+   * prompt runs it (the release `agent:<session>,<agent>`), and keep asking for
+   * it on every later convergence. Call it only while the runtime is idle. The
+   * API serves the session agent alone when the owner may not run `agent`.
+   */
+  ensureAgent(runtime: PiReleaseRuntime, agent: string): Promise<HarnessConfigConvergeResult>
 }
 
 /**
@@ -219,6 +226,8 @@ export function createPiConfigReleases(options: PiConfigReleasesOptions): PiConf
   }
   let inFlight: Promise<HarnessConfigConvergeResult> | null = null
   let booted: Promise<void> | null = null
+  /** The agent a prompt switched the box to (`ensureAgent`); null runs the session agent's bundle alone. */
+  let releaseAgent: string | null = null
 
   const report = (): ConfigReleaseReport => {
     const { source_commit: _commit, dir: _dir, ...rest } = current
@@ -499,7 +508,7 @@ export function createPiConfigReleases(options: PiConfigReleasesOptions): PiConf
 
     let descriptor: ConfigReleaseDescriptor
     try {
-      descriptor = await fetchConfigReleaseDescriptor(api)
+      descriptor = await fetchConfigReleaseDescriptor(api, { agent: releaseAgent })
     } catch (err) {
       if (isFeatureDisabledError(err)) return revert(runtime, err.message)
       return respond('failed', (err as Error).message)
@@ -651,6 +660,15 @@ export function createPiConfigReleases(options: PiConfigReleasesOptions): PiConf
         logger.error('[pi-config] boot config failed; pi runs the image default', { reason: current.fallback_reason })
       })
       return booted
+    },
+    async ensureAgent(runtime, agent) {
+      // A convergence already running finishes first: it may be the 60 s tick.
+      await inFlight?.catch(() => undefined)
+      const previous = releaseAgent
+      releaseAgent = agent
+      const result = await this.converge(runtime)
+      if (!result.ok) releaseAgent = previous
+      return result
     },
     converge(runtime, convergeOptions = {}) {
       if (inFlight) return Promise.reject(new ConvergeBusyError())

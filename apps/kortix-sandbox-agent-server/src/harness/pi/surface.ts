@@ -212,6 +212,8 @@ export function createPiSurface(runtime: () => PiRuntime | null): PiSurface {
           let prompt
           try {
             const body = await readJsonBody(input.body)
+            const picked = body && typeof body === 'object' ? (body as { agent?: unknown }).agent : undefined
+            await rt.loadTurnAgent(typeof picked === 'string' ? picked : undefined)
             prompt = sub === 'command' ? rt.commandPrompt(body) : parsePromptBody(body)
           } catch (err) {
             if (err instanceof CommandNotEnabled) return json(403, { error: 'command_not_enabled', command: err.command, agent: err.agent })

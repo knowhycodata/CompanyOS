@@ -703,3 +703,47 @@ describe('pi config releases: the compiled governance belongs to the release', (
     expect(process.env.KORTIX_COMPILED_AGENT_CONFIG).toBe(PUSHED)
   })
 })
+
+// 2026-11-18: a box holds its agent's boot bundle only. A prompt that picks
+// another agent loads that agent's bundle beside the session agent's.
+describe('pi config releases: the agent a prompt picks', () => {
+  test('ensureAgent asks the API for the agent, applies its bundle, and keeps asking for it', async () => {
+    const one = release('deploy', 'session agent')
+    serveRelease(api, one)
+    const { releases } = create()
+    await releases.boot()
+    const runtime = fakeRuntime()
+
+    const both = release('review', 'session agent and reviewer')
+    serveRelease(api, both)
+    const switched = await releases.ensureAgent(runtime, 'reviewer')
+
+    expect(switched.outcome).toBe('applied')
+    expect(releases.report().release_id).toBe(both.descriptor.release_id)
+    expect(api.descriptorRequests.at(-1)!.body).toMatchObject({ agent: 'reviewer' })
+    // The 60 s convergence asks for the same bundle, so it never flips the box back.
+    expect((await releases.converge(runtime)).outcome).toBe('unchanged')
+    expect(api.descriptorRequests.at(-1)!.body).toMatchObject({ agent: 'reviewer' })
+  })
+
+  test('a failed switch asks for the session agent again on the next convergence', async () => {
+    const one = release('deploy', 'session agent')
+    serveRelease(api, one)
+    const { releases } = create()
+    await releases.boot()
+    const runtime = fakeRuntime()
+
+    api.respond({ status: 500, json: { error: 'boom' } })
+    expect((await releases.ensureAgent(runtime, 'reviewer')).ok).toBe(false)
+    serveRelease(api, one)
+    await releases.converge(runtime)
+    expect(api.descriptorRequests.at(-1)!.body).not.toHaveProperty('agent')
+  })
+
+  test('the boot request names no agent: a box always starts on the session agent', async () => {
+    serveRelease(api, release('deploy', 'session agent'))
+    const { releases } = create()
+    await releases.boot()
+    expect(api.descriptorRequests.at(-1)!.body).not.toHaveProperty('agent')
+  })
+});

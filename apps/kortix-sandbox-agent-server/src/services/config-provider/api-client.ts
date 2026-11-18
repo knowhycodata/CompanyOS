@@ -124,6 +124,12 @@ export async function fetchConfigReleaseDescriptor(
      * again; it never chooses the release. Convergence sends none.
      */
     baseSha?: string
+    /**
+     * The agent a prompt switched the box to from the session agent. The API
+     * then serves `agent:<session>,<agent>` when the owner may run it, and the
+     * session agent's bundle otherwise.
+     */
+    agent?: string | null
   } = {},
 ): Promise<ConfigReleaseDescriptor> {
   const fetchImpl = withWorkspaceRouteFallback(api.fetchImpl ?? fetch)
@@ -136,7 +142,12 @@ export async function fetchConfigReleaseDescriptor(
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${api.token}` },
       // The gzip form: this daemon holds a governance over 128 KiB encoded (compiled-agent-config.ts).
-      body: JSON.stringify({ accept: ACCEPTED_FORMATS, capabilities: [COMPILED_AGENT_CONFIG_GZ_CAPABILITY], ...(opts.baseSha ? { base_sha: opts.baseSha } : {}) }),
+      body: JSON.stringify({
+        accept: ACCEPTED_FORMATS,
+        capabilities: [COMPILED_AGENT_CONFIG_GZ_CAPABILITY],
+        ...(opts.baseSha ? { base_sha: opts.baseSha } : {}),
+        ...(opts.agent ? { agent: opts.agent } : {}),
+      }),
       redirect: 'error',
       signal: AbortSignal.timeout(opts.timeoutMs ?? DESCRIPTOR_TIMEOUT_MS),
     })

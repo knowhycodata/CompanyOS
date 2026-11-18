@@ -392,7 +392,7 @@ export interface PiRuntimeOptions {
   hooks?: PiRuntimeHooks
   env?: NodeJS.ProcessEnv
   /** The config release the runtime reads skills, project tools, the root AGENTS.md and the session notice from (config-release.ts). */
-  releases?: Pick<PiConfigReleases, 'projectRoot' | 'notice'>
+  releases?: Pick<PiConfigReleases, 'projectRoot' | 'notice' | 'ensureAgent'>
 }
 
 /** A child session a system extension spawned (a subagent). Lives beside the root, never in its transcript. */
@@ -538,7 +538,7 @@ export class PiRuntime {
   private cloudSubagents: CloudSubagentApi | null = null
   private readonly now: () => number
   private readonly hooks: PiRuntimeHooks
-  private readonly releases: Pick<PiConfigReleases, 'projectRoot' | 'notice'> | null
+  private readonly releases: Pick<PiConfigReleases, 'projectRoot' | 'notice' | 'ensureAgent'> | null
   private readonly clock = new MessageIdClock()
   private state: HarnessState = 'down'
   private startError: string | null = null
@@ -2726,6 +2726,21 @@ export class PiRuntime {
       agent: this.sessionAgentName,
     })
     return this.sessionAgentName
+  }
+
+  /**
+   * Before a prompt is admitted: a prompt that names an agent of the project
+   * this box does not hold loads that agent's boot bundle beside the session
+   * agent's (`PiConfigReleases.ensureAgent`), so `resolveTurnAgent` finds it.
+   * Only while idle: a prompt during a turn is steered into it on the running
+   * agent, and one admitted behind work keeps today's answer (the session agent).
+   */
+  async loadTurnAgent(requested: string | undefined): Promise<void> {
+    const name = requested?.trim()
+    if (!name || name === 'default' || name === this.sessionAgentName || !this.releases || !this.idle()) return
+    if (Object.hasOwn(this.compiled?.agent ?? {}, name)) return
+    const result = await this.releases.ensureAgent(this, name)
+    if (!result.ok) logger.warn('[pi] could not load the agent a prompt picks', { requested: name, reason: result.reason })
   }
 
   /** Make `name` the agent of the next model call: its permission policy, tool switches and prompt. Between turns only. */

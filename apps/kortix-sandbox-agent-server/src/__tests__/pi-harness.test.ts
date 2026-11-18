@@ -3300,6 +3300,43 @@ describe('config releases on pi', () => {
     return systemOf(index)
   }
 
+  // 2026-11-18: a box holds its session agent's boot bundle only.
+  test('a prompt that picks an agent the box does not hold loads its bundle first, and runs on it', async () => {
+    serveRelease(api, releaseWith('deploy', 'SESSION-AGENT: the session agent.'))
+    const r = await bootOnReleases([{ text: 'reviewed' }])
+    const root = r.service.runtime()!.rootId
+    expect(api.descriptorRequests.at(-1)!.body).not.toHaveProperty('agent')
+
+    // What the API serves for `agent:build,reviewer`: both agents, both skills.
+    registered.review = 'skills/review'
+    write(repo, 'kortix.yaml', `skills:\n  deploy: skills/deploy\n  review: skills/review\n`)
+    write(repo, 'skills/review/SKILL.md', '---\nname: review\ndescription: review from the base branch\n---\nBody.\n')
+    const commit = commitAll(repo, 'reviewer')
+    const both = buildRelease(repo, commit, {
+      projectId: 'proj-pi-test',
+      governance: JSON.stringify({
+        schema: 3,
+        default_agent: 'build',
+        agent: { build: { prompt: 'SESSION-AGENT: the session agent.' }, reviewer: { prompt: 'REVIEWER-AGENT: reviews the diff.' } },
+        skills: { ...registered },
+      }),
+    })
+    serveRelease(api, both)
+
+    const index = gateway.sent.length
+    expect((await prompt(r, root, { parts: [{ type: 'text', text: 'review it' }], agent: 'reviewer' })).status).toBe(204)
+    await waitFor(() => r.service.runtime()!.idle() && gateway.sent.length > index)
+
+    expect(api.descriptorRequests.at(-1)!.body).toMatchObject({ agent: 'reviewer' })
+    expect(systemOf(index)).toContain('REVIEWER-AGENT')
+    expect(await skillsOf(r)).toEqual([
+      ['deploy', 'deploy from the base branch'],
+      ['review', 'review from the base branch'],
+    ])
+    const health = (await r.bearer('/kortix/health').then((res) => res.json())) as Record<string, any>
+    expect(health.config.release_id).toBe(both.descriptor.release_id)
+  })
+
   test('the release decides the skills and the prompt; a base move reaches the running session in place', async () => {
     const one = releaseWith('deploy', 'RELEASE-ONE: the prompt on the base branch.')
     serveRelease(api, one)

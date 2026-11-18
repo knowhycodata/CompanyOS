@@ -90,6 +90,7 @@ export function createPiTurnService(runtime: () => PiRuntime | null): HarnessTur
       if (sessionId !== rt.rootId) return answer(rt.childSession(sessionId) ? 409 : 404, { error: 'not the session root' })
       const prompt = toPrompt(input)
       if ('status' in prompt) return prompt
+      await rt.loadTurnAgent(prompt.agent)
       try {
         const admitted = rt.admit(prompt)
         void admitted.done.catch(() => {})
@@ -175,6 +176,7 @@ export function createPiTurnService(runtime: () => PiRuntime | null): HarnessTur
       if (!rt) return NOT_STARTED
       if (sessionId !== rt.rootId) return NOT_ROOT
       let prompt: PromptInput
+      await rt.loadTurnAgent(body.agent)
       try {
         prompt = rt.commandPrompt({
           command: body.name,
