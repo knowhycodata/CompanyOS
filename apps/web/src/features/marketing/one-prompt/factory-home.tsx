@@ -6,7 +6,6 @@ import { PricingPlanCard } from '@/features/billing/pricing-plan-card';
 import { PRICING_PLANS } from '@/features/billing/pricing-plans';
 import { usePricingPlans } from '@/features/billing/use-pricing-plans';
 import { DitherField } from '@/features/marketing/kit/dither-field';
-import { MarketingButton } from '@/features/marketing/kit/marketing-button';
 import { CreditLadder } from '@/features/marketing/pricing/credit-ladder';
 import { loopPrompt, REFERENCE_REPOS, setupPromptFor } from '@kortix/shared/setup-guide';
 import { cn } from '@kortix/ui';
@@ -20,7 +19,7 @@ import { heroRuns } from './hero-runs';
 import { HoopDots, HoopLine, hoopVars, LoopmaxxingWordmark } from './hoop';
 import { HOOP_PALETTE } from './hoop-palette';
 import type { LoopView } from './loops-content';
-import { CopyButton, CopyPromptMarketingButton, GhostButton, Mark, useForceDarkPage, useSetupTarget } from './parts';
+import { CopyButton, GhostButton, Mark, useForceDarkPage, useSetupTarget } from './parts';
 import { EngineGrid } from './engine-grid';
 import { PlanFlow } from './plan-flow';
 import { AgentTile, ApprovalArt, ComposerArt, ConnectArt, FindArt, ProveArt, SignalArt } from './section-art';
@@ -171,17 +170,8 @@ function PlansBand({ prompt }: { prompt: string }) {
                 </p>
               ) : undefined
             }
-            action={
-              plan.id === 'free' ? (
-                <CopyPromptMarketingButton text={prompt} className="hit-area-y-1 w-full" />
-              ) : (
-                <MarketingButton variant="secondary" size="md" className="hit-area-y-1 w-full" asChild>
-                  <a href={plan.id === 'enterprise' ? `${KORTIX}/enterprise` : `${KORTIX}/auth`}>
-                    {plan.id === 'enterprise' ? 'Request demo' : 'Get started'}
-                  </a>
-                </MarketingButton>
-              )
-            }
+            // Every plan starts the same way: the prompt (founder call 2026-11-18). The hero's button owns the C key.
+            action={<CopyButton text={prompt} icon="shortcut" bindKey={false} className="w-full" />}
           />
         ))}
       </div>
@@ -212,12 +202,7 @@ function PageEnd({ prompt }: { prompt: string }) {
           <br />
           <span className="text-muted-foreground">Your whole company, looped.</span>
         </h2>
-        <div className="flex w-full flex-col items-center justify-center gap-3 sm:flex-row">
-          <CopyPromptMarketingButton text={prompt} className="hit-area-y-1 w-full sm:w-auto sm:min-w-36" />
-          <MarketingButton variant="secondary" size="md" className="hit-area-y-1 w-full sm:w-auto sm:min-w-36" asChild>
-            <Link href={`${KORTIX}/docs/developers`}>Read the docs</Link>
-          </MarketingButton>
-        </div>
+        <CopyButton text={prompt} icon="shortcut" bindKey={false} />
       </div>
       {/* The name closes the page across its width, on clean black. The letters fade from grey into the black;
           the two hoop O's keep their full colors, which turn muddy at any lower opacity. Its size is a
@@ -379,7 +364,7 @@ export function FactoryHome({ loops }: { loops: LoopView[] }) {
               art={<ComposerArt tone="light" agent={first?.agent ?? 'factory'} text="Run the tests. File what fails." />}
               title={name}
               body={`1 agent, ${first?.triggers ?? 3} triggers and ${first?.skills ?? 1} ${first?.skills === 1 ? 'skill' : 'skills'}, from a public template your agent adapts to your repo.`}
-              action={<CopyButton text={prompt} />}
+              action={<CopyButton text={prompt} icon="shortcut" bindKey={false} />}
             />
             <TallCard
               art={<ComposerArt agent="sales" text="Every new signup: research the company, score it and draft the outreach." />}

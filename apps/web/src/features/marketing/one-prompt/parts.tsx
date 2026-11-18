@@ -102,6 +102,7 @@ export function CopyButton({
   label = 'Copy prompt',
   icon = 'none',
   bindKey = true,
+  className,
 }: {
   /** `sm` is for the header only, as on the site navbar. */
   size?: 'sm' | 'md';
@@ -113,6 +114,7 @@ export function CopyButton({
   icon?: 'none' | 'shortcut';
   /** With `icon="shortcut"`: false shows the key without listening for it, so a second button can show it while one button owns it. */
   bindKey?: boolean;
+  className?: string;
 }) {
   const target = useSetupTarget();
   const { copied, copy, flash } = useCopy(text ?? setupPromptFor(target));
@@ -165,6 +167,7 @@ export function CopyButton({
         icon === 'shortcut' && (size === 'sm' ? 'pr-2' : 'pr-2.5'),
         // Held key: the button dims as under a press, the chip sinks one pixel (color only with reduced motion).
         icon === 'shortcut' && 'in-data-[copy-key=down]:opacity-85',
+        className,
       )}
     >
       {/* The label never changes; the trailing mark turns into a check, and a reader hears "Copied". */}
@@ -179,20 +182,6 @@ export function CopyButton({
               key,
             )}
           >{COPY_KEY.toUpperCase()}</Kbd> : null}
-    </MarketingButton>
-  );
-}
-
-/** Copy prompt as the site's closing button: the same button the footer call to action uses on every page. */
-export function CopyPromptMarketingButton({ text, className }: { text: string; className?: string }) {
-  const { copied, copy } = useCopy(text);
-  return (
-    <MarketingButton type="button" variant="primary" size="md" className={className} onClick={copy}>
-      <span>Copy prompt</span>
-      <span aria-live="polite" className="sr-only">
-        {copied ? 'Copied' : ''}
-      </span>
-      {copied ? <SolidCheckIcon className="size-4" /> : null}
     </MarketingButton>
   );
 }
