@@ -17,7 +17,6 @@ import { useMemo, useState, type ReactNode } from 'react';
 
 import { COMPUTE_HOURLY, FAQ, FREE_COMPUTE_USD, TEAMS } from './factory-content';
 import { heroRuns } from './hero-runs';
-import { hoop, HoopAround, HoopOutline, HoopStripe, hoopVars, LoopmaxxingWordmark } from './hoop';
 import type { LoopView } from './loops-content';
 import { CopyButton, CopyPromptMarketingButton, GhostButton, Mark, useForceDarkPage, useSetupTarget } from './parts';
 import { EngineGrid } from './engine-grid';
@@ -59,9 +58,7 @@ const STEPS = [
 function PromptCta({ prompt, className }: { prompt?: string; className?: string }) {
   return (
     <div className={cn('flex flex-wrap items-center gap-x-5 gap-y-3', className)}>
-      <HoopOutline>
-        <CopyButton text={prompt} icon="shortcut" />
-      </HoopOutline>
+      <CopyButton text={prompt} icon="shortcut" />
       <span className="text-muted-foreground inline-flex flex-wrap items-center gap-x-1.5 text-sm">
         Paste it into <Mark name="Claude Code" /> or <Mark name="Codex" />
       </span>
@@ -74,7 +71,6 @@ function PromptCta({ prompt, className }: { prompt?: string; className?: string 
 function SplitHeading({ title, lead, children }: { title: ReactNode; lead: ReactNode; children?: ReactNode }) {
   return (
     <div className="flex flex-col gap-5">
-      <HoopStripe className="h-1.5 w-24 rounded-full" />
       <h2 className={cn(H2, 'max-w-3xl')}>{title}</h2>
       <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-10">
         <p className={cn(LEAD, 'max-w-3xl')}>{lead}</p>
@@ -85,17 +81,14 @@ function SplitHeading({ title, lead, children }: { title: ReactNode; lead: React
 }
 
 /** A cell of a bordered grid: the art on top, faded where the cell crops it, then the words. */
-function ArtCell({ art, title, body, hue, className }: { art: ReactNode; title: string; body: string; hue: number; className?: string }) {
+function ArtCell({ art, title, body, className }: { art: ReactNode; title: string; body: string; className?: string }) {
   return (
     <div className={cn('border-border flex min-w-0 flex-col', className)}>
       <div aria-hidden className="flex h-72 items-center justify-center overflow-hidden px-6 [mask-image:linear-gradient(to_bottom,#000_70%,transparent)] sm:h-80 sm:px-10">
         {art}
       </div>
       <div className="flex flex-col gap-2 px-6 pt-2 pb-8 sm:px-8">
-        <h3 className="text-foreground inline-flex items-center gap-2.5 text-base font-medium">
-          <span aria-hidden className="size-2.5 shrink-0 rounded-full" style={{ background: hoop(hue) }} />
-          {title}
-        </h3>
+        <h3 className="text-foreground text-base font-medium">{title}</h3>
         <p className="text-muted-foreground max-w-md text-base text-pretty">{body}</p>
       </div>
     </div>
@@ -148,7 +141,6 @@ function PlansBand({ prompt }: { prompt: string }) {
   const [monthlyUsd, setMonthlyUsd] = useState<number>(DEFAULT_TIER_USD);
   return (
     <div className="border-border mt-16 overflow-hidden rounded-xl border">
-      <HoopStripe className="h-1" />
       <div className="divide-border grid grid-cols-1 divide-y lg:grid-cols-3 lg:divide-x lg:divide-y-0">
         {plans.map((plan) => (
           <PricingPlanCard
@@ -210,8 +202,8 @@ export function FactoryHome({ loops }: { loops: LoopView[] }) {
   const reference = first ? REFERENCE_REPOS[first.id] : undefined;
   useForceDarkPage();
   return (
-    <div style={hoopVars} className="dark bg-background text-foreground relative min-h-screen overflow-x-clip [color-scheme:dark]">
-      <header className="bg-background/80 sticky top-0 z-30 backdrop-blur">
+    <div className="dark bg-background text-foreground relative min-h-screen overflow-x-clip [color-scheme:dark]">
+      <header className="border-border bg-background/80 sticky top-0 z-30 border-b backdrop-blur">
         <div className={cn(COLUMN, 'flex h-16 items-center justify-between gap-4')}>
           <div className="flex items-center gap-4">
             <a href={KORTIX} aria-label="Kortix" className="text-foreground">
@@ -219,7 +211,7 @@ export function FactoryHome({ loops }: { loops: LoopView[] }) {
             </a>
             {/* /loopmaxxing on every host: loopmaxxing.sh sends that path to its own root. */}
             <Link href="/loopmaxxing" className="text-foreground hover:text-muted-foreground font-mono text-sm font-medium tracking-wider uppercase transition-colors">
-              <LoopmaxxingWordmark />
+              Loopmaxxing
             </Link>
           </div>
           <nav className="text-muted-foreground hidden items-center gap-8 text-sm md:flex">
@@ -236,8 +228,6 @@ export function FactoryHome({ loops }: { loops: LoopView[] }) {
             <CopyButton size="sm" text={prompt} icon="none" />
           </div>
         </div>
-        {/* The header's bottom edge is a piece of hoop. */}
-        <HoopStripe className="h-0.5" />
       </header>
 
       <main>
@@ -250,16 +240,9 @@ export function FactoryHome({ loops }: { loops: LoopView[] }) {
           <div className="flex flex-col items-start gap-6 pt-20 pb-14 lg:pt-32 lg:pb-20">
             <span className="text-muted-foreground text-sm">Loopmaxxing for dev teams</span>
             <h1 className="text-foreground max-w-5xl text-4xl font-medium tracking-tight text-balance sm:text-6xl lg:text-7xl">
-              {/* The hoop goes around the words: its back half behind them, its front half over them. */}
-              <span className="relative inline-block">
-                <HoopAround layer="back" />
-                <span className="relative z-10">
-                  Add a {name}
-                  <br />
-                  with 1 prompt.
-                </span>
-                <HoopAround layer="front" />
-              </span>
+              Add a {name}
+              <br />
+              with 1 prompt.
             </h1>
             <p className="text-muted-foreground max-w-xl text-lg text-pretty">
               Agents that work on your repo and your tools, in the cloud, 24/7. One prompt sets them up, on the Claude or Codex subscription or API key you already pay for.
@@ -278,8 +261,11 @@ export function FactoryHome({ loops }: { loops: LoopView[] }) {
             lead="The prompt walks your coding agent through the setup with you. It asks before every decision and stops when one real run has finished."
           />
           <div className="border-border mt-16 grid grid-cols-[minmax(0,1fr)] overflow-hidden rounded-xl border md:grid-cols-2 [&>*]:border-b [&>*:last-child]:border-b-0 md:[&>*:nth-child(odd)]:border-r md:[&>*:nth-last-child(-n+2)]:border-b-0">
-            {STEPS.map((step, index) => (
-              <ArtCell key={step.title} hue={index} {...step} />
+            {STEPS.map((step) => (
+              <ArtCell
+                key={step.title}
+                {...step}
+              />
             ))}
           </div>
         </section>
@@ -356,20 +342,12 @@ export function FactoryHome({ loops }: { loops: LoopView[] }) {
         linkOrigin={KORTIX}
         themeToggle={false}
         cta={{
-          title: (
-            <span className="relative inline-block">
-              <HoopAround layer="back" />
-              <span className="relative z-10">One prompt.</span>
-              <HoopAround layer="front" />
-            </span>
-          ),
+          title: 'One prompt.',
           subtitle: 'Your whole company, looped.',
           trust: 'Paste it into Claude Code or Codex. Your agent asks before every decision.',
           actions: (
             <>
-              <HoopOutline className="w-full sm:w-auto">
-                <CopyPromptMarketingButton text={prompt} className="hit-area-y-1 w-full sm:w-auto sm:min-w-36" />
-              </HoopOutline>
+              <CopyPromptMarketingButton text={prompt} className="hit-area-y-1 w-full sm:w-auto sm:min-w-36" />
               <MarketingButton variant="secondary" size="md" className="hit-area-y-1 w-full sm:w-auto sm:min-w-36" asChild>
                 <Link href={`${KORTIX}/docs/developers`}>Read the docs</Link>
               </MarketingButton>
