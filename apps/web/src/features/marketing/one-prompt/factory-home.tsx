@@ -11,7 +11,7 @@ import { ArrowRightIcon } from '@phosphor-icons/react';
 import Link from 'next/link';
 import { useMemo, useState, type ReactNode } from 'react';
 
-import { FAQ, PRICING, TEAMS } from './factory-content';
+import { FAQ, FREE_COMPUTE_USD, PRICING, TEAMS } from './factory-content';
 import { heroRuns } from './hero-runs';
 import type { LoopView } from './loops-content';
 import { CopyButton, CopyPromptMarketingButton, GhostButton, Mark, useForceDarkPage, useSetupTarget } from './parts';
@@ -267,8 +267,8 @@ export function FactoryHome({ loops }: { loops: LoopView[] }) {
 
         <section id="pricing" className={cn(COLUMN, SECTION, 'scroll-mt-16')}>
           <SplitHeading
-            title="Free to add. You pay for compute while it runs."
-            lead="No seats, no setup fee, no subscription to Kortix. The models run on the plan you already have."
+            title={`Free to add. ${FREE_COMPUTE_USD} of compute included every month.`}
+            lead="Past that you pay only for the cloud computer your agents run on. Models run on your own Claude or ChatGPT plan or API key."
           >
             <a href={`${KORTIX}/pricing`} className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 text-sm transition-colors">
               See every rate

@@ -1,4 +1,10 @@
-import { DEFAULT_COMPUTE_HOURLY_PRICE_USD, DEFAULT_COMPUTE_SPEC, FREE_MONTHLY_CREDITS } from '@kortix/ui/internal/billing/compute-pricing';
+import {
+  agentHoursForCredits,
+  CREDITS_PER_USD,
+  DEFAULT_COMPUTE_HOURLY_PRICE_USD,
+  DEFAULT_COMPUTE_SPEC,
+  FREE_MONTHLY_CREDITS,
+} from '@kortix/ui/internal/billing/compute-pricing';
 
 /**
  * The data on the Software Factory home. Every ticket, command and result is
@@ -80,6 +86,10 @@ export const ENGINE = [
 
 /** A running hour of the default agent computer, from the billing rate card: "$0.11". */
 const COMPUTE_HOURLY = `$${DEFAULT_COMPUTE_HOURLY_PRICE_USD.toFixed(2)}`;
+/** The Free plan's monthly credits in dollars: "$5". */
+export const FREE_COMPUTE_USD = `$${FREE_MONTHLY_CREDITS / CREDITS_PER_USD}`;
+/** Hours of the default agent computer the free credits buy. */
+const FREE_HOURS = agentHoursForCredits(FREE_MONTHLY_CREDITS);
 
 export const FAQ = [
   { q: 'What is Kortix?', a: 'Cloud agents for your repository, defined in one kortix.yaml: the agents, what starts them, the skills they use and what they may do.' },
@@ -89,30 +99,31 @@ export const FAQ = [
   { q: 'Does it work with my existing repository?', a: 'Yes. It reads how the repository builds and tests, and writes an environment the agents use. Your code stays in your GitHub repository.' },
   { q: 'Where do the agents run?', a: 'In Kortix cloud sandboxes, in an environment built from your repository. They never point at your staging or production systems.' },
   { q: 'Who approves the work?', a: 'You. Every pull request, post and outbound draft waits for a person until you allow more. Security fixes always wait.' },
-  { q: 'What does it cost?', a: `Adding it is free. You pay for the agent computer while an agent runs: about ${COMPUTE_HOURLY} an hour for the default machine, billed per second. Model calls run on your own Claude or ChatGPT plan or API key.` },
+  { q: 'What does it cost?', a: `Adding it is free, and Free includes ${FREE_COMPUTE_USD} of agent computer every month. Past that you pay only for the cloud computer your agents run on: about ${COMPUTE_HOURLY} an hour for the default machine, billed per second while it runs. Models run on your own Claude or ChatGPT plan or API key.` },
   { q: 'How do I turn it off?', a: 'Pause its triggers with one command, or delete its folder under .kortix/.' },
 ];
 
 /**
- * What it costs, in the order a developer asks: setting it up, the models, the
- * computer. Every number comes from compute-pricing.ts, so the page cannot
- * drift from the billing code; the full rate card is kortix.com/pricing.
+ * What it costs, as the pricing page says it: adding it is free, Free includes
+ * a month of agent computer, past that only the computer is billed. Every
+ * number comes from compute-pricing.ts, so the page cannot drift from the
+ * billing code; the full rate card is kortix.com/pricing.
  */
 export const PRICING = [
   {
-    label: 'Setup',
+    label: 'To add',
     value: 'Free',
-    body: `The prompt, the factory template, kortix.yaml and the Kortix MCP server. Your first workspace gets ${FREE_MONTHLY_CREDITS} free credits a month.`,
+    body: 'The prompt, the factory template, kortix.yaml and the Kortix MCP server. No card needed.',
   },
   {
-    label: 'Models',
-    value: 'Your plan',
-    body: 'Agents call models on your Claude or ChatGPT subscription or your own API key, the plan you already pay for.',
+    label: 'Included',
+    value: `${FREE_COMPUTE_USD} a month`,
+    body: `Free includes ${FREE_MONTHLY_CREDITS} credits of agent computer every month on your first workspace: about ${FREE_HOURS} hours of the default machine.`,
   },
   {
-    label: 'Compute',
+    label: 'After that',
     value: `${COMPUTE_HOURLY} / hour`,
-    body: `Each agent works on its own cloud computer (${DEFAULT_COMPUTE_SPEC}), billed per second while it runs. A stopped computer uses no compute.`,
+    body: `You pay only for the cloud computer your agents run on (${DEFAULT_COMPUTE_SPEC}), billed per second while it runs. Nothing while it is stopped.`,
   },
 ];
 
