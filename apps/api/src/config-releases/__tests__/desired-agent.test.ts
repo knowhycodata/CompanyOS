@@ -64,12 +64,12 @@ beforeEach(() => {
 });
 
 describe('a declared agent is untouched', () => {
-  test('repository access compiles every agent and reports no re-point', async () => {
+  test('a declared agent with repository access boots its own bundle and reports no re-point', async () => {
     const desired = await resolveDesiredRelease(
       { project: PROJECT, baseRef: 'main', sessionAgent: 'reviewer', repositoryAccess: true },
       deps(),
     );
-    expect(built).toEqual(['project']);
+    expect(built).toEqual(['agent:reviewer']);
     expect(desired.descriptor.agent_repoint).toBeNull();
   });
 
@@ -200,7 +200,7 @@ describe('the manifest dropped the session agent', () => {
     }
   });
 
-  test('with repository access the variant is unchanged; only the column moves', async () => {
+  test('with repository access the re-pointed agent boots its own bundle, and the column moves', async () => {
     const writes: Array<[string, string]> = [];
     const desired = await resolveDesiredRelease(
       {
@@ -216,7 +216,7 @@ describe('the manifest dropped the session agent', () => {
       },
       deps(),
     );
-    expect(built).toEqual(['project']);
+    expect(built).toEqual(['agent:kortix']);
     expect(writes).toEqual([['retired', 'kortix']]);
     expect(desired.descriptor.agent_repoint!.applied).toBe(true);
   });

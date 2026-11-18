@@ -41,7 +41,7 @@ import { resolveSessionSecretGrant } from './secret-grant';
 import { AmbiguousSecretGrantError, intersectSecretGrants, listProjectSecretsSnapshotForUser } from '../secrets';
 import { SECRET_CAPABILITIES_ENV_NAME } from '../secret-capabilities';
 import { piPackageBundleForSession } from '../../pi-packages/bundle';
-import { agentConfigEtag, manifestPiCodemode, manifestPiContext, manifestPiPackages, resolveCompiledAgentConfigForSession, resolveSelectedAgentConfigForSession, manifestWorkspaceSetup, type SessionWorkspaceSetup } from './compile-agent-config';
+import { agentConfigEtag, manifestPiCodemode, manifestPiContext, manifestPiPackages, compileSessionAgentConfig, manifestWorkspaceSetup, type SessionWorkspaceSetup } from './compile-agent-config';
 
 
 
@@ -180,10 +180,11 @@ async function resolveSessionAgentConfig(input: SessionSandboxEnvInput): Promise
     // repo's branches whenever this process had not fetched for 60 s: p50
     // 742 ms, p90 4.7 s on prod for this step (2026-10-30).
     const read = { onManifest, forceRefresh: 'tip-proof' as const };
-    const compiled =
-      !(input.repositoryAccess ?? true)
-        ? resolveSelectedAgentConfigForSession(gitProject, input.agentName, input.baseRef, read)
-        : resolveCompiledAgentConfigForSession(gitProject, input.baseRef, read);
+    const compiled = compileSessionAgentConfig(
+      gitProject,
+      { agentName: input.agentName, repositoryAccess: input.repositoryAccess ?? true, baseRef: input.baseRef },
+      read,
+    );
 
     // Per-agent secret scoping: an agent declared in `agents:` with a `secrets`
     // allowlist receives ONLY those IDENTIFIERS — so a narrowly-scoped agent

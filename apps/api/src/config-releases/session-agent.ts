@@ -119,22 +119,33 @@ export function resolveSessionReleaseAgent(
 /**
  * The release variant for the agent a session ends up running.
  *
- * `project` compiles every declared agent and is what a session with
- * repository access gets — it may read the files anyway. A session created
- * before 2026-11-08 by an agent with `workspace: { project_repository: false }`
- * carries `repository_access: false`: exactly one agent is compiled for it, so
- * nothing else is disclosed.
+ * `agent:<name>` is the agent's own boot bundle: the compiled set of the agent
+ * and every subagent it may start, and only the files that set names
+ * (`agentRelease`). Every session whose agent the manifest declares gets it,
+ * with or without repository access: the box needs nothing else from the
+ * repository, and a session that may read the repository clones it.
  *
- * `none` is the answer for a session with no usable agent. It compiles to an
- * empty config (`{}`), whose etag is non-null, so `release_id` is never null
- * and the box always has a release to converge onto. It is NOT "the default
- * agent minus the grant": compiling the default agent for an owner who may not
- * run it would hand that owner the agent's prompt and model through the box.
+ * `project` compiles every declared agent and ships the whole tree. Only a
+ * session with repository access that runs no declared agent gets it: a
+ * runtime built-in (`build`, `plan`, ...) the manifest does not declare, or a
+ * project with no agent to resolve.
+ *
+ * `none` is the answer for a session with no usable agent and no repository
+ * access. It compiles to an empty config (`{}`), whose etag is non-null, so
+ * `release_id` is never null and the box always has a release to converge
+ * onto. It is NOT "the default agent minus the grant": compiling the default
+ * agent for an owner who may not run it would hand that owner the agent's
+ * prompt and model through the box.
  *
  * `meta` is the platform coordinator, whatever `repositoryAccess` says.
  */
-export function releaseVariantFor(agent: string | null, repositoryAccess: boolean): ConfigReleaseVariant {
+export function releaseVariantFor(
+  agent: string | null,
+  repositoryAccess: boolean,
+  /** The roster's declared, enabled agents at the release's commit. */
+  declared: readonly string[],
+): ConfigReleaseVariant {
   if (isMyKortixAgentName(agent)) return 'mykortix';
-  if (repositoryAccess) return 'project';
-  return agent ? `agent:${agent}` : 'none';
+  if (agent && (!repositoryAccess || declared.includes(agent))) return `agent:${agent}`;
+  return repositoryAccess ? 'project' : 'none';
 }

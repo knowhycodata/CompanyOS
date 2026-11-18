@@ -69,28 +69,34 @@ describe('resolveSessionReleaseAgent', () => {
 });
 
 describe('releaseVariantFor', () => {
-  test('repository access compiles every agent', () => {
-    expect(releaseVariantFor('reviewer', true)).toBe('project');
-    expect(releaseVariantFor(null, true)).toBe('project');
+  // 2026-11-18: a session boots its agent's own bundle, never the whole repository.
+  test('a declared agent gets its own bundle, with or without repository access', () => {
+    expect(releaseVariantFor('reviewer', true, ['kortix', 'reviewer'])).toBe('agent:reviewer');
+    expect(releaseVariantFor('reviewer', false, ['kortix', 'reviewer'])).toBe('agent:reviewer');
   });
 
-  test('without repository access one named agent is compiled', () => {
-    expect(releaseVariantFor('reviewer', false)).toBe('agent:reviewer');
+  test('repository access with no declared agent compiles every agent', () => {
+    expect(releaseVariantFor('build', true, ['kortix'])).toBe('project');
+    expect(releaseVariantFor(null, true, ['kortix'])).toBe('project');
+  });
+
+  test('without repository access one named agent is compiled, declared or not', () => {
+    expect(releaseVariantFor('reviewer', false, [])).toBe('agent:reviewer');
   });
 
   // The coordinator never holds the project's files, whatever the session
   // metadata says about repository access.
   test('My Kortix has its own variant, also for a session from before the rename (`meta`)', () => {
-    expect(releaseVariantFor('mykortix', true)).toBe('mykortix');
-    expect(releaseVariantFor('mykortix', false)).toBe('mykortix');
-    expect(releaseVariantFor('meta', true)).toBe('mykortix');
+    expect(releaseVariantFor('mykortix', true, ['mykortix'])).toBe('mykortix');
+    expect(releaseVariantFor('mykortix', false, [])).toBe('mykortix');
+    expect(releaseVariantFor('meta', true, [])).toBe('mykortix');
   });
 
   // The whole point: a session with no usable agent still gets a RELEASE.
   // `none` compiles to an empty config (`{}`), which has a non-null etag,
   // so `release_id` is never null and the box never falls back.
   test('no usable agent and no repository access compiles nothing, not a failure', () => {
-    expect(releaseVariantFor(null, false)).toBe('none');
+    expect(releaseVariantFor(null, false, ['kortix'])).toBe('none');
   });
 });
 

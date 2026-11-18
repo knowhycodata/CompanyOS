@@ -137,7 +137,7 @@ describe('config release on a partial store', () => {
     const release = await buildConfigRelease(fx.project, tip, 'agent:support', { store, noCache: true });
 
     expect(release.reason).toBeNull();
-    expect(release.tools_only).toBe(true);
+    expect(release.agent_scoped).toBe(true);
     expect(release.files!.map(([path]) => path)).toEqual(['tools/lib/client.ts', 'tools/lookup.ts']);
     const archive = store.objects.get(configArchiveKey(fx.project.projectId, release.config_tree_id!))!;
     expect(archivePaths(archive)).toEqual(['tools/lib/client.ts', 'tools/lookup.ts']);

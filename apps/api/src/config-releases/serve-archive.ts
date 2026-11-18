@@ -250,9 +250,9 @@ async function composedArchiveBuilder(
   if (known.exitCode !== 0) return null;
   if (agent && !/^[a-zA-Z0-9_-]+$/.test(agent)) return null;
   if (agent) {
-    // The agent variant's release holds only its project tool modules (`toolsRelease`).
+    // The agent variant's release holds only the files its compiled set names (`agentRelease`).
     const release = await buildConfigRelease(project, commit, `agent:${agent}`).catch(() => null);
-    const files = release?.tools_only && release.config_tree_id === treeId ? release.files : null;
+    const files = release?.agent_scoped && release.config_tree_id === treeId ? release.files : null;
     if (files) return async () => (await readFileTree(repo, files, { archive: true })).archive!;
   }
   const resolved = await resolveReleaseTreeSource(repo, project, commit).catch(() => null);

@@ -215,7 +215,7 @@ export async function resolveDesiredRelease(
           'an agent and holds no agent access. Ask a project manager for access to that agent.',
     };
   }
-  const variant = releaseVariantFor(agent, input.repositoryAccess);
+  const variant = releaseVariantFor(agent, input.repositoryAccess, roster.enabled);
 
   const base = await deps.build(input.project, baseSha, variant);
   const shape = { repositoryAccess: input.repositoryAccess, agentRepoint, format: input.format };

@@ -678,6 +678,8 @@ async function readManifestForCompile(
   return { usable, issues, found };
 }
 
+type ManifestRead = NonNullable<Awaited<ReturnType<typeof readManifestForCompile>>>;
+
 /**
  * Read a project's manifest straight from git + compile it (I/O half). The
  * compiled config, JSON-stringified (the shape `KORTIX_COMPILED_AGENT_CONFIG`
@@ -706,6 +708,10 @@ export async function resolveCompiledAgentConfigForSession(
   const ref = baseRef?.trim() || project.defaultBranch;
   const read = await readManifestForCompile(project, ref, options);
   if (!read) return null;
+  return compileProjectFromRead(project, read, ref);
+}
+
+async function compileProjectFromRead(project: GitBackedProject, read: ManifestRead, ref: string): Promise<string | null> {
   const key = commitKey(project, read.found, '*');
   const hit = compiledAt(key);
   if (hit) return hit.compiled;
@@ -735,6 +741,10 @@ export async function resolveSelectedAgentConfigForSession(
       agentName,
     );
   }
+  return compileSelectedFromRead(project, read, ref, agentName);
+}
+
+async function compileSelectedFromRead(project: GitBackedProject, read: ManifestRead, ref: string, agentName: string): Promise<string> {
   const block = mapOf<AgentBlockV3>(read.usable.agents)[agentName];
   if (!block || block.enabled === false) {
     // Unknown keys are ignored at run time: they never explain why an agent is off.
@@ -753,4 +763,33 @@ export async function resolveSelectedAgentConfigForSession(
   const compiled = JSON.stringify(compileSelectedAgentConfig(read.usable, agentName, await readPromptFiles(project, read.usable, read.found.commit ?? ref, read.found.legacy?.overlay), [...read.issues]));
   rememberCompiled(key, { raw: read.usable, compiled });
   return compiled;
+}
+
+/**
+ * The compiled config a session's box runs, decided as its config release is
+ * (`releaseVariantFor`): the session agent's own set when the manifest declares
+ * and enables it (the agent and every subagent it may start), and the whole
+ * project set only for a session with repository access that runs no declared
+ * agent (a runtime built-in, or a project with no default). `default` and an
+ * empty name are the manifest's `default_agent`.
+ *
+ * A session without repository access always compiles its one agent, and an
+ * undeclared one throws `CompileAgentConfigError`, as before; with no agent it
+ * gets the empty set the `none` release carries.
+ */
+export async function compileSessionAgentConfig(
+  project: GitBackedProject,
+  session: { agentName: string | null | undefined; repositoryAccess: boolean; baseRef?: string | null },
+  options: CompileReadOptions = {},
+): Promise<string | null> {
+  const stored = session.agentName?.trim() ?? '';
+  // No agent and no repository access: the `none` release's empty set.
+  if (!session.repositoryAccess) return stored ? resolveSelectedAgentConfigForSession(project, stored, session.baseRef, options) : '{}';
+  const ref = session.baseRef?.trim() || project.defaultBranch;
+  const read = await readManifestForCompile(project, ref, options);
+  if (!read) return null;
+  const name = !stored || stored === 'default' ? (typeof read.usable.default_agent === 'string' ? read.usable.default_agent : '') : stored;
+  const block = name ? mapOf<AgentBlockV3>(read.usable.agents)[name] : undefined;
+  if (block && block.enabled !== false) return compileSelectedFromRead(project, read, ref, name);
+  return compileProjectFromRead(project, read, ref);
 }

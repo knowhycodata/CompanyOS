@@ -515,7 +515,7 @@ describe('buildConfigRelease', () => {
     );
     const release = await buildConfigRelease(project, sha, 'agent:support', { store });
     expect(release.reason).toBeNull();
-    expect(release.tools_only).toBe(true);
+    expect(release.agent_scoped).toBe(true);
     expect(release.config_dir).toBeNull();
     expect(release.files?.map(([path]) => path)).toEqual([
       'data/regions.json',
@@ -538,7 +538,7 @@ describe('buildConfigRelease', () => {
     expect(descriptor.config_tree_id).toBe(release.config_tree_id);
     expect(descriptor.release_id).toBe(configReleaseId(release.config_tree_id, release.compiled_governance_etag));
     expect(descriptor.reason).toBeNull();
-    expect('tools_only' in descriptor).toBe(false);
+    expect('agent_scoped' in descriptor).toBe(false);
 
     // A change to a module the agent loads moves the release; any other file does not.
     const moved = await buildConfigRelease(project, commit({ 'tools/lib/client.ts': 'export const client = () => 2\n' }, 'client'), 'agent:support', { store });
@@ -586,7 +586,7 @@ describe('buildConfigRelease', () => {
     );
     const builder = await buildConfigRelease(project, sha, 'agent:builder', { store });
     expect(builder.reason).toBeNull();
-    expect(builder.tools_only).toBe(true);
+    expect(builder.agent_scoped).toBe(true);
     expect(builder.files?.map(([path]) => path)).toEqual([
       '.kortix/skills/dev-environment/SKILL.md',
       '.kortix/skills/dev-environment/references/ports.md',
@@ -622,6 +622,70 @@ describe('buildConfigRelease', () => {
     expect(moved.release_id).not.toBe(builder.release_id);
     const still = await buildConfigRelease(project, commit({ 'src/app.ts': 'console.log(2)\n' }, 'app'), 'agent:builder', { store });
     expect(still.release_id).toBe(moved.release_id);
+  });
+
+  // 2026-11-18: an agent's boot bundle is what its compiled config names, nothing else:
+  // the root instructions and its `./` pi extensions ship with its skills and tools.
+  test('the agent variant ships the root AGENTS.md and the pi extensions of its agents, and no other file', async () => {
+    const sha = commit(
+      {
+        'kortix.yaml': [
+          'project:',
+          '  name: builder-test',
+          'default_agent: lead',
+          'extensions:',
+          '  contract:',
+          '    pi: harnesses/pi/extensions/contract.ts',
+          '  bundle:',
+          '    pi: harnesses/pi/packages/bundle',
+          '  remote:',
+          '    pi: npm:pi-remote-extension',
+          '  unused:',
+          '    pi: harnesses/pi/extensions/unused.ts',
+          'agents:',
+          '  lead:',
+          '    prompt: Lead.',
+          '    extensions: [contract]',
+          '    subagents: [helper]',
+          '  helper:',
+          '    description: helps',
+          '    prompt: Help.',
+          '    extensions: [bundle, remote]',
+          '  other:',
+          '    description: other',
+          '    prompt: Other.',
+          '    extensions: [unused]',
+          '',
+        ].join('\n'),
+        'AGENTS.md': 'Project rules.\n',
+        'harnesses/pi/extensions/contract.ts': "import { note } from '../lib/note'\nexport default function contract() { note() }\n",
+        'harnesses/pi/lib/note.ts': 'export const note = () => undefined\n',
+        'harnesses/pi/lib/unrelated.ts': 'export const unrelated = 1\n',
+        'harnesses/pi/packages/bundle/package.json': '{"name":"bundle"}\n',
+        'harnesses/pi/packages/bundle/index.ts': 'export default function bundle() {}\n',
+        'harnesses/pi/extensions/unused.ts': 'export default function unused() {}\n',
+        'scripts/deploy.sh': 'echo deploy\n',
+        'src/app.ts': 'console.log(1)\n',
+      },
+      'extensions',
+    );
+    const lead = await buildConfigRelease(project, sha, 'agent:lead', { store });
+    expect(lead.reason).toBeNull();
+    expect(lead.files?.map(([path]) => path)).toEqual([
+      'AGENTS.md',
+      'harnesses/pi/extensions/contract.ts',
+      'harnesses/pi/lib/note.ts',
+      'harnesses/pi/packages/bundle/index.ts',
+      'harnesses/pi/packages/bundle/package.json',
+    ]);
+    const dir = extract(store.objects.get(configArchiveKey(project.projectId, lead.config_tree_id!))!);
+    expect(run('find', ['.', '-type', 'f'], dir).split('\n').map((path) => path.slice(2)).sort()).toEqual(lead.files!.map(([path]) => path));
+    const agents = Object.keys(JSON.parse(lead.compiled_governance!).agent);
+    expect(agents).toEqual(expect.arrayContaining(['lead', 'helper']));
+    expect(agents).not.toContain('other');
+
+    const other = await buildConfigRelease(project, sha, 'agent:other', { store });
+    expect(other.files?.map(([path]) => path)).toEqual(['AGENTS.md', 'harnesses/pi/extensions/unused.ts']);
   });
 
   test('an unknown selected agent produces no release and names the reason', async () => {

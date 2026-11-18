@@ -17,7 +17,7 @@ process.env.KORTIX_URL = 'https://api.example.com';
 
 let compiled: string | null = '{"agent":{"support":{"prompt":"fresh"}}}';
 let compileThrows: Error | null = null;
-let compileCalls: Array<{ ref: string | null | undefined; agent?: string }> = [];
+let compileCalls: Array<{ ref: string | null | undefined; agent?: string; repositoryAccess: boolean }> = [];
 let posted: Array<{ runtimeEnv?: Record<string, string | null>; refreshModels?: boolean }> = [];
 let sessionMetadata: Record<string, unknown> | null = null;
 // One fake row that satisfies every select on this path — the sandbox lookup and
@@ -50,17 +50,11 @@ let daemonReload: string | null = 'restarted';
 // imports. A partial mock silently drops it and the module fails to load.
 mock.module('./compile-agent-config', () => ({
   ...realCompile,
-  resolveCompiledAgentConfigForSession: async (_project: unknown, baseRef?: string | null) => {
-    compileCalls.push({ ref: baseRef });
-    if (compileThrows) throw compileThrows;
-    return compiled;
-  },
-  resolveSelectedAgentConfigForSession: async (
+  compileSessionAgentConfig: async (
     _project: unknown,
-    agentName: string,
-    baseRef?: string | null,
+    session: { agentName: string | null | undefined; repositoryAccess: boolean; baseRef?: string | null },
   ) => {
-    compileCalls.push({ ref: baseRef, agent: agentName });
+    compileCalls.push({ ref: session.baseRef, agent: session.agentName ?? undefined, repositoryAccess: session.repositoryAccess });
     if (compileThrows) throw compileThrows;
     return compiled;
   },
@@ -260,9 +254,9 @@ describe('pushSessionAgentConfigToSandbox', () => {
     expect(result.runtimeReload).toBeNull();
   });
 
-  test("recompiles from the SESSION's ref", async () => {
+  test("recompiles the session agent's own set from the SESSION's ref", async () => {
     await pushSessionAgentConfigToSandbox({ ...INPUT, baseRef: 'feature/x' });
-    expect(compileCalls).toEqual([{ ref: 'feature/x' }]);
+    expect(compileCalls).toEqual([{ ref: 'feature/x', agent: 'support', repositoryAccess: true }]);
   });
 
   test('keeps runtime sessions on selected-agent compilation', async () => {
@@ -270,7 +264,7 @@ describe('pushSessionAgentConfigToSandbox', () => {
 
     await pushSessionAgentConfigToSandbox({ ...INPUT, baseRef: 'main' });
 
-    expect(compileCalls).toEqual([{ ref: 'main', agent: 'support' }]);
+    expect(compileCalls).toEqual([{ ref: 'main', agent: 'support', repositoryAccess: false }]);
   });
 
   test('keeps historical read sessions on selected-agent compilation', async () => {
@@ -278,7 +272,7 @@ describe('pushSessionAgentConfigToSandbox', () => {
 
     await pushSessionAgentConfigToSandbox({ ...INPUT, baseRef: 'main' });
 
-    expect(compileCalls).toEqual([{ ref: 'main', agent: 'support' }]);
+    expect(compileCalls).toEqual([{ ref: 'main', agent: 'support', repositoryAccess: false }]);
   });
 
   test('a project with no compiled config pushes NOTHING', async () => {

@@ -14,8 +14,7 @@ import { config as appConfig } from '../../config';
 import { resolveLlmGatewayBaseUrl } from '../../llm-gateway/sandbox-base-url';
 import {
   agentConfigEtag,
-  resolveCompiledAgentConfigForSession,
-  resolveSelectedAgentConfigForSession,
+  compileSessionAgentConfig,
 } from './compile-agent-config';
 import { repositoryAccessFromSessionMetadata } from './session-sandbox-metadata';
 import { hasConfigReleaseCapability } from './session-config-release';
@@ -162,15 +161,11 @@ export async function pushSessionAgentConfigToSandbox(input: {
       manifestPath: input.manifestPath ?? 'kortix.yaml',
       gitAuthToken: null,
     };
-    const compiled =
-      !repositoryAccessFromSessionMetadata(session?.metadata) &&
-      session?.agentName
-        ? await resolveSelectedAgentConfigForSession(
-            gitProject,
-            session.agentName,
-            input.baseRef,
-          )
-        : await resolveCompiledAgentConfigForSession(gitProject, input.baseRef);
+    const compiled = await compileSessionAgentConfig(gitProject, {
+      agentName: session?.agentName,
+      repositoryAccess: repositoryAccessFromSessionMetadata(session?.metadata),
+      baseRef: input.baseRef,
+    });
     // `null` is a project with no manifest file. Pushing an empty value would
     // DELETE the agent config the box is running. Leave the box as it is.
     if (!compiled) return { applied: false, reason: 'no compiled agent config' };

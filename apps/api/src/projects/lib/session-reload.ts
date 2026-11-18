@@ -44,8 +44,7 @@ import { refreshMirror } from '../git/mirror';
 import { loadedFilesChangedBetween } from '../git/loaded-files';
 import {
   agentConfigEtag,
-  resolveCompiledAgentConfigForSession,
-  resolveSelectedAgentConfigForSession,
+  compileSessionAgentConfig,
 } from './compile-agent-config';
 import { recordDaemonConfigReport } from '../../config-releases/quarantine';
 import { pushSessionAgentConfigToSandbox } from './sandbox-env-sync';
@@ -656,11 +655,15 @@ export async function latestAgentConfigEtag(
         gitAuthToken: null,
       };
       return (
-        !repositoryAccessFromSessionMetadata(session?.metadata) && session?.agentName
-          ? resolveSelectedAgentConfigForSession(gitProject, session.agentName, input.baseRef, {
-              forceRefresh: true,
-            })
-          : resolveCompiledAgentConfigForSession(gitProject, input.baseRef, { forceRefresh: true })
+        compileSessionAgentConfig(
+          gitProject,
+          {
+            agentName: session?.agentName,
+            repositoryAccess: repositoryAccessFromSessionMetadata(session?.metadata),
+            baseRef: input.baseRef,
+          },
+          { forceRefresh: true },
+        )
       ).catch(() => null);
     })(),
     opts?.budgetMs ?? LATEST_ETAG_BUDGET_MS,

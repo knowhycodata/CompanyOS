@@ -276,7 +276,7 @@ export function registerConfigReleaseRoutes(): void {
         // A push made directly on the upstream reaches the API only through a read like this one.
         if (isDaemon) notePublishedTip(projectId, baseRef, desired.baseSha);
         if (format === CONFIG_RELEASE_FORMAT_V3) {
-          // The snapshot is the whole commit: never for a tools-only release.
+          // The snapshot is the whole commit: never for an agent-scoped release.
           descriptor.snapshot = descriptor.files && repositoryAccess
             ? await configReleaseSnapshot(project, baseRef, descriptor.source_commit)
             : null;
@@ -320,7 +320,7 @@ export function registerConfigReleaseRoutes(): void {
         const resolved = await sandboxSession(c, projectId, null);
         if (!resolved.ok) return c.json({ error: resolved.error }, resolved.status);
         // A session without repository access receives only its agent's
-        // tools-only release (`toolsRelease`), and no other tree.
+        // agent-scoped release (`agentRelease`), and no other tree.
         // A previous-repository session receives every archive: it is the
         // project's config, which is what every session of the project runs.
         project = resolved.value.project;
@@ -330,7 +330,7 @@ export function registerConfigReleaseRoutes(): void {
           const release = agent && c.req.query('agent') === agent && HEX40.test(commit)
             ? await buildConfigRelease(gitProject(project), commit, `agent:${agent}`).catch(() => null)
             : null;
-          if (!release?.tools_only || release.config_tree_id !== configTreeId) {
+          if (!release?.agent_scoped || release.config_tree_id !== configTreeId) {
             return c.json({ error: 'repository access withheld' }, 403);
           }
         }
