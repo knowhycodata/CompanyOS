@@ -3,7 +3,8 @@
 import { cn } from '@kortix/ui';
 import type { CSSProperties } from 'react';
 
-import { HOOP_PALETTE } from './hoop-palette';
+import { AsciiHoop } from './ascii-hoop';
+import { HOOP_PALETTE, SEGMENTS } from './hoop-palette';
 
 /**
  * The hula hoop, Loopmaxxing's motif: its four colors used sparingly on a
@@ -19,74 +20,41 @@ export function hoop(index: number): string {
   return `var(--hoop-${((index % HOOP_PALETTE.length) + HOOP_PALETTE.length) % HOOP_PALETTE.length})`;
 }
 
+/** An O of the wordmark: the hoop facing the reader, its tube as thick as a letter's stroke, filling its box. */
+const LETTER_O = { tilt: Math.PI / 2 - 0.3, sway: 0.12, tube: 0.42, fill: 1 } as const;
+
+/** The word's letter-spacing: the header's small caps run wide, the big word runs tight. The O's take the same. */
+const TRACKING = { wide: '0.05em', tight: '-0.025em' } as const;
+
 /**
- * The hoop's segments as the toy has them: long and short pieces, never one
- * color twice in a row. `color` indexes the palette; lengths are percent.
+ * One O: a box exactly one letter of the monospace font, 1ch wide (its
+ * advance) and 1cap tall (its cap height), sitting on the baseline where an O
+ * would. The letters after it land where plain text puts them, at any size.
  */
-const SEGMENTS: ReadonlyArray<{ color: number; length: number }> = [
-  { color: 3, length: 7 },
-  { color: 2, length: 16 },
-  { color: 1, length: 15 },
-  { color: 0, length: 12 },
-  { color: 2, length: 9 },
-  { color: 0, length: 14 },
-  { color: 1, length: 17 },
-  { color: 0, length: 10 },
-];
-
-/** Where each segment starts on the ring, in percent. */
-const STARTS = SEGMENTS.map((_, index) => SEGMENTS.slice(0, index).reduce((sum, segment) => sum + segment.length, 0));
-
-/** The palette index of the segment at a point of the ring, `fraction` of the way round (0 to 1). */
-export function hoopColorAt(fraction: number): number {
-  const percent = (((fraction % 1) + 1) % 1) * 100;
-  for (let index = SEGMENTS.length - 1; index >= 0; index -= 1) {
-    if (percent >= STARTS[index]!) return SEGMENTS[index]!.color;
-  }
-  return SEGMENTS[0]!.color;
-}
-
-/** The segments along an ellipse. */
-function Segments({ cx, cy, rx, ry, width }: { cx: number; cy: number; rx: number; ry: number; width: number }) {
-  return SEGMENTS.map((segment, index) => {
-    const offset = -STARTS[index]!;
-    return (
-      <ellipse
-        key={index}
-        cx={cx}
-        cy={cy}
-        rx={rx}
-        ry={ry}
-        fill="none"
-        pathLength={100}
-        stroke={hoop(segment.color)}
-        strokeWidth={width}
-        strokeDasharray={`${segment.length} ${100 - segment.length}`}
-        strokeDashoffset={offset}
-      />
-    );
-  });
-}
-
-/** A ring seen from above: one O of the wordmark. It spins without end; the two O's turn opposite ways. */
-function HoopRing({ className, style }: { className?: string; style?: CSSProperties }) {
+function HoopO({ phase, direction }: { phase: number; direction: 1 | -1 }) {
   return (
-    <svg aria-hidden viewBox="0 0 100 100" style={style} className={cn('shrink-0 animate-[spin_6s_linear_infinite] motion-reduce:animate-none', className)}>
-      <Segments cx={50} cy={50} rx={40} ry={40} width={11} />
-    </svg>
+    // Letter-spacing follows every character but never an inline box, so the box carries it as a right margin.
+    <span className="relative inline-block h-[1cap] w-[1ch] align-baseline" style={{ marginRight: 'var(--wordmark-tracking)' }}>
+      <AsciiHoop {...LETTER_O} phase={phase} direction={direction} />
+    </span>
   );
 }
 
-/** LOOPMAXXING with its two O's as hoops. The caller's link carries `group/wordmark`. Screen readers read the word. */
-export function LoopmaxxingWordmark({ className }: { className?: string }) {
+/**
+ * LOOPMAXXING with its two O's as ASCII spinning hoops (`AsciiHoop`), turning
+ * opposite ways with their colors offset, so the pair plays off each other.
+ * Below 40 px a hoop draws as a pixel ring. Screen readers read the word.
+ */
+export function LoopmaxxingWordmark({ className, tracking = 'tight' }: { className?: string; tracking?: keyof typeof TRACKING }) {
   return (
-    <span className={cn('inline-flex items-center', className)}>
+    <span
+      className={cn('inline-block whitespace-nowrap', className)}
+      style={{ '--wordmark-tracking': TRACKING[tracking], letterSpacing: 'var(--wordmark-tracking)' } as CSSProperties}
+    >
       <span className="sr-only">Loopmaxxing</span>
-      {/* The rings are sized in em, not on the spacing scale, so the word scales as one piece: the header's mark, the page's last line. */}
-      <span aria-hidden className="inline-flex items-center">
-        L
-        <HoopRing style={{ width: '0.8em', height: '0.8em', marginLeft: '0.05em' }} />
-        <HoopRing className="[animation-direction:reverse]" style={{ width: '0.8em', height: '0.8em', marginLeft: '-0.1em', marginRight: '0.05em' }} />
+      <span aria-hidden>
+        L<HoopO phase={0} direction={1} />
+        <HoopO phase={0.5} direction={-1} />
         PMAXXING
       </span>
     </span>

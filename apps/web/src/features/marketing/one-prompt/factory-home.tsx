@@ -227,7 +227,7 @@ function PageEnd({ prompt }: { prompt: string }) {
           <Link
             href="/loopmaxxing"
             aria-label="Loopmaxxing"
-            className="from-foreground/60 flex justify-center bg-linear-to-b to-transparent bg-clip-text pb-10 font-mono text-[14cqi] leading-none font-medium tracking-tight whitespace-nowrap text-transparent uppercase"
+            className="from-foreground/60 flex justify-center bg-linear-to-b to-transparent bg-clip-text pb-10 font-mono text-[14cqi] leading-none font-medium whitespace-nowrap text-transparent uppercase"
           >
             <LoopmaxxingWordmark />
           </Link>
@@ -317,8 +317,8 @@ export function FactoryHome({ loops }: { loops: LoopView[] }) {
                 <KortixLogo size={16} variant="logomark" />
               </a>
               {/* /loopmaxxing on every host: loopmaxxing.sh sends that path to its own root. */}
-              <Link href="/loopmaxxing" className="group/wordmark text-foreground font-mono text-sm font-medium tracking-wider uppercase">
-                <LoopmaxxingWordmark />
+              <Link href="/loopmaxxing" className="group/wordmark text-foreground font-mono text-sm font-medium uppercase">
+                <LoopmaxxingWordmark tracking="wide" />
               </Link>
             </div>
             <nav className="text-muted-foreground hidden items-center gap-8 text-sm md:flex">
