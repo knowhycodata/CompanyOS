@@ -1,8 +1,6 @@
 import {
-  agentHoursForCredits,
   CREDITS_PER_USD,
   DEFAULT_COMPUTE_HOURLY_PRICE_USD,
-  DEFAULT_COMPUTE_SPEC,
   FREE_MONTHLY_CREDITS,
 } from '@kortix/ui/internal/billing/compute-pricing';
 
@@ -85,11 +83,9 @@ export const ENGINE = [
 ];
 
 /** A running hour of the default agent computer, from the billing rate card: "$0.11". */
-const COMPUTE_HOURLY = `$${DEFAULT_COMPUTE_HOURLY_PRICE_USD.toFixed(2)}`;
+export const COMPUTE_HOURLY = `$${DEFAULT_COMPUTE_HOURLY_PRICE_USD.toFixed(2)}`;
 /** The Free plan's monthly credits in dollars: "$5". */
 export const FREE_COMPUTE_USD = `$${FREE_MONTHLY_CREDITS / CREDITS_PER_USD}`;
-/** Hours of the default agent computer the free credits buy. */
-const FREE_HOURS = agentHoursForCredits(FREE_MONTHLY_CREDITS);
 
 export const FAQ = [
   { q: 'What is Kortix?', a: 'Cloud agents for your repository, defined in one kortix.yaml: the agents, what starts them, the skills they use and what they may do.' },
@@ -101,30 +97,6 @@ export const FAQ = [
   { q: 'Who approves the work?', a: 'You. Every pull request, post and outbound draft waits for a person until you allow more. Security fixes always wait.' },
   { q: 'What does it cost?', a: `Adding it is free, and Free includes ${FREE_COMPUTE_USD} of agent computer every month. Past that you pay only for the cloud computer your agents run on: about ${COMPUTE_HOURLY} an hour for the default machine, billed per second while it runs. Models run on your own Claude or ChatGPT plan or API key.` },
   { q: 'How do I turn it off?', a: 'Pause its triggers with one command, or delete its folder under .kortix/.' },
-];
-
-/**
- * What it costs, as the pricing page says it: adding it is free, Free includes
- * a month of agent computer, past that only the computer is billed. Every
- * number comes from compute-pricing.ts, so the page cannot drift from the
- * billing code; the full rate card is kortix.com/pricing.
- */
-export const PRICING = [
-  {
-    label: 'To add',
-    value: 'Free',
-    body: 'The prompt, the factory template, kortix.yaml and the Kortix MCP server. No card needed.',
-  },
-  {
-    label: 'Included',
-    value: `${FREE_COMPUTE_USD} a month`,
-    body: `Free includes ${FREE_MONTHLY_CREDITS} credits of agent computer every month on your first workspace: about ${FREE_HOURS} hours of the default machine.`,
-  },
-  {
-    label: 'After that',
-    value: `${COMPUTE_HOURLY} / hour`,
-    body: `You pay only for the cloud computer your agents run on (${DEFAULT_COMPUTE_SPEC}), billed per second while it runs. Nothing while it is stopped.`,
-  },
 ];
 
 /** The teams the same prompt builds a loop for, from a description. `slug` picks the agent mark. */

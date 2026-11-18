@@ -3,15 +3,19 @@
 import { KortixLogo } from '@/components/sidebar/kortix-logo';
 import Footer from '@/components/home/footer';
 import { FaqSection } from '@/features/marketing/faq';
+import { PricingPlanCard } from '@/features/billing/pricing-plan-card';
+import { usePricingPlans } from '@/features/billing/use-pricing-plans';
 import { DitherField } from '@/features/marketing/kit/dither-field';
 import { MarketingButton } from '@/features/marketing/kit/marketing-button';
+import { CreditLadder } from '@/features/marketing/pricing/credit-ladder';
 import { loopPrompt, REFERENCE_REPOS, setupPromptFor } from '@kortix/shared/setup-guide';
 import { cn } from '@kortix/ui';
+import { DEFAULT_COMPUTE_SPEC, DEFAULT_TIER_USD } from '@kortix/ui/internal/billing/compute-pricing';
 import { ArrowRightIcon } from '@phosphor-icons/react';
 import Link from 'next/link';
 import { useMemo, useState, type ReactNode } from 'react';
 
-import { FAQ, FREE_COMPUTE_USD, PRICING, TEAMS } from './factory-content';
+import { COMPUTE_HOURLY, FAQ, FREE_COMPUTE_USD, TEAMS } from './factory-content';
 import { heroRuns } from './hero-runs';
 import type { LoopView } from './loops-content';
 import { CopyButton, CopyPromptMarketingButton, GhostButton, Mark, useForceDarkPage, useSetupTarget } from './parts';
@@ -122,6 +126,59 @@ function TallCard({ art, title, body, action, light }: { art: ReactNode; title: 
         <h3 className={cn('text-base font-medium', light ? 'text-background' : 'text-foreground')}>{title}</h3>
         <p className={cn('text-base text-pretty lg:min-h-18', light ? 'text-background/70' : 'text-muted-foreground')}>{body}</p>
         <div className={cn('h-12 items-end', action ? 'flex' : 'hidden lg:flex')}>{action}</div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The plans, as kortix.com/pricing shows them: the same plan cards, copy and
+ * credits ladder, so the two pages never disagree. Free leads with this page's
+ * action, the prompt. The band's last row says what credits pay for.
+ */
+function PlansBand({ prompt }: { prompt: string }) {
+  const plans = usePricingPlans();
+  const [monthlyUsd, setMonthlyUsd] = useState<number>(DEFAULT_TIER_USD);
+  return (
+    <div className="border-border mt-16 overflow-hidden rounded-xl border">
+      <div className="divide-border grid grid-cols-1 divide-y lg:grid-cols-3 lg:divide-x lg:divide-y-0">
+        {plans.map((plan) => (
+          <PricingPlanCard
+            key={plan.id}
+            plan={plan}
+            priceSlot={
+              plan.id === 'credits' ? (
+                <CreditLadder value={monthlyUsd} onChange={setMonthlyUsd} />
+              ) : plan.id === 'free' ? (
+                <p className="flex items-baseline gap-2">
+                  <span className="text-2xl tabular-nums">{plan.price}</span>
+                  <span className="text-muted-foreground text-sm">{FREE_COMPUTE_USD} of compute every month</span>
+                </p>
+              ) : undefined
+            }
+            action={
+              plan.id === 'free' ? (
+                <CopyPromptMarketingButton text={prompt} className="hit-area-y-1 w-full" />
+              ) : (
+                <MarketingButton variant="secondary" size="md" className="hit-area-y-1 w-full" asChild>
+                  <a href={plan.id === 'enterprise' ? `${KORTIX}/enterprise` : `${KORTIX}/auth`}>
+                    {plan.id === 'enterprise' ? 'Request demo' : 'Get started'}
+                  </a>
+                </MarketingButton>
+              )
+            }
+          />
+        ))}
+      </div>
+      <div className="border-border flex flex-col items-start justify-between gap-4 border-t px-6 py-6 sm:px-8 md:flex-row md:items-center md:gap-10">
+        <p className="text-muted-foreground max-w-3xl text-base text-pretty">
+          <span className="text-foreground">Credits pay only for the cloud computer your agents run on.</span> {COMPUTE_HOURLY} an hour for the
+          default {DEFAULT_COMPUTE_SPEC} machine, billed per second. Nothing while it is stopped.
+        </p>
+        <a href={`${KORTIX}/pricing`} className="text-muted-foreground hover:text-foreground inline-flex shrink-0 items-center gap-1.5 text-sm transition-colors">
+          See every rate
+          <ArrowRightIcon className="size-3.5" />
+        </a>
       </div>
     </div>
   );
@@ -268,22 +325,9 @@ export function FactoryHome({ loops }: { loops: LoopView[] }) {
         <section id="pricing" className={cn(COLUMN, SECTION, 'scroll-mt-16')}>
           <SplitHeading
             title={`Free to add. ${FREE_COMPUTE_USD} of compute included every month.`}
-            lead="Past that you pay only for the cloud computer your agents run on. Models run on your own Claude or ChatGPT plan or API key."
-          >
-            <a href={`${KORTIX}/pricing`} className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 text-sm transition-colors">
-              See every rate
-              <ArrowRightIcon className="size-3.5" />
-            </a>
-          </SplitHeading>
-          <dl className="border-border mt-16 grid grid-cols-[minmax(0,1fr)] overflow-hidden rounded-xl border md:grid-cols-3 [&>*]:border-b [&>*:last-child]:border-b-0 md:[&>*]:border-r md:[&>*]:border-b-0 md:[&>*:last-child]:border-r-0">
-            {PRICING.map((item) => (
-              <div key={item.label} className="border-border flex flex-col gap-3 px-6 py-8 sm:px-8">
-                <dt className="text-muted-foreground font-mono text-xs tracking-wider uppercase">{item.label}</dt>
-                <dd className="text-foreground text-3xl font-medium tracking-tight">{item.value}</dd>
-                <dd className="text-muted-foreground max-w-sm text-base text-pretty">{item.body}</dd>
-              </div>
-            ))}
-          </dl>
+            lead="Past that you pay only for the cloud computer your agents run on. Models run on your own Claude or Codex subscription or API key."
+          />
+          <PlansBand prompt={prompt} />
         </section>
 
         <FaqSection
