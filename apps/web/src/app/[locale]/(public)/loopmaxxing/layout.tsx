@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 
 import { loopmaxxingState, requireLoopmaxxing } from '@/lib/loopmaxxing-gate';
@@ -6,6 +6,10 @@ import { loopmaxxingState, requireLoopmaxxing } from '@/lib/loopmaxxing-gate';
 // Its own site: the page is canonical at loopmaxxing.sh, and it stays out of
 // kortix.com's sitemap and public content list. While the page is off its
 // name stays out of the 404; until it is announced search engines skip it.
+// The page is always dark: the browser paints its first frame, the address bar and the overscroll dark
+// before any CSS loads, so a reader on the light theme never sees a white flash.
+export const viewport: Viewport = { colorScheme: 'dark', themeColor: 'black' };
+
 export async function generateMetadata(): Promise<Metadata> {
   const { enabled, announced } = await loopmaxxingState();
   if (!enabled) return {};

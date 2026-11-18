@@ -6,7 +6,7 @@ import type { HeroRun } from './hero-runs';
  * random. All of them are labelled examples: the steps each loop runs, with
  * made-up inputs.
  */
-type Session = Pick<HeroRun, 'source' | 'ask' | 'context' | 'work' | 'answer' | 'rows' | 'result'>;
+type Session = Pick<HeroRun, 'source' | 'via' | 'ask' | 'context' | 'work' | 'answer' | 'rows' | 'result'>;
 
 const AGENTS: Record<string, { caption: string; sessions: Session[] }> = {
   factory: {
@@ -14,6 +14,7 @@ const AGENTS: Record<string, { caption: string; sessions: Session[] }> = {
     sessions: [
       {
         source: 'Sentry alert',
+        via: 'sentry',
         ask: 'TypeError in checkout: cannot read "total" of undefined',
         context: 'checkout-service',
         work: [{ text: 'Pulled the stack trace' }, { text: 'git log -p src/cart.ts', cmd: true }, { text: 'Wrote a failing test' }, { text: 'Guarded the empty cart' }],
@@ -21,7 +22,8 @@ const AGENTS: Record<string, { caption: string; sessions: Session[] }> = {
         result: { kind: 'Pull request #212 · +14 −2', title: 'fix: handle an empty cart at checkout', status: 'Waiting for you to merge' },
       },
       {
-        source: 'Issue #48',
+        source: 'GitHub issue #48',
+        via: 'github',
         ask: 'Dependabot: bump next from 15.2 to 15.3',
         context: 'your-org/your-repo',
         work: [{ text: 'npm install next@15.3', cmd: true }, { text: 'npm run build', cmd: true }, { text: 'Read the release notes' }],
@@ -33,6 +35,7 @@ const AGENTS: Record<string, { caption: string; sessions: Session[] }> = {
       },
       {
         source: 'Schedule · 02:00',
+        via: 'schedule',
         ask: 'Find flaky tests from the last 50 runs.',
         context: 'CI history',
         work: [{ text: 'Read 50 CI runs' }, { text: 'Ranked tests by failure rate' }, { text: 'Filed two issues' }],
@@ -42,6 +45,15 @@ const AGENTS: Record<string, { caption: string; sessions: Session[] }> = {
           { label: '#62', text: 'upload.test.ts · races the server' },
         ],
       },
+      {
+        source: 'Slack · #eng',
+        via: 'slack',
+        ask: '@factory CSV export times out for big workspaces. Can you take it?',
+        context: '#eng thread',
+        work: [{ text: 'Reproduced it with 200k rows' }, { text: 'EXPLAIN the export query', cmd: true }, { text: 'Added the missing index' }, { text: 'Streamed the file instead of buffering it' }],
+        answer: 'The export scanned the whole table. With the index and a stream it finishes in 3 s. Replied in the thread.',
+        result: { kind: 'Pull request #231 · +38 −12', title: 'fix: stream CSV exports and index workspace_id', status: 'Waiting for you to merge' },
+      },
     ],
   },
   marketing: {
@@ -49,6 +61,7 @@ const AGENTS: Record<string, { caption: string; sessions: Session[] }> = {
     sessions: [
       {
         source: 'Release v2.4',
+        via: 'github',
         ask: 'Write the launch post for v2.4.',
         context: '14 merged pull requests',
         work: [{ text: 'Read the merged pull requests' }, { text: 'Loaded the brand skill' }, { text: 'Drafted the post and three images' }],
@@ -57,6 +70,7 @@ const AGENTS: Record<string, { caption: string; sessions: Session[] }> = {
       },
       {
         source: 'Every Monday',
+        via: 'schedule',
         ask: 'Report last week on the blog.',
         context: 'Analytics',
         work: [{ text: 'Pulled page views' }, { text: 'Compared with the week before' }],
@@ -73,6 +87,7 @@ const AGENTS: Record<string, { caption: string; sessions: Session[] }> = {
     sessions: [
       {
         source: 'Email',
+        via: 'gmail',
         ask: 'How do I add a teammate to my workspace?',
         context: 'Ticket from a customer',
         work: [{ text: 'Searched the docs' }, { text: 'Checked the customer plan' }, { text: 'Drafted the answer' }],
@@ -81,6 +96,7 @@ const AGENTS: Record<string, { caption: string; sessions: Session[] }> = {
       },
       {
         source: 'Intercom',
+        via: 'intercom',
         ask: 'I was charged twice this month.',
         context: 'Ticket from a customer',
         work: [{ text: 'Found both charges in Stripe' }, { text: 'Matched them to one invoice' }],
@@ -102,6 +118,7 @@ const AGENTS: Record<string, { caption: string; sessions: Session[] }> = {
       },
       {
         source: 'Every Friday',
+        via: 'schedule',
         ask: 'Which deals went quiet this week?',
         context: 'Pipeline',
         work: [{ text: 'Read the pipeline' }, { text: 'Found deals with no reply in 7 days' }],
@@ -119,6 +136,7 @@ const AGENTS: Record<string, { caption: string; sessions: Session[] }> = {
     sessions: [
       {
         source: 'Pull request #219',
+        via: 'github',
         ask: 'Check pull request #219 for secrets and risky code.',
         context: 'feat/billing-webhooks',
         work: [{ text: 'Scanned the diff for secrets' }, { text: 'npm audit', cmd: true }, { text: 'Read the new routes' }],
@@ -144,6 +162,7 @@ const AGENTS: Record<string, { caption: string; sessions: Session[] }> = {
     sessions: [
       {
         source: 'PagerDuty',
+        via: 'pagerduty',
         ask: 'API latency p95 above 800 ms',
         context: 'api-production',
         work: [{ text: 'Read the latency graph' }, { text: 'Found a slow query' }, { text: 'Added the missing index' }],
@@ -152,6 +171,7 @@ const AGENTS: Record<string, { caption: string; sessions: Session[] }> = {
       },
       {
         source: 'Every night',
+        via: 'schedule',
         ask: 'Check the backups.',
         context: 'production database',
         work: [{ text: 'Restored last night to a test database' }, { text: 'Counted the rows' }],
@@ -164,7 +184,8 @@ const AGENTS: Record<string, { caption: string; sessions: Session[] }> = {
     caption: 'Answers with numbers',
     sessions: [
       {
-        source: 'Slack',
+        source: 'Slack · #growth',
+        via: 'slack',
         ask: 'Why did sign-ups drop on Tuesday?',
         context: '#growth',
         work: [{ text: 'Queried sign-ups by hour' }, { text: 'Compared by source' }],
@@ -176,6 +197,7 @@ const AGENTS: Record<string, { caption: string; sessions: Session[] }> = {
       },
       {
         source: 'Every month',
+        via: 'schedule',
         ask: 'Build the monthly revenue report.',
         context: 'Stripe',
         work: [{ text: 'Pulled the invoices' }, { text: 'Built the report' }],
@@ -197,6 +219,7 @@ const AGENTS: Record<string, { caption: string; sessions: Session[] }> = {
       },
       {
         source: 'Calendar',
+        via: 'googlecalendar',
         ask: 'Schedule the final interviews for this week.',
         context: '3 applicants',
         work: [{ text: 'Read 4 calendars' }, { text: 'Found shared times' }],
@@ -210,6 +233,7 @@ const AGENTS: Record<string, { caption: string; sessions: Session[] }> = {
     sessions: [
       {
         source: 'Every month',
+        via: 'schedule',
         ask: 'Match last month’s bank lines to invoices.',
         context: 'Bank and Stripe',
         work: [{ text: 'Read 312 bank lines' }, { text: 'Matched 309 of them' }],
@@ -242,13 +266,25 @@ export function extraRuns(): HeroRun[] {
   return EXTRA.map((slug) => toRun(slug, AGENTS[slug]!.sessions[0]!, 0));
 }
 
-/** The three factory panels of the demo run each take one factory session, so two never show the same one. */
-const FACTORY_SESSION: Record<string, number> = { nightly: 2, fix: 0, review: 1 };
+/** The factory sessions that open the reel, before the demo run: a Sentry alert and a Slack message, runs nobody typed. */
+export function leadRuns(): HeroRun[] {
+  return LEAD.map((index) => toRun('factory', AGENTS.factory!.sessions[index]!, index));
+}
+
+/** The factory sessions with a panel of their own at the head of the reel: the Sentry alert and the Slack message. */
+const LEAD = [0, 3] as const;
+
+/**
+ * The factory panels and the one other factory session each may play, so two
+ * panels never show the same session. `null`: the panel plays only its own.
+ */
+const FACTORY_SESSION: Record<string, number | null> = { 'factory-0': null, 'factory-3': null, nightly: 2, fix: 1, review: null };
 
 /** Every session a panel can play: its own first, then its agent's other sessions. */
 export function sessionPool(run: HeroRun): HeroRun[] {
   if (run.host.kind !== 'agent') return [run];
   const own = FACTORY_SESSION[run.id];
+  if (own === null) return [run];
   if (own !== undefined) return [run, toRun('factory', AGENTS.factory!.sessions[own]!, own)];
   const slug = run.host.slug;
   const sessions = AGENTS[slug]?.sessions ?? [];
