@@ -21,7 +21,7 @@ import { useEffect, useState, type ReactNode } from 'react';
  * action is not a link, as the Loopmaxxing page's Copy prompt is. The section
  * still draws the heading, the action row and the trust line.
  */
-export type CtaContent = { title: string; subtitle: string; actions: ReactNode; trust?: string };
+export type CtaContent = { title: ReactNode; subtitle: string; actions: ReactNode; trust?: string };
 
 export function CtaSection({ content }: { content?: CtaContent } = {}) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
