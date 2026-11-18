@@ -1,3 +1,5 @@
+import { DEFAULT_COMPUTE_HOURLY_PRICE_USD, DEFAULT_COMPUTE_SPEC, FREE_MONTHLY_CREDITS } from '@kortix/ui/internal/billing/compute-pricing';
+
 /**
  * The data on the Software Factory home. Every ticket, command and result is
  * from one real run on a private demo repository (2026-11-10): the nightly tester filed issues #1–#3, the builder opened pull
@@ -76,6 +78,9 @@ export const ENGINE = [
   { term: 'Secrets', key: 'secrets', body: 'The file names them. The values stay encrypted in your workspace and reach only the agents you grant.' },
 ];
 
+/** A running hour of the default agent computer, from the billing rate card: "$0.11". */
+const COMPUTE_HOURLY = `$${DEFAULT_COMPUTE_HOURLY_PRICE_USD.toFixed(2)}`;
+
 export const FAQ = [
   { q: 'What is Kortix?', a: 'Cloud agents for your repository, defined in one kortix.yaml: the agents, what starts them, the skills they use and what they may do.' },
   { q: 'What is a factory?', a: 'One agent with its triggers and skills for one team\'s work. Each template is a public repository; your coding agent reads it and adapts it to yours.' },
@@ -84,7 +89,31 @@ export const FAQ = [
   { q: 'Does it work with my existing repository?', a: 'Yes. It reads how the repository builds and tests, and writes an environment the agents use. Your code stays in your GitHub repository.' },
   { q: 'Where do the agents run?', a: 'In Kortix cloud sandboxes, in an environment built from your repository. They never point at your staging or production systems.' },
   { q: 'Who approves the work?', a: 'You. Every pull request, post and outbound draft waits for a person until you allow more. Security fixes always wait.' },
+  { q: 'What does it cost?', a: `Adding it is free. You pay for the agent computer while an agent runs: about ${COMPUTE_HOURLY} an hour for the default machine, billed per second. Model calls run on your own Claude or ChatGPT plan or API key.` },
   { q: 'How do I turn it off?', a: 'Pause its triggers with one command, or delete its folder under .kortix/.' },
+];
+
+/**
+ * What it costs, in the order a developer asks: setting it up, the models, the
+ * computer. Every number comes from compute-pricing.ts, so the page cannot
+ * drift from the billing code; the full rate card is kortix.com/pricing.
+ */
+export const PRICING = [
+  {
+    label: 'Setup',
+    value: 'Free',
+    body: `The prompt, the factory template, kortix.yaml and the Kortix MCP server. Your first workspace gets ${FREE_MONTHLY_CREDITS} free credits a month.`,
+  },
+  {
+    label: 'Models',
+    value: 'Your plan',
+    body: 'Agents call models on your Claude or ChatGPT subscription or your own API key, the plan you already pay for.',
+  },
+  {
+    label: 'Compute',
+    value: `${COMPUTE_HOURLY} / hour`,
+    body: `Each agent works on its own cloud computer (${DEFAULT_COMPUTE_SPEC}), billed per second while it runs. A stopped computer uses no compute.`,
+  },
 ];
 
 /** The teams the same prompt builds a loop for, from a description. `slug` picks the agent mark. */

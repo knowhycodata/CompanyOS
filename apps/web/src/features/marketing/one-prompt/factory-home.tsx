@@ -11,7 +11,7 @@ import { ArrowRightIcon } from '@phosphor-icons/react';
 import Link from 'next/link';
 import { useMemo, useState, type ReactNode } from 'react';
 
-import { FAQ, TEAMS } from './factory-content';
+import { FAQ, PRICING, TEAMS } from './factory-content';
 import { heroRuns } from './hero-runs';
 import type { LoopView } from './loops-content';
 import { CopyButton, CopyPromptMarketingButton, GhostButton, Mark, useForceDarkPage, useSetupTarget } from './parts';
@@ -58,6 +58,7 @@ function PromptCta({ prompt, className }: { prompt?: string; className?: string 
       <span className="text-muted-foreground inline-flex flex-wrap items-center gap-x-1.5 text-sm">
         Paste it into <Mark name="Claude Code" /> or <Mark name="Codex" />
       </span>
+      <span className="text-muted-foreground text-sm">Free to add.</span>
     </div>
   );
 }
@@ -160,6 +161,7 @@ export function FactoryHome({ loops }: { loops: LoopView[] }) {
             <Link href="#how" className="hover:text-foreground transition-colors">How it works</Link>
             <Link href="#factories" className="hover:text-foreground transition-colors">Factories</Link>
             <Link href="#engine" className="hover:text-foreground transition-colors">kortix.yaml</Link>
+            <Link href="#pricing" className="hover:text-foreground transition-colors">Pricing</Link>
             <Link href={`${KORTIX}/docs/developers`} className="hover:text-foreground transition-colors">Docs</Link>
           </nav>
           <div className="flex items-center gap-2">
@@ -261,6 +263,27 @@ export function FactoryHome({ loops }: { loops: LoopView[] }) {
             lead="The setup adds kortix.yaml. It defines every agent, what starts it and what it may touch. You review it like code."
           />
           <EngineGrid />
+        </section>
+
+        <section id="pricing" className={cn(COLUMN, SECTION, 'scroll-mt-16')}>
+          <SplitHeading
+            title="Free to add. You pay for compute while it runs."
+            lead="No seats, no setup fee, no subscription to Kortix. The models run on the plan you already have."
+          >
+            <a href={`${KORTIX}/pricing`} className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 text-sm transition-colors">
+              See every rate
+              <ArrowRightIcon className="size-3.5" />
+            </a>
+          </SplitHeading>
+          <dl className="border-border mt-16 grid grid-cols-[minmax(0,1fr)] overflow-hidden rounded-xl border md:grid-cols-3 [&>*]:border-b [&>*:last-child]:border-b-0 md:[&>*]:border-r md:[&>*]:border-b-0 md:[&>*:last-child]:border-r-0">
+            {PRICING.map((item) => (
+              <div key={item.label} className="border-border flex flex-col gap-3 px-6 py-8 sm:px-8">
+                <dt className="text-muted-foreground font-mono text-xs tracking-wider uppercase">{item.label}</dt>
+                <dd className="text-foreground text-3xl font-medium tracking-tight">{item.value}</dd>
+                <dd className="text-muted-foreground max-w-sm text-base text-pretty">{item.body}</dd>
+              </div>
+            ))}
+          </dl>
         </section>
 
         <FaqSection
