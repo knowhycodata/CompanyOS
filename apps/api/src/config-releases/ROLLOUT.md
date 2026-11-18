@@ -2,14 +2,26 @@
 
 Config releases make a session run the base branch's **current, built**
 config, from a read-only release directory — never the session's own
-`/workspace` checkout. A release is a checkout of the base branch: the
-commit's whole tree, with the same files and folders `/workspace` holds
-(`release-tree.ts`). A session reads only the paths its compiled set names
-(prompt files, registered skill folders, project tool modules, extension
-modules) inside the release; no session reads a harness config folder. The
-release leaves out files `.gitattributes` marks `export-ignore` and a leftover
-OpenCode config file (`harnesses/opencode/opencode.json[c]`,
-`.kortix/opencode/opencode.json[c]`).
+`/workspace` checkout.
+
+A session boots its **agent's boot bundle** (`agent:<name>`, `agentRelease` in
+`builder.ts`): the compiled set of its agent and every subagent that agent may
+start, and only the files that set names, at the paths the repository uses:
+the registered skill folders its agents are granted, the project tool modules
+they may call (with every file those import by a relative path), the `./` pi
+extensions they load (a module with its imports, a folder whole) and the root
+`AGENTS.md` / `CLAUDE.md`. Nothing else of the repository reaches the box; a
+session that needs the repository clones it (`workspace.repos`). A prompt that
+picks another agent of the project loads `agent:<session agent>,<that agent>`
+before its turn (below). `kortix validate` warns when a prompt file or a skill
+names a repository file no bundle holds.
+
+The `project` release is the commit's whole tree (`release-tree.ts`), minus
+files `.gitattributes` marks `export-ignore` and a leftover OpenCode config
+file (`harnesses/opencode/opencode.json[c]`, `.kortix/opencode/opencode.json[c]`).
+Only a session with repository access that runs no declared agent (a runtime
+built-in) gets it (`releaseVariantFor`). No session reads a harness config
+folder.
 pi reloads the release in place (OpenCode is deleted from the daemon). Full contract:
 `apps/api/src/config-releases/`,
 `apps/kortix-sandbox-agent-server/src/services/config-provider/`,
@@ -83,11 +95,15 @@ A pi box boots from a release the API built before the box asked for it
    replacement). The API builds the `project` release of the new tip in the
    background, writes its v3 descriptor to the store
    (`projects/<project>/releases/<commit>-<ms>.json`, next to the archive), and
-   upserts `kortix.config_release_heads` `(project_id, ref)`. A push made
+   upserts `kortix.config_release_heads` `(project_id, ref)`. Then it publishes
+   the boot bundle of every agent with a row in
+   `kortix.config_release_agent_heads` `(project_id, ref, agent)`; an agent
+   gets its first row when session create misses it. A push made
    directly on the upstream reaches the API through the descriptor route (any
    running box's 60 s convergence) or through session create, which publish
    the tip they resolved.
-2. Session create reads the row and puts `KORTIX_CONFIG_RELEASE` in the box
+2. Session create reads the session agent's row (the project row for a
+   session that runs no declared agent) and puts `KORTIX_CONFIG_RELEASE` in the box
    env: the release ID and signed URLs (15 min) of the descriptor and the
    archive.
 3. The box reads both from the store (`config-release-published` mark) and
@@ -242,3 +258,21 @@ that project's sessions on the last release that loaded, and
   action, never CI.
 - Do not treat `source: "workspace"` on a box that can reach a current API as
   anything but a bug — file it.
+
+## A prompt that picks another agent
+
+A box holds its session agent's bundle. A prompt that names another agent of
+the project, admitted while the runtime is idle, first loads
+`agent:<session agent>,<that agent>` (`PiRuntime.loadTurnAgent` →
+`PiConfigReleases.ensureAgent`): the daemon sends `agent` in the descriptor
+request and keeps sending it on every later convergence, so the 60 s tick never
+flips the box back. The API serves the pair only when the session has
+repository access, the manifest declares and enables the agent at the tip, and
+the session's owner may run it (`ownerMayUseAgent`), the checks the grant
+re-mint applies before that agent may run at all; otherwise it serves the
+session agent alone, and the turn runs on the session agent as before. The pair
+keeps the session agent's extensions (loaded at runtime start from
+`KORTIX_PI_PACKAGES`) and lets a plain prompt run the session agent without a
+reload. A message sent during a turn is steered into it on the running agent
+and loads nothing.
+

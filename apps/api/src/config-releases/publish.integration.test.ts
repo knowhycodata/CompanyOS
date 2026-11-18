@@ -88,7 +88,7 @@ describe('publishConfigRelease', () => {
 
     const head = await readReleaseHead(projectId, 'main');
     expect(head).toMatchObject({ sourceCommit: TIP_A, configTreeId: TREE, releaseId: release(TIP_A).release_id });
-    expect(head!.roster).toEqual({ enabled: ['build'], defaultAgent: 'build', readable: true, governed: true });
+    expect(head!.roster).toEqual({ enabled: ['kortix'], defaultAgent: 'kortix', readable: true, governed: true });
     const stored = JSON.parse(store.objects.get(head!.descriptorKey)!.toString());
     expect(stored).toMatchObject({ format: 'config-release-v3', release_id: release(TIP_A).release_id, source_commit: TIP_A, files: release(TIP_A).files });
     expect(ledger.assigned).toEqual([expect.objectContaining({ projectId, releaseId: release(TIP_A).release_id, variant: 'project', sourceCommit: TIP_A })]);
