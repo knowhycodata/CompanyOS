@@ -18,6 +18,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 
 import { COMPUTE_HOURLY, FAQ, FREE_COMPUTE_USD, TEAMS } from './factory-content';
 import { heroRuns } from './hero-runs';
+import { HeroHoop, hoop, HoopDots, HoopLine, hoopVars, LoopmaxxingWordmark } from './hoop';
 import { HOOP_PALETTE } from './hoop-palette';
 import type { LoopView } from './loops-content';
 import { CopyButton, CopyPromptMarketingButton, GhostButton, Mark, useForceDarkPage, useSetupTarget } from './parts';
@@ -73,6 +74,7 @@ function PromptCta({ prompt, className }: { prompt?: string; className?: string 
 function SplitHeading({ title, lead, children }: { title: ReactNode; lead: ReactNode; children?: ReactNode }) {
   return (
     <div className="flex flex-col gap-5">
+      <HoopDots />
       <h2 className={cn(H2, 'max-w-3xl')}>{title}</h2>
       <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-10">
         <p className={cn(LEAD, 'max-w-3xl')}>{lead}</p>
@@ -83,14 +85,17 @@ function SplitHeading({ title, lead, children }: { title: ReactNode; lead: React
 }
 
 /** A cell of a bordered grid: the art on top, faded where the cell crops it, then the words. */
-function ArtCell({ art, title, body, className }: { art: ReactNode; title: string; body: string; className?: string }) {
+function ArtCell({ art, title, body, hue, className }: { art: ReactNode; title: string; body: string; hue: number; className?: string }) {
   return (
     <div className={cn('border-border flex min-w-0 flex-col', className)}>
       <div aria-hidden className="flex h-72 items-center justify-center overflow-hidden px-6 [mask-image:linear-gradient(to_bottom,#000_70%,transparent)] sm:h-80 sm:px-10">
         {art}
       </div>
       <div className="flex flex-col gap-2 px-6 pt-2 pb-8 sm:px-8">
-        <h3 className="text-foreground text-base font-medium">{title}</h3>
+        <h3 className="text-foreground inline-flex items-center gap-2.5 text-base font-medium">
+          <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: hoop(hue) }} />
+          {title}
+        </h3>
         <p className="text-muted-foreground max-w-md text-base text-pretty">{body}</p>
       </div>
     </div>
@@ -157,6 +162,7 @@ function PlansBand({ prompt }: { prompt: string }) {
   const [monthlyUsd, setMonthlyUsd] = useState<number>(DEFAULT_TIER_USD);
   return (
     <div className="border-border mt-16 overflow-hidden rounded-xl border">
+      <HoopLine />
       <div className="divide-border grid grid-cols-1 divide-y lg:grid-cols-3 lg:divide-x lg:divide-y-0">
         {plans.map((plan) => (
           <PricingPlanCard
@@ -218,16 +224,16 @@ export function FactoryHome({ loops }: { loops: LoopView[] }) {
   const reference = first ? REFERENCE_REPOS[first.id] : undefined;
   useForceDarkPage();
   return (
-    <div className="dark bg-background text-foreground relative min-h-screen overflow-x-clip [color-scheme:dark]">
-      <header className="border-border bg-background/80 sticky top-0 z-30 border-b backdrop-blur">
+    <div style={hoopVars} className="dark bg-background text-foreground relative min-h-screen overflow-x-clip [color-scheme:dark]">
+      <header className="bg-background/80 sticky top-0 z-30 backdrop-blur">
         <div className={cn(COLUMN, 'flex h-16 items-center justify-between gap-4')}>
           <div className="flex items-center gap-4">
             <a href={KORTIX} aria-label="Kortix" className="text-foreground">
               <KortixLogo size={16} variant="logomark" />
             </a>
             {/* /loopmaxxing on every host: loopmaxxing.sh sends that path to its own root. */}
-            <Link href="/loopmaxxing" className="text-foreground hover:text-muted-foreground font-mono text-sm font-medium tracking-wider uppercase transition-colors">
-              Loopmaxxing
+            <Link href="/loopmaxxing" className="group/wordmark text-foreground font-mono text-sm font-medium tracking-wider uppercase">
+              <LoopmaxxingWordmark />
             </Link>
           </div>
           <nav className="text-muted-foreground hidden items-center gap-8 text-sm md:flex">
@@ -244,14 +250,18 @@ export function FactoryHome({ loops }: { loops: LoopView[] }) {
             <CopyButton size="sm" text={prompt} icon="none" />
           </div>
         </div>
+        {/* The header's bottom edge is a hairline of hoop. */}
+        <HoopLine />
       </header>
 
       <main>
         <section className="relative">
           {/* The dither in the hoop's colors, a flat band behind the hero copy: it fades out before the reel. */}
-          <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[560px]">
-            <DitherField className="text-kortix-base" palette={HOOP_PALETTE} fade="down-left" />
+          <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-48 sm:h-[560px]">
+            <DitherField className="text-kortix-base" palette={HOOP_PALETTE} fade="top-right" />
           </div>
+          {/* The hoop spins in the grain, to the right of the copy. */}
+          <HeroHoop className="absolute top-10 right-0 hidden w-5/12 lg:block" />
           <div className={cn(COLUMN, 'relative')}>
           <div className="flex flex-col items-start gap-6 pt-20 pb-14 lg:pt-32 lg:pb-20">
             <span className="text-muted-foreground text-sm">Loopmaxxing for dev teams</span>
@@ -277,11 +287,8 @@ export function FactoryHome({ loops }: { loops: LoopView[] }) {
             lead="The prompt walks your coding agent through the setup with you. It asks before every decision and stops when one real run has finished."
           />
           <div className="border-border mt-16 grid grid-cols-[minmax(0,1fr)] overflow-hidden rounded-xl border md:grid-cols-2 [&>*]:border-b [&>*:last-child]:border-b-0 md:[&>*:nth-child(odd)]:border-r md:[&>*:nth-last-child(-n+2)]:border-b-0">
-            {STEPS.map((step) => (
-              <ArtCell
-                key={step.title}
-                {...step}
-              />
+            {STEPS.map((step, index) => (
+              <ArtCell key={step.title} hue={index} {...step} />
             ))}
           </div>
         </section>

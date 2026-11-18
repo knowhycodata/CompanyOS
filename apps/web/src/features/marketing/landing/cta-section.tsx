@@ -69,7 +69,7 @@ export function CtaSection({ content }: { content?: CtaContent } = {}) {
         )}
         aria-hidden
       >
-        <DitherField className="text-kortix-base" palette={content?.palette} fade={content?.palette ? 'down' : undefined} />
+        <DitherField className="text-kortix-base" palette={content?.palette} fade={content?.palette ? 'top' : undefined} />
       </div>
 
       {content ? (

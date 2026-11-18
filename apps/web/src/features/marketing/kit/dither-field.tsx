@@ -22,8 +22,9 @@ const FRAGMENT = `
   uniform vec3 palette[4];
   uniform float paletteOn;
   // How the field fades out, by thinning its dots rather than dimming them, so
-  // every dot keeps its full color (a dimmed yellow reads olive). 0: no fade.
-  // 1: it thins toward the bottom. 2: toward the bottom and toward the left.
+  // every dot keeps its full color (a dimmed yellow reads olive). The shapes
+  // are the CSS masks the plain field uses. 0: no fade. 1: a band along the
+  // top plus an ellipse from the top centre. 2: an ellipse from the top right.
   uniform float fadeMode;
 
   float hash(vec2 p) {
@@ -74,12 +75,22 @@ const FRAGMENT = `
     float level = light * mix(0.35, 1.0, bands) * mix(0.6, 1.0, flow);
 
     // A palette needs more dots than one ink: sparse colored dots over black read muddy, yellow first.
-    float y = cell.y * pixel / resolution.y;
-    float x = cell.x * pixel / resolution.x;
+    // Distance from the top edge and from the left edge, 0 to 1.
+    float down = 1.0 - cell.y * pixel / resolution.y;
+    float across = cell.x * pixel / resolution.x;
     float fade = 1.0;
-    // The dots are gone before the lower part of the band, where the copy sits.
-    if (fadeMode > 0.5) fade *= smoothstep(0.42, 0.95, y);
-    if (fadeMode > 1.5) fade *= mix(0.35, 1.0, smoothstep(0.1, 0.6, x));
+    if (fadeMode > 1.5) {
+      // An ellipse from the top right, clear of copy on the left.
+      float ellipse = 1.0 - smoothstep(0.1, 0.95, length(vec2((across - 0.8) / 0.6, down / 0.8)));
+      fade = ellipse;
+    } else if (fadeMode > 0.5) {
+      // A band along the top, deepest in the middle, clear of the title below.
+      float band = 1.0 - smoothstep(0.0, 0.38, down);
+      float ellipse = 1.0 - smoothstep(0.1, 0.95, length(vec2((across - 0.5) / 0.5, down / 0.66)));
+      fade = max(band, ellipse);
+    }
+    // No hard top edge: the field thins in over its first rows.
+    if (fadeMode > 0.5) fade *= smoothstep(0.0, 0.1, down);
     float on = step(bayer8(cell) + 0.02, level * fade * mix(1.0, 1.2, paletteOn));
     vec3 color = ink;
     if (paletteOn > 0.5) {
@@ -125,8 +136,8 @@ export function DitherField({
   still?: boolean;
   /** Four `#RRGGBB` colors to paint instead of the ink, as segments that flow along the field. */
   palette?: readonly [string, string, string, string];
-  /** Fade by thinning the dots: toward the bottom, or toward the bottom and the left. Use it instead of a CSS mask with a palette. */
-  fade?: 'down' | 'down-left';
+  /** Fade by thinning the dots, in the shape of the plain field's CSS mask: from the top (`top`) or from the top right (`top-right`). Use it instead of a mask with a palette. */
+  fade?: 'top' | 'top-right';
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
 
@@ -162,7 +173,7 @@ export function DitherField({
     const uDpr = gl.getUniformLocation(program, 'dpr');
     const uInk = gl.getUniformLocation(program, 'ink');
     gl.uniform1f(gl.getUniformLocation(program, 'paletteOn'), palette ? 1 : 0);
-    gl.uniform1f(gl.getUniformLocation(program, 'fadeMode'), fade === 'down-left' ? 2 : fade === 'down' ? 1 : 0);
+    gl.uniform1f(gl.getUniformLocation(program, 'fadeMode'), fade === 'top-right' ? 2 : fade === 'top' ? 1 : 0);
     if (palette) gl.uniform3fv(gl.getUniformLocation(program, 'palette'), palette.flatMap(hexToRgb));
 
     // `still`: draw one frame and never run a loop (static art, no motion cost).
