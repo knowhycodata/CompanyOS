@@ -2,6 +2,8 @@
 
 import { PROD_TARGET, setupPromptFor, setupTarget, type SetupTarget } from '@kortix/shared/setup-guide';
 import { MarketingButton } from '@/features/marketing/kit/marketing-button';
+
+import { COPY_GUIDE_ATTR, useCopyGuide } from './copy-guide';
 import { Claude } from '@kortix/ui/internal/icons/claude';
 import { SolidCheckIcon } from '@kortix/ui/internal/icons/solid-check-icon';
 import { Kbd } from '@kortix/ui/kbd';
@@ -61,13 +63,15 @@ export function useCopy(text: string) {
   useEffect(() => () => {
     if (timer.current) clearTimeout(timer.current);
   }, []);
-  const copy = async () => {
+  /** True once the text is on the clipboard. */
+  const copy = async (): Promise<boolean> => {
     try {
       await navigator.clipboard.writeText(text);
     } catch {
-      return; // Nothing reached the clipboard: claim nothing.
+      return false; // Nothing reached the clipboard: claim nothing.
     }
     flash();
+    return true;
   };
   /** Shows the copied state without writing to the clipboard: another button already did. */
   const flash = () => {
@@ -117,7 +121,13 @@ export function CopyButton({
   className?: string;
 }) {
   const target = useSetupTarget();
-  const { copied, copy, flash } = useCopy(text ?? setupPromptFor(target));
+  const prompt = text ?? setupPromptFor(target);
+  const { copied, copy: write, flash } = useCopy(prompt);
+  const guide = useCopyGuide();
+  // Every copy opens the page's guide: where to paste the prompt next.
+  const copy = async () => {
+    if (await write()) guide?.open(prompt);
+  };
   const copyRef = useRef(copy);
   const flashRef = useRef(flash);
   useEffect(() => {
@@ -135,6 +145,8 @@ export function CopyButton({
     const release = () => delete root.dataset[KEY_DOWN_ATTR];
     const onKey = (event: KeyboardEvent) => {
       if (event.key.toLowerCase() !== COPY_KEY || event.metaKey || event.ctrlKey || event.altKey || isTyping(event.target)) return;
+      // The guide is open: the key does not copy again under it.
+      if (document.querySelector(`[${COPY_GUIDE_ATTR}]`)) return;
       event.preventDefault();
       root.dataset[KEY_DOWN_ATTR] = 'down';
       if (event.repeat) return;

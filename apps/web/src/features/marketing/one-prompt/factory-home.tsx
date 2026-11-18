@@ -19,6 +19,7 @@ import { heroRuns } from './hero-runs';
 import { HoopDots, HoopLine, hoopVars, LoopmaxxingWordmark } from './hoop';
 import { HOOP_PALETTE } from './hoop-palette';
 import type { LoopView } from './loops-content';
+import { CopyGuideProvider } from './copy-guide';
 import { CopyButton, GhostButton, Mark, useForceDarkPage, useSetupTarget } from './parts';
 import { EngineGrid } from './engine-grid';
 import { PlanFlow } from './plan-flow';
@@ -271,152 +272,154 @@ export function FactoryHome({ loops }: { loops: LoopView[] }) {
   useForceDarkPage();
   const active = useSectionInView();
   return (
-    <div style={hoopVars} className="dark bg-background text-foreground relative min-h-screen overflow-x-clip [color-scheme:dark]">
-      <header className="bg-background/80 border-border sticky top-0 z-30 border-b backdrop-blur">
-        <div className={cn(COLUMN, 'flex h-16 items-center justify-between gap-4')}>
-          <div className="flex items-center gap-4">
-            <a href={KORTIX} aria-label="Kortix" className="text-foreground">
-              <KortixLogo size={16} variant="logomark" />
-            </a>
-            {/* /loopmaxxing on every host: loopmaxxing.sh sends that path to its own root. */}
-            <Link href="/loopmaxxing" className="group/wordmark text-foreground font-mono text-sm font-medium tracking-wider uppercase">
-              <LoopmaxxingWordmark />
-            </Link>
-          </div>
-          <nav className="text-muted-foreground hidden items-center gap-8 text-sm md:flex">
-            {NAV.map((item) => (
-              <Link
-                key={item.id}
-                href={`#${item.id}`}
-                aria-current={active === item.id ? 'location' : undefined}
-                className={cn('hover:text-foreground transition-colors', active === item.id && 'text-foreground')}
-              >
-                {item.label}
-              </Link>
-            ))}
-            <a href={`${KORTIX}/docs/developers`} className="hover:text-foreground inline-flex items-center gap-1 transition-colors">
-              Docs
-              <ArrowUpRightIcon aria-hidden className="size-3" />
-            </a>
-          </nav>
-          <div className="flex items-center gap-2">
-            <span className="hidden sm:contents">
-              <GhostButton href={`${KORTIX}/auth`}>Sign in</GhostButton>
-            </span>
-            {/* Shows the C key; the hero's button owns it, so one press copies once. */}
-            <CopyButton size="sm" text={prompt} icon="shortcut" bindKey={false} />
-          </div>
-        </div>
-      </header>
-
-      <main>
-        <section className="relative">
-          {/* The dither in the hoop's colors, a flat band behind the hero copy: it fades out before the reel. */}
-          <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-48 sm:h-[560px]">
-            <DitherField className="text-kortix-base" palette={HOOP_PALETTE} fade="top-right" />
-          </div>
-          <div className={cn(COLUMN, 'relative')}>
-          <div className="flex flex-col items-start gap-6 pt-20 pb-14 lg:pt-32 lg:pb-20">
-            <span className="text-muted-foreground text-sm">For dev teams</span>
-            <h1 className="text-foreground max-w-5xl text-4xl font-medium tracking-tight text-balance sm:text-6xl lg:text-7xl">
-              Add a {name}
-              <br />
-              with 1 prompt.
-            </h1>
-            <p className="text-muted-foreground max-w-xl text-lg text-pretty">
-              Agents that work on your repo and your tools, in the cloud, 24/7, without you prompting them. One prompt sets them up, on the Claude or Codex subscription or API key you already pay for.
-            </p>
-            <p className="text-muted-foreground inline-flex flex-wrap items-center gap-x-1.5 text-sm">
-              Integrates with <Mark name="Claude Code" /> <Mark name="Codex" /> and any API key
-            </p>
-            <PromptCta prompt={prompt} className="mt-2" />
-          </div>
-          <div className="pb-8">
-            <SessionReel runs={runs} />
-          </div>
-          </div>
-        </section>
-
-        <section id="how" className={cn(COLUMN, SECTION, 'scroll-mt-16')}>
-          <SplitHeading
-            title="One conversation sets up the whole loop"
-            lead="The prompt walks your coding agent through the setup with you, and stops when one real run has finished."
-          />
-          <div className="border-border mt-16 grid grid-cols-[minmax(0,1fr)] overflow-hidden rounded-xl border md:grid-cols-2 [&>*]:border-b [&>*:last-child]:border-b-0 md:[&>*:nth-child(odd)]:border-r md:[&>*:nth-last-child(-n+2)]:border-b-0">
-            {STEPS.map((step) => (
-              <ArtCell key={step.title} {...step} />
-            ))}
-          </div>
-        </section>
-
-        <section id="factories" className={cn(COLUMN, SECTION, 'scroll-mt-16')}>
-          <SplitHeading title={`Start with a factory, then loop anything`} lead={first?.line ?? 'Issues, failing tests and errors in. Verified pull requests out.'}>
-            {reference ? (
-              <a href={reference} className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 text-sm transition-colors">
-                See the template
-                <ArrowRightIcon className="size-3.5" />
+    <CopyGuideProvider>
+      <div style={hoopVars} className="dark bg-background text-foreground relative min-h-screen overflow-x-clip [color-scheme:dark]">
+        <header className="bg-background/80 border-border sticky top-0 z-30 border-b backdrop-blur">
+          <div className={cn(COLUMN, 'flex h-16 items-center justify-between gap-4')}>
+            <div className="flex items-center gap-4">
+              <a href={KORTIX} aria-label="Kortix" className="text-foreground">
+                <KortixLogo size={16} variant="logomark" />
               </a>
-            ) : null}
-          </SplitHeading>
-          <div className="mt-16 grid grid-cols-[minmax(0,1fr)] gap-3 lg:grid-cols-3">
-            <TallCard
-              light
-              art={<ComposerArt tone="light" agent={first?.agent ?? 'factory'} text="Run the tests. File what fails." />}
-              title={name}
-              body={`1 agent, ${first?.triggers ?? 3} triggers and ${first?.skills ?? 1} ${first?.skills === 1 ? 'skill' : 'skills'}, from a public template your agent adapts to your repo.`}
-              action={<CopyButton text={prompt} icon="shortcut" bindKey={false} />}
-            />
-            <TallCard
-              art={<ComposerArt agent="sales" text="Every new signup: research the company, score it and draft the outreach." />}
-              title="Any loop you describe"
-              body="Say what should happen and when. Your coding agent writes it as code in your repo."
-              action={<CopyButton variant="secondary" text={setupPromptFor(target)} />}
-            />
-            <TallCard art={<ApprovalArt />} title="You approve what ships" body="Every pull request, post and outbound draft waits for a person until you allow more." />
+              {/* /loopmaxxing on every host: loopmaxxing.sh sends that path to its own root. */}
+              <Link href="/loopmaxxing" className="group/wordmark text-foreground font-mono text-sm font-medium tracking-wider uppercase">
+                <LoopmaxxingWordmark />
+              </Link>
+            </div>
+            <nav className="text-muted-foreground hidden items-center gap-8 text-sm md:flex">
+              {NAV.map((item) => (
+                <Link
+                  key={item.id}
+                  href={`#${item.id}`}
+                  aria-current={active === item.id ? 'location' : undefined}
+                  className={cn('hover:text-foreground transition-colors', active === item.id && 'text-foreground')}
+                >
+                  {item.label}
+                </Link>
+              ))}
+              <a href={`${KORTIX}/docs/developers`} className="hover:text-foreground inline-flex items-center gap-1 transition-colors">
+                Docs
+                <ArrowUpRightIcon aria-hidden className="size-3" />
+              </a>
+            </nav>
+            <div className="flex items-center gap-2">
+              <span className="hidden sm:contents">
+                <GhostButton href={`${KORTIX}/auth`}>Sign in</GhostButton>
+              </span>
+              {/* Shows the C key; the hero's button owns it, so one press copies once. */}
+              <CopyButton size="sm" text={prompt} icon="shortcut" bindKey={false} />
+            </div>
           </div>
-          <ul className="mt-20 grid grid-cols-2 gap-x-6 gap-y-12 lg:grid-cols-3 lg:gap-x-10 lg:gap-y-14">
-            {TEAMS.map((team) => (
-              <li key={team.slug} className="flex flex-col">
-                <AgentTile slug={team.slug} size={21} />
-                <span className="text-foreground mt-5 text-base font-medium">{team.name}</span>
-                <span className="text-muted-foreground mt-1.5 max-w-72 text-base text-pretty">{team.line}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
+        </header>
 
-        <section className={cn(COLUMN, SECTION)}>
-          <SplitHeading
-            title="Bring the plan you already pay for"
-            lead="Connect your Claude or ChatGPT subscription, or any API key."
+        <main>
+          <section className="relative">
+            {/* The dither in the hoop's colors, a flat band behind the hero copy: it fades out before the reel. */}
+            <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-48 sm:h-[560px]">
+              <DitherField className="text-kortix-base" palette={HOOP_PALETTE} fade="top-right" />
+            </div>
+            <div className={cn(COLUMN, 'relative')}>
+            <div className="flex flex-col items-start gap-6 pt-20 pb-14 lg:pt-32 lg:pb-20">
+              <span className="text-muted-foreground text-sm">For dev teams</span>
+              <h1 className="text-foreground max-w-5xl text-4xl font-medium tracking-tight text-balance sm:text-6xl lg:text-7xl">
+                Add a {name}
+                <br />
+                with 1 prompt.
+              </h1>
+              <p className="text-muted-foreground max-w-xl text-lg text-pretty">
+                Agents that work on your repo and your tools, in the cloud, 24/7, without you prompting them. One prompt sets them up, on the Claude or Codex subscription or API key you already pay for.
+              </p>
+              <p className="text-muted-foreground inline-flex flex-wrap items-center gap-x-1.5 text-sm">
+                Integrates with <Mark name="Claude Code" /> <Mark name="Codex" /> and any API key
+              </p>
+              <PromptCta prompt={prompt} className="mt-2" />
+            </div>
+            <div className="pb-8">
+              <SessionReel runs={runs} />
+            </div>
+            </div>
+          </section>
+
+          <section id="how" className={cn(COLUMN, SECTION, 'scroll-mt-16')}>
+            <SplitHeading
+              title="One conversation sets up the whole loop"
+              lead="The prompt walks your coding agent through the setup with you, and stops when one real run has finished."
+            />
+            <div className="border-border mt-16 grid grid-cols-[minmax(0,1fr)] overflow-hidden rounded-xl border md:grid-cols-2 [&>*]:border-b [&>*:last-child]:border-b-0 md:[&>*:nth-child(odd)]:border-r md:[&>*:nth-last-child(-n+2)]:border-b-0">
+              {STEPS.map((step) => (
+                <ArtCell key={step.title} {...step} />
+              ))}
+            </div>
+          </section>
+
+          <section id="factories" className={cn(COLUMN, SECTION, 'scroll-mt-16')}>
+            <SplitHeading title={`Start with a factory, then loop anything`} lead={first?.line ?? 'Issues, failing tests and errors in. Verified pull requests out.'}>
+              {reference ? (
+                <a href={reference} className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 text-sm transition-colors">
+                  See the template
+                  <ArrowRightIcon className="size-3.5" />
+                </a>
+              ) : null}
+            </SplitHeading>
+            <div className="mt-16 grid grid-cols-[minmax(0,1fr)] gap-3 lg:grid-cols-3">
+              <TallCard
+                light
+                art={<ComposerArt tone="light" agent={first?.agent ?? 'factory'} text="Run the tests. File what fails." />}
+                title={name}
+                body={`1 agent, ${first?.triggers ?? 3} triggers and ${first?.skills ?? 1} ${first?.skills === 1 ? 'skill' : 'skills'}, from a public template your agent adapts to your repo.`}
+                action={<CopyButton text={prompt} icon="shortcut" bindKey={false} />}
+              />
+              <TallCard
+                art={<ComposerArt agent="sales" text="Every new signup: research the company, score it and draft the outreach." />}
+                title="Any loop you describe"
+                body="Say what should happen and when. Your coding agent writes it as code in your repo."
+                action={<CopyButton variant="secondary" text={setupPromptFor(target)} />}
+              />
+              <TallCard art={<ApprovalArt />} title="You approve what ships" body="Every pull request, post and outbound draft waits for a person until you allow more." />
+            </div>
+            <ul className="mt-20 grid grid-cols-2 gap-x-6 gap-y-12 lg:grid-cols-3 lg:gap-x-10 lg:gap-y-14">
+              {TEAMS.map((team) => (
+                <li key={team.slug} className="flex flex-col">
+                  <AgentTile slug={team.slug} size={21} />
+                  <span className="text-foreground mt-5 text-base font-medium">{team.name}</span>
+                  <span className="text-muted-foreground mt-1.5 max-w-72 text-base text-pretty">{team.line}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <section className={cn(COLUMN, SECTION)}>
+            <SplitHeading
+              title="Bring the plan you already pay for"
+              lead="Connect your Claude or ChatGPT subscription, or any API key."
+            />
+            <PlanFlow />
+          </section>
+
+          <section id="engine" className={cn(COLUMN, SECTION, 'scroll-mt-16')}>
+            <SplitHeading
+              title="One file in your repo runs all of it"
+              lead="The setup adds kortix.yaml. It defines every agent, what starts it and what it may touch. You review it like code."
+            />
+            <EngineGrid />
+          </section>
+
+          <section id="pricing" className={cn(COLUMN, SECTION, 'scroll-mt-16')}>
+            <SplitHeading
+              title={`Free to add. ${FREE_COMPUTE_USD} of compute included every month.`}
+              lead="Past that you pay only for the cloud computer your agents run on. Models run on your own Claude or Codex subscription or API key."
+            />
+            <PlansBand prompt={prompt} />
+          </section>
+
+          <FaqSection
+            eyebrow="Frequently asked questions"
+            title="The questions developers ask before they paste the prompt."
+            items={FAQ.map((item, index) => ({ id: `loopmaxxing-faq-${index + 1}`, question: item.q, answer: item.a }))}
           />
-          <PlanFlow />
-        </section>
+        </main>
 
-        <section id="engine" className={cn(COLUMN, SECTION, 'scroll-mt-16')}>
-          <SplitHeading
-            title="One file in your repo runs all of it"
-            lead="The setup adds kortix.yaml. It defines every agent, what starts it and what it may touch. You review it like code."
-          />
-          <EngineGrid />
-        </section>
-
-        <section id="pricing" className={cn(COLUMN, SECTION, 'scroll-mt-16')}>
-          <SplitHeading
-            title={`Free to add. ${FREE_COMPUTE_USD} of compute included every month.`}
-            lead="Past that you pay only for the cloud computer your agents run on. Models run on your own Claude or Codex subscription or API key."
-          />
-          <PlansBand prompt={prompt} />
-        </section>
-
-        <FaqSection
-          eyebrow="Frequently asked questions"
-          title="The questions developers ask before they paste the prompt."
-          items={FAQ.map((item, index) => ({ id: `loopmaxxing-faq-${index + 1}`, question: item.q, answer: item.a }))}
-        />
-      </main>
-
-      <PageEnd prompt={prompt} />
-    </div>
+        <PageEnd prompt={prompt} />
+      </div>
+    </CopyGuideProvider>
   );
 }
