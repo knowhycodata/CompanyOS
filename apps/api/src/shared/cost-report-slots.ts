@@ -1,4 +1,5 @@
 import { HTTPException } from 'hono/http-exception';
+import { createHolderSlots } from './holder-slots';
 
 /**
  * Per-replica cap on cost reports running against the database at once
@@ -22,8 +23,7 @@ export const MAX_SLOT_WAIT_MS = 15_000;
 const RETRY_AFTER_SECONDS = 5;
 
 // replica-local: the cap bounds the pool one replica can lose to reports.
-let inFlight = 0;
-const waiters: Array<() => void> = [];
+const slots = createHolderSlots(MAX_COST_REPORTS_PER_REPLICA, tooMany);
 
 function tooMany(): HTTPException {
   return new HTTPException(429, {
@@ -43,36 +43,11 @@ function tooMany(): HTTPException {
   });
 }
 
-/** Resolves when a slot is ours (the slot is handed over, inFlight unchanged); rejects with a 429 after waitMs. */
-function acquire(waitMs: number): Promise<void> {
-  if (inFlight < MAX_COST_REPORTS_PER_REPLICA) {
-    inFlight++;
-    return Promise.resolve();
-  }
-  return new Promise<void>((resolve, reject) => {
-    const grant = () => {
-      clearTimeout(timer);
-      resolve();
-    };
-    const timer = setTimeout(() => {
-      waiters.splice(waiters.indexOf(grant), 1);
-      reject(tooMany());
-    }, waitMs);
-    waiters.push(grant);
-  });
-}
-
-function release(): void {
-  const next = waiters.shift();
-  if (next) next();
-  else inFlight--;
-}
-
 export async function withCostReportSlot<T>(run: () => Promise<T>, waitMs = MAX_SLOT_WAIT_MS): Promise<T> {
-  await acquire(waitMs);
+  await slots.acquire(waitMs);
   try {
     return await run();
   } finally {
-    release();
+    slots.release();
   }
 }
