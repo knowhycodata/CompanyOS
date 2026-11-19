@@ -1615,7 +1615,7 @@ export function validateTriggers(rawNode: unknown, path: string, issues: Manifes
     validateTriggerTarget(entry, where, type, issues);
     if (entry.capacity_fallback_models !== undefined) {
       const chain = entry.capacity_fallback_models;
-      if (typeof entry.model !== 'string' || !entry.model.startsWith('claude-agent/') || !Array.isArray(chain) || !['claude-agent/sonnet,codex/gpt-6.1-sol', 'codex/gpt-6.1-sol'].includes(chain.join(','))) issues.push({path: `${where}.capacity_fallback_models`, message: 'requires explicit Claude model and Sonnet/Sol or Sol chain', severity: 'error'});
+      if (typeof entry.model !== 'string' || !['claude-agent/opus', 'claude-agent/sonnet'].includes(entry.model) || !Array.isArray(chain) || !['claude-agent/sonnet,codex/gpt-6.1-sol', 'codex/gpt-6.1-sol'].includes(chain.join(','))) issues.push({path: `${where}.capacity_fallback_models`, message: 'requires explicit Claude model and Sonnet/Sol or Sol chain', severity: 'error'});
     }
     if (entry.every !== undefined) {
       if (type !== 'cron') issues.push({ path: `${where}.every`, message: `is only valid on a cron trigger (type is "${type}").`, severity: 'error' });

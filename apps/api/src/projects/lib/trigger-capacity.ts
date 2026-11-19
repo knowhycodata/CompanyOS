@@ -15,6 +15,7 @@ export function selectTriggerCapacityModel(input: {
     const usage = parsed.data;
     const age = now - Date.parse(usage.observed_at);
     if (age < 0 || age > 300_000) throw new Error('Shared Claude capacity is stale');
+    if (usage.limited && usage.windows.some(window => window.used_percent >= 100 && !isBlockingWindow(window.id) && !/^(seven_day_|7d_)(opus|sonnet|fable)$/.test(window.id))) throw new Error('Shared Claude limit has unknown scope');
     if (!usage.windows.length) throw new Error('Shared Claude capacity has no windows');
     if (usage.windows.some(window => window.used_percent >= 100 && (!window.resets_at || Date.parse(window.resets_at) <= now))) throw new Error('Shared Claude exhaustion has no future reset');
     return usage;
@@ -24,6 +25,7 @@ export function selectTriggerCapacityModel(input: {
       if (available.includes(candidate)) return { model: candidate, intendedModel: model, reason: 'claude-exhausted' };
       continue;
     }
+    if (candidate !== model && !available.includes(candidate)) continue;
     const family = candidate.slice('claude-agent/'.length);
     const ready = usages.some(usage => {
       const full = usage.windows.filter(window => window.used_percent >= 100);

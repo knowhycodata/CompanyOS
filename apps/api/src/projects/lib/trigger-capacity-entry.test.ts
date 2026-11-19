@@ -22,7 +22,7 @@ test('CRUD parse and unrelated PATCH preserve policy',()=>{
 });
 test('no opt-in stays absent; unsupported chains and nonClaude model refused',()=>{
  for(const capacity_fallback_models of [[],['codex/gpt-6.1-terra'],['claude-agent/sonnet','codex/gpt-6.1-sol','codex/gpt-6.1-sol'],[{},{}]]) expect(extractTriggers({raw:{triggers:[{...entry,capacity_fallback_models}]},path:'kortix.yaml'}).errors.length).toBeGreaterThan(0);
- expect(extractTriggers({raw:{triggers:[{...entry,model:'codex/gpt-6.1-sol'}]},path:'kortix.yaml'}).errors.length).toBeGreaterThan(0);
+ expect(extractTriggers({raw:{triggers:[{...entry,model:'claude-agent/unknown'}]},path:'kortix.yaml'}).errors.length).toBeGreaterThan(0);
 });
 
 test('canonical manifest validator accepts opt-in in on/run and rejects invalid fallback', () => {

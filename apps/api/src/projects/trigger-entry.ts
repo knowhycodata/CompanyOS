@@ -594,7 +594,7 @@ function parseTriggerEntry(
         : 'default';
   const model = typeof row.model === 'string' && row.model.trim() ? row.model.trim() : null;
   const capacityFallbackModels = row.capacity_fallback_models;
-  if (capacityFallbackModels !== undefined && (!model?.startsWith('claude-agent/') || !Array.isArray(capacityFallbackModels) || capacityFallbackModels.length === 0 || capacityFallbackModels.length > 2 || capacityFallbackModels.some(value => typeof value !== 'string') || !['claude-agent/sonnet,codex/gpt-6.1-sol', 'codex/gpt-6.1-sol'].includes(capacityFallbackModels.join(',')))) return err(slug, 'capacity_fallback_models requires explicit Claude model and Sonnet/Sol or Sol chain');
+  if (capacityFallbackModels !== undefined && (!['claude-agent/opus', 'claude-agent/sonnet'].includes(model ?? '') || !Array.isArray(capacityFallbackModels) || capacityFallbackModels.length === 0 || capacityFallbackModels.length > 2 || capacityFallbackModels.some(value => typeof value !== 'string') || !['claude-agent/sonnet,codex/gpt-6.1-sol', 'codex/gpt-6.1-sol'].includes(capacityFallbackModels.join(',')))) return err(slug, 'capacity_fallback_models requires explicit Claude model and Sonnet/Sol or Sol chain');
   const enabled = coerceBool(row.enabled, true);
 
   const sessionModeRaw =

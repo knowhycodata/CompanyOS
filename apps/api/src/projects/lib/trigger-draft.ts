@@ -387,7 +387,7 @@ export function parseTriggerDraft(
   // null/empty model = "Default" — leave it to the resolution chain at fire time.
   const model = normalizeString(body.model) ?? null;
   const capacityFallbackModels = body.capacity_fallback_models;
-  if (capacityFallbackModels !== undefined && (!model?.startsWith('claude-agent/') || !Array.isArray(capacityFallbackModels) || !['claude-agent/sonnet,codex/gpt-6.1-sol', 'codex/gpt-6.1-sol'].includes(capacityFallbackModels.join(',')))) return { error: 'capacity_fallback_models requires explicit Claude model and Sonnet/Sol or Sol chain' };
+  if (capacityFallbackModels !== undefined && (!['claude-agent/opus', 'claude-agent/sonnet'].includes(model ?? '') || !Array.isArray(capacityFallbackModels) || !['claude-agent/sonnet,codex/gpt-6.1-sol', 'codex/gpt-6.1-sol'].includes(capacityFallbackModels.join(',')))) return { error: 'capacity_fallback_models requires explicit Claude model and Sonnet/Sol or Sol chain' };
   const enabled = normalizeBoolean(body.enabled) ?? true;
 
   const session = parseDraftSession(body, type);

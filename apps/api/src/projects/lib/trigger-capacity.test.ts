@@ -11,5 +11,12 @@ test('no opt-in and nonClaude routes do not inspect capacity or change model', (
 test('disabled fallback cannot be selected', () => expect(() => selectTriggerCapacityModel({model:'claude-agent/opus', fallbacks:chain, now, snapshots:[usage(true)], available:[]})).toThrow());
 test('Opus-only exhaustion selects healthy Sonnet before Sol', () => {
  const windows=[{id:'weekly',used_percent:20,resets_at:new Date(now+3600000).toISOString()},{id:'seven_day_opus',used_percent:100,resets_at:new Date(now+3600000).toISOString()},{id:'seven_day_sonnet',used_percent:10,resets_at:new Date(now+3600000).toISOString()}];
- expect(select([{...usage(true),windows}])).toEqual({model:'claude-agent/sonnet',intendedModel:'claude-agent/opus',reason:'claude-exhausted'});
+ expect(selectTriggerCapacityModel({model:'claude-agent/opus',fallbacks:chain,snapshots:[{...usage(true),windows}],now,available:['claude-agent/sonnet','codex/gpt-6.1-sol']})).toEqual({model:'claude-agent/sonnet',intendedModel:'claude-agent/opus',reason:'claude-exhausted'});
 });
+
+test('unavailable Sonnet is skipped; no enabled fallback holds',()=>{
+ const snapshot={...usage(true),windows:[{id:'seven_day_opus',used_percent:100,resets_at:new Date(now+3600000).toISOString()}]};
+ expect(select([snapshot]).model).toBe('codex/gpt-6.1-sol');
+ expect(()=>selectTriggerCapacityModel({model:'claude-agent/opus',fallbacks:chain,snapshots:[snapshot],now,available:[]})).toThrow();
+});
+test('unknown limited-window scope holds rather than treating intended model as available',()=>expect(()=>select([{...usage(true),windows:[{id:'seven_day_unknown',used_percent:100,resets_at:new Date(now+3600000).toISOString()}]}])).toThrow());
