@@ -1,3 +1,4 @@
+import { drainCostReportQueries } from './cost-report-slots';
 import { llmValueFields, llmValueBasis } from './llm-value';
 import { numberValue, isoValue, type NumericValue, type TemporalValue } from './cost-values';
 import { gatewayRequestLogs, projectSessions, sandboxComputeSessions, sessionSandboxes } from '@kortix/db';
@@ -503,7 +504,7 @@ async function loadReconciliation(
     lt(sandboxComputeSessions.startedAt, window.to.toISOString()),
   ];
 
-  const [llmResult, computeResult] = await Promise.all([
+  const [llmResult, computeResult] = await drainCostReportQueries([
     db
       .select({
         cost: kortixBilledSpendSql,
@@ -645,7 +646,7 @@ export async function listSessionCosts(input: {
     asc(projectSessions.sessionId),
   ];
 
-  const [sessionRows, totalRows, reconciliation] = await Promise.all([
+  const [sessionRows, totalRows, reconciliation] = await drainCostReportQueries([
     db
       .select({
         sessionId: projectSessions.sessionId,

@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { DEFAULT_DB_POOL_MAX } from '@kortix/db/connection-defaults';
 import { HTTPException } from 'hono/http-exception';
-import { MAX_COST_REPORTS_PER_REPLICA, MAX_SLOT_WAIT_MS, withCostReportSlot } from './cost-report-slots';
+import { MAX_COST_REPORTS_PER_REPLICA, MAX_SLOT_WAIT_MS, drainCostReportQueries, withCostReportSlot } from './cost-report-slots';
 
 function gate() {
   let open!: () => void;
@@ -58,4 +58,23 @@ describe('withCostReportSlot', () => {
     }
     expect(await withCostReportSlot(async () => 'ran')).toBe('ran');
   });
+});
+
+test('a failed fan-out drains siblings before the next report and preserves the first error', async () => {
+  const sibling = gate();
+  const failure = new Error('first query failed');
+  let nextStarted = false;
+  const failed = withCostReportSlot(() => drainCostReportQueries([
+    Promise.reject(failure),
+    sibling.opened,
+    sibling.opened.then(() => { throw new Error('later sibling failed'); }),
+  ])).catch((error: unknown) => error);
+  const next = withCostReportSlot(async () => { nextStarted = true; });
+  await Bun.sleep(5);
+  const startedBeforeDrain = nextStarted;
+  sibling.open();
+  expect(await failed).toBe(failure);
+  await next;
+  expect(startedBeforeDrain).toBe(false);
+  expect(nextStarted).toBe(true);
 });

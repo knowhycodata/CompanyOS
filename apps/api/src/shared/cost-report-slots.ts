@@ -51,3 +51,13 @@ export async function withCostReportSlot<T>(run: () => Promise<T>, waitMs = MAX_
     slots.release();
   }
 }
+
+/** Keep the report permit until every query settles, including nested fan-out. */
+export async function drainCostReportQueries<T extends readonly unknown[]>(queries: T): Promise<{ -readonly [P in keyof T]: Awaited<T[P]> }> {
+  try {
+    return await Promise.all(queries);
+  } catch (error) {
+    await Promise.allSettled(queries);
+    throw error;
+  }
+}

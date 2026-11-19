@@ -1,3 +1,4 @@
+import { drainCostReportQueries } from './cost-report-slots';
 import { numberValue, isoValue } from './cost-values';
 import { gatewayRequestLogs, projectSessions, sandboxComputeSessions, storageCharges } from '@kortix/db';
 import { and, eq, gte, lt, sql } from 'drizzle-orm';
@@ -276,7 +277,7 @@ export async function listCostByProject(input: {
   const { accountId, window } = input;
 
   const storageDays = storageDayRange(window);
-  const [llmRows, computeRows, projectRows, storageRows] = await Promise.all([
+  const [llmRows, computeRows, projectRows, storageRows] = await drainCostReportQueries([
     costByProjectLlmQuery(accountId, window, input.projectId),
     db
       .select({
@@ -560,7 +561,7 @@ export async function getCostSummary(input: {
     return and(...conditions);
   };
 
-  const [llmGroupRows, llmPriorRows, computeGroupRows, computePriorRows, storageDayRows, storagePriorRows] = await Promise.all([
+  const [llmGroupRows, llmPriorRows, computeGroupRows, computePriorRows, storageDayRows, storagePriorRows] = await drainCostReportQueries([
     costLlmGroupedQuery(llmScope, window),
     costLlmPriorQuery(llmScope, previous),
     db
