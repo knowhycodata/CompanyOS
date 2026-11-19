@@ -219,11 +219,12 @@ test('CIMD saves a public client and starts hosted PKCE without DCR', async () =
     createdBy: USER,
   }, { fetchImpl: async () => { throw new Error('CIMD must not call DCR'); } });
   const saved = await loadOAuth2Application(target.connectionId);
-  expect(saved?.application.client_id).toBe('https://api.kortix.test/.well-known/oauth-client.json');
+  const clientId = 'https://api.kortix.test/.well-known/oauth-client.json';
+  expect(saved?.application.client_id).toBe(clientId);
   expect(saved?.application.token_endpoint_auth_method).toBe('none');
   const started = await createAuthorizationCodeSession({ connectionId: target.connectionId, initiatedBy: USER, callbackUrl: CALLBACK });
   const url = new URL(started.authorizationUrl);
-  expect(url.searchParams.get('client_id')).toBe(saved?.application.client_id);
+  expect(url.searchParams.get('client_id')).toBe(clientId);
   expect(url.searchParams.get('redirect_uri')).toBe(CALLBACK);
   expect(url.searchParams.get('code_challenge_method')).toBe('S256');
 });
