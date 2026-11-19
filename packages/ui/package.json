@@ -197,6 +197,8 @@
     "./entity-avatar": "./src/primitives/entity-avatar.tsx",
     "./error-boundary": "./src/primitives/error-boundary.tsx",
     "./error-state": "./src/primitives/error-state.tsx",
+    "./expandable-search": "./src/primitives/expandable-search.tsx",
+    "./sort-menu": "./src/primitives/sort-menu.tsx",
     "./faded-scroll-area": "./src/primitives/faded-scroll-area.tsx",
     "./favicon-avatar": "./src/primitives/favicon-avatar.tsx",
     "./field": "./src/primitives/field.tsx",
@@ -282,6 +284,7 @@
     "./internal/hooks/use-slash-focus": "./src/internal/hooks/use-slash-focus.ts",
     "./internal/icons/claude": "./src/internal/icons/claude.tsx",
     "./internal/icons/codex": "./src/internal/icons/codex.tsx",
+    "./internal/icons/cursor": "./src/internal/icons/cursor.tsx",
     "./internal/icons/discord": "./src/internal/icons/discord.tsx",
     "./internal/icons/download": "./src/internal/icons/download.tsx",
     "./internal/icons/edge": "./src/internal/icons/edge.tsx",
@@ -424,6 +427,7 @@
     "./portal": "./src/primitives/portal.tsx",
     "./preview-image": "./src/primitives/preview-image.tsx",
     "./print.css": "./src/styles/print.css",
+    "./profile-hover-card": "./src/primitives/profile-hover-card.tsx",
     "./progress": "./src/primitives/progress.tsx",
     "./progress-ring": "./src/primitives/progress-ring.tsx",
     "./project-icon-picker": "./src/primitives/project-icon-picker.tsx",
@@ -520,6 +524,7 @@
     "./theme.css": "./src/styles/theme.css",
     "./theme/wallpapers": "./src/theme/wallpapers.ts",
     "./toast": "./src/primitives/toast.tsx",
+    "./toast-clearance": "./src/primitives/toast-clearance.ts",
     "./toggle": "./src/primitives/toggle.tsx",
     "./tokens.css": "./src/styles/tokens.css",
     "./tooltip": "./src/primitives/tooltip.tsx",
@@ -560,12 +565,14 @@
     "./workspace/review/mock-data": "./src/workspace/review/mock-data.ts",
     "./workspace/review/review-center": "./src/workspace/review/review-center.tsx",
     "./workspace/review/types": "./src/workspace/review/types.ts",
+    "./workspace/session-spaces/space-detail-page": "./src/workspace/session-spaces/space-detail-page.tsx",
+    "./workspace/session-spaces/spaces-page": "./src/workspace/session-spaces/spaces-page.tsx",
     "./workspace/settings/use-leave-workspace": "./src/workspace/settings/use-leave-workspace.tsx",
+    "./workspace/setup/workspace-setup-page": "./src/workspace/setup/workspace-setup-page.tsx",
     "./workspace/sidebar/footer/project-apps-nav": "./src/workspace/sidebar/footer/project-apps-nav.tsx",
     "./workspace/sidebar/footer/project-balance-warning": "./src/workspace/sidebar/footer/project-balance-warning.tsx",
-    "./workspace/sidebar/footer/project-computer-nav": "./src/workspace/sidebar/footer/project-computer-nav.tsx",
     "./workspace/sidebar/footer/project-manifest-issues-alert": "./src/workspace/sidebar/footer/project-manifest-issues-alert.tsx",
-    "./workspace/sidebar/footer/project-mcp-nav": "./src/workspace/sidebar/footer/project-mcp-nav.tsx",
+    "./workspace/sidebar/footer/project-promo-cards": "./src/workspace/sidebar/footer/project-promo-cards.tsx",
     "./workspace/sidebar/footer/project-sandbox-alert": "./src/workspace/sidebar/footer/project-sandbox-alert.tsx",
     "./workspace/sidebar/footer/project-upgrade-button": "./src/workspace/sidebar/footer/project-upgrade-button.tsx",
     "./workspace/sidebar/footer/sandbox-health": "./src/workspace/sidebar/footer/sandbox-health.ts",
@@ -1275,6 +1282,10 @@
         "types": "./dist/primitives/error-state.d.ts",
         "import": "./dist/primitives/error-state.js"
       },
+      "./expandable-search": {
+        "types": "./dist/primitives/expandable-search.d.ts",
+        "import": "./dist/primitives/expandable-search.js"
+      },
       "./faded-scroll-area": {
         "types": "./dist/primitives/faded-scroll-area.d.ts",
         "import": "./dist/primitives/faded-scroll-area.js"
@@ -1611,6 +1622,10 @@
       "./internal/icons/codex": {
         "types": "./dist/internal/icons/codex.d.ts",
         "import": "./dist/internal/icons/codex.js"
+      },
+      "./internal/icons/cursor": {
+        "types": "./dist/internal/icons/cursor.d.ts",
+        "import": "./dist/internal/icons/cursor.js"
       },
       "./internal/icons/discord": {
         "types": "./dist/internal/icons/discord.d.ts",
@@ -2174,6 +2189,10 @@
         "import": "./dist/primitives/preview-image.js"
       },
       "./print.css": "./dist/styles/print.css",
+      "./profile-hover-card": {
+        "types": "./dist/primitives/profile-hover-card.d.ts",
+        "import": "./dist/primitives/profile-hover-card.js"
+      },
       "./progress": {
         "types": "./dist/primitives/progress.d.ts",
         "import": "./dist/primitives/progress.js"
@@ -2549,6 +2568,10 @@
         "types": "./dist/primitives/toast.d.ts",
         "import": "./dist/primitives/toast.js"
       },
+      "./toast-clearance": {
+        "types": "./dist/primitives/toast-clearance.d.ts",
+        "import": "./dist/primitives/toast-clearance.js"
+      },
       "./toggle": {
         "types": "./dist/primitives/toggle.d.ts",
         "import": "./dist/primitives/toggle.js"
@@ -2706,9 +2729,21 @@
         "types": "./dist/workspace/review/types.d.ts",
         "import": "./dist/workspace/review/types.js"
       },
+      "./workspace/session-spaces/space-detail-page": {
+        "types": "./dist/workspace/session-spaces/space-detail-page.d.ts",
+        "import": "./dist/workspace/session-spaces/space-detail-page.js"
+      },
+      "./workspace/session-spaces/spaces-page": {
+        "types": "./dist/workspace/session-spaces/spaces-page.d.ts",
+        "import": "./dist/workspace/session-spaces/spaces-page.js"
+      },
       "./workspace/settings/use-leave-workspace": {
         "types": "./dist/workspace/settings/use-leave-workspace.d.ts",
         "import": "./dist/workspace/settings/use-leave-workspace.js"
+      },
+      "./workspace/setup/workspace-setup-page": {
+        "types": "./dist/workspace/setup/workspace-setup-page.d.ts",
+        "import": "./dist/workspace/setup/workspace-setup-page.js"
       },
       "./workspace/sidebar/footer/project-apps-nav": {
         "types": "./dist/workspace/sidebar/footer/project-apps-nav.d.ts",
@@ -2718,17 +2753,13 @@
         "types": "./dist/workspace/sidebar/footer/project-balance-warning.d.ts",
         "import": "./dist/workspace/sidebar/footer/project-balance-warning.js"
       },
-      "./workspace/sidebar/footer/project-computer-nav": {
-        "types": "./dist/workspace/sidebar/footer/project-computer-nav.d.ts",
-        "import": "./dist/workspace/sidebar/footer/project-computer-nav.js"
-      },
       "./workspace/sidebar/footer/project-manifest-issues-alert": {
         "types": "./dist/workspace/sidebar/footer/project-manifest-issues-alert.d.ts",
         "import": "./dist/workspace/sidebar/footer/project-manifest-issues-alert.js"
       },
-      "./workspace/sidebar/footer/project-mcp-nav": {
-        "types": "./dist/workspace/sidebar/footer/project-mcp-nav.d.ts",
-        "import": "./dist/workspace/sidebar/footer/project-mcp-nav.js"
+      "./workspace/sidebar/footer/project-promo-cards": {
+        "types": "./dist/workspace/sidebar/footer/project-promo-cards.d.ts",
+        "import": "./dist/workspace/sidebar/footer/project-promo-cards.js"
       },
       "./workspace/sidebar/footer/project-sandbox-alert": {
         "types": "./dist/workspace/sidebar/footer/project-sandbox-alert.d.ts",

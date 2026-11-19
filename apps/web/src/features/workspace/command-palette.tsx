@@ -522,11 +522,11 @@ function FileSearchPage({
                 value={sanitizeCmdkValue(`content ${filePath} ${match.lines} ${match.line_number}`)}
                 onSelect={() => onSelect(filePath, match.line_number)}
               >
-                <Hash className="text-muted-foreground/40 h-3.5 w-3.5 shrink-0" />
+                <Hash className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
                 <span className="text-muted-foreground w-8 shrink-0 text-right text-xs tabular-nums">
                   {match.line_number}
                 </span>
-                <span className="text-muted-foreground/60 flex-1 truncate font-mono text-sm">
+                <span className="text-muted-foreground flex-1 truncate font-mono text-sm">
                   {(match.lines || '').trim()}
                 </span>
               </CommandItem>
@@ -548,7 +548,7 @@ function FileSearchPage({
           <FileText className="text-muted-foreground size-4 shrink-0" />
           <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
             <span className="shrink-0 text-sm font-medium">{item.name}</span>
-            <span className="text-muted-foreground/35 min-w-0 flex-1 truncate font-mono text-xs">
+            <span className="text-muted-foreground min-w-0 flex-1 truncate font-mono text-xs">
               {item.path}
             </span>
           </div>
@@ -630,7 +630,7 @@ function ChangeRequestsPage({
             #{cr.number}
           </span>
           <span className="flex-1 truncate text-sm">{cr.title}</span>
-          <span className="text-muted-foreground/40 max-w-[140px] shrink-0 truncate font-mono text-xs">
+          <span className="text-muted-foreground max-w-[140px] shrink-0 truncate font-mono text-xs">
             {cr.base_ref}
           </span>
         </CommandItem>
@@ -771,7 +771,7 @@ function FeatureFlagsPage({
             <Flask className="text-muted-foreground size-4 shrink-0" />
             <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
               <span className="truncate text-sm">{feature.name}</span>
-              <span className="text-muted-foreground/40 truncate font-mono text-xs">
+              <span className="text-muted-foreground truncate font-mono text-xs">
                 {feature.key}
               </span>
             </div>
@@ -781,7 +781,7 @@ function FeatureFlagsPage({
               <span
                 className={cn(
                   'shrink-0 text-xs font-medium tabular-nums',
-                  feature.enabled ? 'text-primary/70' : 'text-muted-foreground/40',
+                  feature.enabled ? 'text-primary/70' : 'text-muted-foreground',
                 )}
               >
                 {feature.enabled ? 'On' : 'Off'}
@@ -2433,12 +2433,12 @@ export function CommandPalette() {
                             )}
                             <span className="flex-1">{displayLabel}</span>
                             {item.id === 'review-changes' && openChangeRequestCount > 0 && (
-                              <span className="text-muted-foreground/40 text-xs tabular-nums">
+                              <span className="text-muted-foreground text-xs tabular-nums">
                                 {openChangeRequestCount}
                               </span>
                             )}
                             {submenuPage === 'density' && (
-                              <span className="text-muted-foreground/40 text-xs">
+                              <span className="text-muted-foreground text-xs">
                                 {
                                   densityPageOptions.find(
                                     (option) => option.id === conversationDensity,
@@ -2448,7 +2448,7 @@ export function CommandPalette() {
                             )}
                             {item.shortcut && <CommandShortcut>{item.shortcut}</CommandShortcut>}
                             {submenuPage && (
-                              <ChevronRight className="text-muted-foreground/30 size-3" />
+                              <ChevronRight className="text-muted-foreground size-3" />
                             )}
                           </CommandItem>
                           {index === 2 && suggestedSessionIdCopy ? (
@@ -2498,11 +2498,11 @@ export function CommandPalette() {
                           )}
                         </span>
                         {currentAgent && (
-                          <span className="text-muted-foreground/40 text-xs">
+                          <span className="text-muted-foreground text-xs">
                             {currentAgent.name}
                           </span>
                         )}
-                        <ChevronRight className="text-muted-foreground/30 size-3" />
+                        <ChevronRight className="text-muted-foreground size-3" />
                       </CommandItem>
                       <CommandItem
                         value="suggestion change model llm switch"
@@ -2515,7 +2515,7 @@ export function CommandPalette() {
                           )}
                         </span>
                         {currentModelKey && (
-                          <span className="text-muted-foreground/40 max-w-[160px] truncate text-xs">
+                          <span className="text-muted-foreground max-w-[160px] truncate text-xs">
                             {allModels.find(
                               (m) =>
                                 m.providerID === currentModelKey.providerID &&
@@ -2523,7 +2523,7 @@ export function CommandPalette() {
                             )?.modelName || currentModelKey.modelID}
                           </span>
                         )}
-                        <ChevronRight className="text-muted-foreground/30 size-3" />
+                        <ChevronRight className="text-muted-foreground size-3" />
                       </CommandItem>
                     </>
                   )}
@@ -2550,7 +2550,7 @@ export function CommandPalette() {
                       <Badge variant="kortix" size="sm">
                         {tHardcodedUi.raw('i18nComplete.text071ca2227754')}
                       </Badge>
-                      <ChevronRight className="text-muted-foreground/40 size-3" />
+                      <ChevronRight className="text-muted-foreground size-3" />
                     </CommandItem>
                   )}
                 </CommandGroup>
@@ -2575,7 +2575,7 @@ export function CommandPalette() {
                         <MessageCircle className="size-4 shrink-0" />
                         <span className="flex-1 truncate">{sessionName(session)}</span>
                         <SessionSharedIcon session={session} />
-                        <span className="text-muted-foreground/30 shrink-0 text-xs tabular-nums">
+                        <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
                           {formatRelativeTime(
                             new Date(sessionLastActivityAt(session)).getTime(),
                           )}
@@ -2604,7 +2604,7 @@ export function CommandPalette() {
                         onSelect={() => handleSelectWorkspace(row.workspace)}
                         trailing={
                           (row.workspace.last_opened_at || row.workspace.updated_at) && (
-                            <span className="text-muted-foreground/30 shrink-0 text-xs tabular-nums">
+                            <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
                               {formatRelativeTime(
                                 new Date(
                                   row.workspace.last_opened_at || row.workspace.updated_at,
@@ -2656,7 +2656,7 @@ export function CommandPalette() {
                           <Cpu className="size-4" />
                         )}
                         <span className="flex-1">{item.label}</span>
-                        <ChevronRight className="text-muted-foreground/30 size-3" />
+                        <ChevronRight className="text-muted-foreground size-3" />
                       </CommandItem>
                     ))}
                   </CommandGroup>
@@ -2707,7 +2707,7 @@ export function CommandPalette() {
                           )}
                           <span className="flex-1">{displayLabel}</span>
                           {item.id === 'review-changes' && openChangeRequestCount > 0 && (
-                            <span className="text-muted-foreground/40 text-xs tabular-nums">
+                            <span className="text-muted-foreground text-xs tabular-nums">
                               {openChangeRequestCount}
                             </span>
                           )}
@@ -2718,7 +2718,7 @@ export function CommandPalette() {
                             </span>
                           )}
                           {submenuPage && (
-                            <ChevronRight className="text-muted-foreground/30 size-3" />
+                            <ChevronRight className="text-muted-foreground size-3" />
                           )}
                         </CommandItem>
                       );
@@ -2777,7 +2777,7 @@ export function CommandPalette() {
                         {session.session_id === params?.sessionId && (
                           <Check className="text-primary h-3.5 w-3.5 shrink-0" />
                         )}
-                        <span className="text-muted-foreground/40 shrink-0 text-xs tabular-nums">
+                        <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
                           {formatRelativeTime(
                             new Date(sessionLastActivityAt(session)).getTime(),
                           )}
@@ -2835,7 +2835,7 @@ export function CommandPalette() {
                         onSelect={() => handleSelectWorkspace(row.workspace)}
                         trailing={
                           (row.workspace.last_opened_at || row.workspace.updated_at) && (
-                            <span className="text-muted-foreground/40 shrink-0 text-xs tabular-nums">
+                            <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
                               {formatRelativeTime(
                                 new Date(
                                   row.workspace.last_opened_at || row.workspace.updated_at,
@@ -2872,7 +2872,7 @@ export function CommandPalette() {
                       <Badge variant="kortix" size="sm">
                         {tHardcodedUi.raw('i18nComplete.text071ca2227754')}
                       </Badge>
-                      <ChevronRight className="text-muted-foreground/40 size-3" />
+                      <ChevronRight className="text-muted-foreground size-3" />
                     </CommandItem>
                   </CommandGroup>
                 )}
@@ -2943,7 +2943,7 @@ export function CommandPalette() {
                           {agentDisplayName(agent.name, agent.title)}
                         </span>
                         {agent.description && (
-                          <span className="text-muted-foreground/50 truncate text-xs">
+                          <span className="text-muted-foreground truncate text-xs">
                             <InlineCodeText text={agent.description} />
                           </span>
                         )}
@@ -3002,7 +3002,7 @@ export function CommandPalette() {
                             kebab-case, and it doubled the height of a list
                             that is scanned by name. */}
                         {modelIdAddsInformation(model.modelName, model.modelID) && (
-                          <span className="text-muted-foreground/40 truncate font-mono text-xs">
+                          <span className="text-muted-foreground truncate font-mono text-xs">
                             {model.modelID}
                           </span>
                         )}
@@ -3121,7 +3121,7 @@ export function CommandPalette() {
                   >
                     <OptionIcon className="text-muted-foreground size-4 shrink-0" />
                     <span className="shrink-0">{option.label}</span>
-                    <span className="text-muted-foreground/60 flex-1 truncate text-xs">
+                    <span className="text-muted-foreground flex-1 truncate text-xs">
                       {option.description}
                     </span>
                     {option.id === conversationDensity && (
