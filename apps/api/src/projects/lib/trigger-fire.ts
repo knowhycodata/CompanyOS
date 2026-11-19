@@ -1,3 +1,4 @@
+import { logger } from '../../lib/logger';
 import { checkBillingAdmission } from '../../billing/services/billing-gate';
 import { toSessionModelRef } from '../../llm-gateway/resolution/effective';
 import type { PromptOverridesWire } from '../session-lifecycle/store';
@@ -17,6 +18,7 @@ import { triggerTargetOf } from './runtime-triggers';
 import { accountMemberRow } from '../../iam/membership-read';
 import type { TriggerFireSource } from './trigger-webhook-auth';
 import { claimTriggerCreate, releaseTriggerCreate, triggerCreateKey } from './trigger-create-claim';
+import { triggerCapacityModel } from './trigger-capacity-runtime';
 import { triggerModelRefusal } from './trigger-model-gate';
 import { pauseTriggerOnAccountRefusal } from './trigger-setup-pause';
 import { alertTriggerAutoPaused, alertTriggerThrottled, clearTriggerAlert } from './trigger-alerts';
@@ -398,6 +400,7 @@ async function fireGitTriggerOnce(input: {
   request?: RequestAuditContext;
   /** A person fired it (manual fire, replay): the run caps do not apply. */
   deliberate?: boolean;
+  capacityRouting?: { intendedModel: string; model: string; reason: string };
 }): Promise<{
   /** `skipped`: a run cap or an auto-pause (KRTX-1721) held it; `reason` says which. */
   status: 'fired' | 'queued' | 'failed' | 'skipped';
@@ -466,6 +469,15 @@ async function fireGitTriggerOnce(input: {
     return { status: 'failed', ...PRIVATE_CHANNEL_TRIGGER, retryable: false };
   }
   const actor = automation;
+  // Keep the manifest model intact. Every fire, including keyed/reuse, resolves
+  // capacity again so the first fire after reset restores the intended model.
+  try {
+    const capacity = await triggerCapacityModel({ accountId: project.accountId, projectId: project.projectId, actor, model: spec.model, fallbacks: spec.capacityFallbackModels });
+    if (capacity.reason) logger.info('[triggers] capacity fallback', { slug: spec.slug, intendedModel: spec.model, model: capacity.model, reason: capacity.reason });
+    input = { ...input, spec: { ...spec, model: capacity.model }, ...(capacity.reason && capacity.intendedModel && capacity.model ? { capacityRouting: { intendedModel: capacity.intendedModel, model: capacity.model, reason: capacity.reason } } : {}) };
+  } catch (error) {
+    return { status: 'failed', error: error instanceof Error ? error.message : 'Trigger capacity unavailable', errorCode: 'capacity_unknown', retryable: true };
+  }
 
   const sessionKey = renderSessionKey(spec, payload);
   const queued = await queueExistingTriggerSession(input, actor, sessionKey);
@@ -781,6 +793,7 @@ async function createGitTriggerSession(
       // (null) leaves resolution to that chain — see GitTriggerSpec.model.
       ...(spec.model ? { model: spec.model } : {}),
       metadata: {
+        ...(input.capacityRouting ? { trigger_capacity_routing: input.capacityRouting } : {}),
         trigger_source: source,
         trigger_kind: 'git',
         trigger_slug: spec.slug,
@@ -793,6 +806,7 @@ async function createGitTriggerSession(
       },
     },
     metadata: {
+      ...(input.capacityRouting ? { trigger_capacity_routing: input.capacityRouting } : {}),
       trigger_source: source,
       trigger_kind: 'git',
       trigger_slug: spec.slug,
