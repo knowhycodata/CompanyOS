@@ -334,7 +334,7 @@ export async function registerConnectionOAuth2Client(
   runtime: OAuth2LifecycleRuntime = {},
 ): Promise<OAuth2ApplicationInput> {
   const { registration } = input;
-  if (!registration.registration_endpoint) {
+  if (!registration.registration_endpoint && !registration.client_id_metadata_document_supported) {
     // No dynamic registration: only a catalogue app signs in, with Kortix's own
     // client and the catalogue's endpoints. Nothing from the request is used.
     const application = await kortixClientApplicationForConnection(input.identity.connectionId);
@@ -349,6 +349,7 @@ export async function registerConnectionOAuth2Client(
   const issued = await registerOAuth2Client(
     {
       registrationEndpoint: registration.registration_endpoint,
+      clientIdMetadataDocumentSupported: registration.client_id_metadata_document_supported,
       redirectUri: input.callbackUrl,
       scopes: registration.scopes,
       tokenEndpointAuthMethodsSupported: registration.token_endpoint_auth_methods_supported,
@@ -426,6 +427,7 @@ export async function startConnectionSignIn(input: {
   await registerConnectionOAuth2Client({
     identity: input.identity,
     registration: {
+      ...(discovery.client_id_metadata_document_supported ? { client_id_metadata_document_supported: true } : {}),
       ...(discovery.registration_endpoint ? { registration_endpoint: discovery.registration_endpoint } : {}),
       ...(discovery.authorization_server ? { issuer: discovery.authorization_server } : {}),
       ...(metadata.discovery_url ? { discovery_url: metadata.discovery_url } : {}),
