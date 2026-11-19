@@ -287,6 +287,7 @@ async function enqueueTriggerPrompt(input: {
   idempotencyKey?: string | null;
   /** The trigger's configured model; carried on the prompt for a re-prompted session. */
   model?: string | null;
+  capacityRouting?: { intendedModel: string; model: string; reason: string };
   /** `actor` is a person whose deferred prompt this is: the turn acts as them. */
   bindTurnIdentity?: boolean;
 }): Promise<'queued' | 'deduped' | 'no-session' | 'failed' | 'not-in-channel' | 'private-channel' | BillingRefusal> {
@@ -334,6 +335,7 @@ async function enqueueTriggerPrompt(input: {
     actorUserId: actor,
     text: input.text,
     triggerSlug: input.triggerSlug,
+    ...(input.capacityRouting ? { capacityRouting: input.capacityRouting } : {}),
     // Same per-due-slot key the create path uses — a fire the sweep timed out
     // on but that actually enqueued isn't duplicated when the next tick retries.
     idempotencyKey: input.idempotencyKey ?? null,
@@ -474,7 +476,7 @@ async function fireGitTriggerOnce(input: {
   try {
     const capacity = await triggerCapacityModel({ accountId: project.accountId, projectId: project.projectId, actor, model: spec.model, fallbacks: spec.capacityFallbackModels });
     if (capacity.reason) logger.info('[triggers] capacity fallback', { slug: spec.slug, intendedModel: spec.model, model: capacity.model, reason: capacity.reason });
-    input = { ...input, spec: { ...spec, model: capacity.model }, ...(capacity.reason && capacity.intendedModel && capacity.model ? { capacityRouting: { intendedModel: capacity.intendedModel, model: capacity.model, reason: capacity.reason } } : {}) };
+    input = { ...input, spec: { ...spec, model: capacity.model }, ...(spec.capacityFallbackModels && spec.model && capacity.model ? { capacityRouting: { intendedModel: spec.model, model: capacity.model, reason: capacity.reason ?? 'claude-available' } } : {}) };
   } catch (error) {
     return { status: 'failed', error: error instanceof Error ? error.message : 'Trigger capacity unavailable', errorCode: 'capacity_unknown', retryable: true };
   }
@@ -704,6 +706,7 @@ async function queueExistingTriggerSession(
     const outcome = await enqueueTriggerPrompt({
       project, sessionId, actor, text: renderedPrompt, source,
       triggerSlug: spec.slug, model: spec.model,
+      ...(input.capacityRouting ? { capacityRouting: input.capacityRouting } : {}),
       idempotencyKey: input.idempotencyKey ?? null,
     });
     if (typeof outcome === 'object') return outcome;
