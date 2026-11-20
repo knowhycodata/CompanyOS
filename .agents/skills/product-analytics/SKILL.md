@@ -32,8 +32,8 @@ person.
    secret name, or anything a customer typed. `identify` sends the user id
    only (decision 2026-11-04: data minimization). The CLAUDE.md PII rule
    applies to PostHog too.
-2. **Every event name is in a closed list.** Web: `PANEL_EVENTS` or
-   `JOURNEY_EVENTS` in `track.ts`. API: the `ProductEvent` union. Never call
+2. **Every event name is in a closed list.** Web: `PANEL_EVENTS`,
+   `JOURNEY_EVENTS` or `PERFORMANCE_EVENTS` in `track.ts`. API: the `ProductEvent` union. Never call
    `posthog.capture` directly.
 3. **A business fact is an API event.** Sign-up, project, session, message,
    checkout and payment events fire on the server after the database write. The
@@ -63,11 +63,31 @@ person.
    - Where: kortix.com only (`REPLAY_HOSTS`). loopmaxxing.sh joins when its
      CookieYes banner loads there; until then a visitor there cannot reject.
    - What is hidden: for a signed-in person, and on private and `/auth` pages,
-     every text node becomes `*`, every input is masked, every attribute that
-     can carry text becomes `***` (`replayAttribute`), links to another origin
-     keep only the host, image sources lose everything off our origin, and
-     frames record as empty boxes. A component that must never appear even as
-     a shape takes the `ph-no-capture` class. Page URLs follow rule 5.
+     every text node becomes `*` and every attribute that can carry text
+     becomes `***` (`replayAttribute`), except our own interface text. Every
+     input is masked, links to another origin keep only the host, image
+     sources lose everything off our origin, and frames record as empty boxes.
+     A component that must never appear even as a shape takes the
+     `ph-no-capture` class. Page URLs follow rule 5.
+   - Interface text (`UiTextIndex`, `apps/web/src/lib/analytics/replay-text.ts`):
+     every string of the translation catalog the page renders, the provider
+     names, the locale's relative times ("6 minutes ago") and the session
+     screen's English labels that code builds outside the catalog
+     (`replay-labels.ts`: step summaries, thought rows, tool verbs). Each
+     placeholder may stand only for a number: `{count} models` shows
+     "14 models" and hides "Acme models". Text with no letter never shows.
+     Parts joined by ` · ` or ` — ` are judged one by one; clauses joined by
+     `, ` show only when every clause is ours. Everything else hides, so a new
+     screen with customer content is hidden without a mark. A row that names
+     a file or a command renders the verb in its own text node, so the verb
+     shows and the object hides. Text that is not ours (model names and
+     provider names that come from the API) stays hidden. When a replay of the
+     session screen hides a label of ours, add it to `replay-labels.ts`. Message and document text
+     never shows, even where a word equals our text: `.kortix-markdown` and
+     `[data-replay-content]` (the user message bubble), `REPLAY_CONTENT_SELECTOR`.
+     Mark other text a person or an agent wrote with `data-replay-content`. A click event on a
+     private page keeps the same interface text in `$el_text` and the
+     element chain, and loses the rest (`scrubEvent`).
    - The recorder (`posthog-js/dist/posthog-recorder`, 66 KB gzip) downloads
      only for a recorded session.
    - The privacy policy (`/legal`, cookies section) and the PostHog row in
@@ -76,7 +96,11 @@ person.
 8. **A person's events only.** Route events go through `capturePersonEvent`
    (`projects/routes/product-events.ts`): an agent's session token, an API
    key, a service account or an OAuth app sends nothing. Server-side session
-   and turn events count only sessions with `initiator_type = member`.
+   and turn events count only sessions with `initiator_type = member`. One
+   exception, decided 2026-11-20: the `setup_*` events accept a session's own
+   token, because a person often asks the Kortix agent to run the setup. They
+   count as the person who started the session, with `agent = kortix`, and
+   only when `initiator_type = member`.
 
 ## Events
 
@@ -85,11 +109,12 @@ person.
 | `$pageview`, `$pageleave`, `$autocapture` | web | navigation, clicks | scrubbed URL, `environment`, `platform` (`web`/`desktop`), `app_version` |
 | `cta_signup_clicked` | web | a sign-up button on a marketing page | `location` |
 | `auth_completed` | web | the browser lands after sign-up or sign-in | `kind` (`signup`/`login`), `method` |
+| `screen_ready` | web | an app screen (signed-in and token pages; Speed Insights covers the rest) shows its data, once per navigation (`lib/analytics/screen-timing.ts`): the React Query reads behind it settled (no request for 0.5 s), or, on the session screen, the saved conversation is visible. A new session, a fully cached screen, a hidden tab and anything over 60 s send nothing | `screen` (route template, `/workspaces/:id`), `duration_ms`, `navigation` (`load`: from the browser's navigation start; `route`: from the in-app route change), `fetches` (React Query fetches it took) |
 | `setup_prompt_copied` | web | a Loopmaxxing copy button (or its C key) put the setup prompt on the clipboard | `template` (the one the prompt names, else `none`), `method` (`button`/`key`), `location` |
 | panel events (`panel_opened`, …) | web (`@kortix/ui`) | session panel and conversation UI | `source`, `kind`, `count` |
 | `user_signed_up` | API | a new person's first `GET /v1/accounts` with no workspace (`accounts/core/signup-event.ts`) | `method` (email, google, github, apple), `invited` (an invitation to the email was open at sign-up); sets the person property `signup_kind` (`invited`, `self_serve`) once |
 | `user_logged_in` | API | a CLI device login or a headless sign-in (not a token refresh) | `method` |
-| `project_created` | API | a project is provisioned or linked | `origin` (blank, template, marketplace, github_import), `provider` |
+| `project_created` | API | a project is provisioned or linked | `origin` (blank, template, github_import; `marketplace` until 2026-11-20), `provider` |
 | `session_created` | API | a person creates a session (not triggers, channels, agents) | `session_id`, `source`, `with_prompt` |
 | `session_started` | API | the session's runtime answers for the first time in one boot: first open, every wake after sleep, every restart. It counts boots, not sessions | `provider`, `boot_ms` |
 | `session_restarted` | API | a person restarts a session | `provider` |
@@ -121,8 +146,11 @@ The four `setup_*` API events come from the CLI through `POST /v1/cli/setup-even
 (`apps/api/src/cli/setup-events.ts`, closed schema, 20 a minute per person) and
 `apps/cli/src/setup-telemetry.ts`. Each carries `setup_id` (one guided setup:
 `kortix plan` starts it, it ends 24 hours after its last event), `agent` (the
-coding agent, from `AI_AGENT`, `CLAUDECODE` and each tool's marker) and
-`cli_version`. Outside a run the CLI sends nothing; `DO_NOT_TRACK=1` or
+coding agent, from `AI_AGENT`, `CLAUDECODE` and each tool's marker; the API
+sets `kortix` for a session's own token) and `cli_version`. Inside a Kortix
+session the CLI sends with the session's token, and the route counts the
+event for the person who started the session (rule 8). The token of a
+trigger, channel, API or system session gets `202 {accepted: false}`. Outside a run the CLI sends nothing; `DO_NOT_TRACK=1` or
 `KORTIX_TELEMETRY=0` turns it off.
 
 Request-driven events carry `source` (web, cli, mobile, desktop). API events
@@ -198,6 +226,7 @@ README). They follow the design of the closed PR #7144.
 | Providers, key checks, prompts by model | Kortix · Providers & models |
 | Boot time, active time, turn outcomes | Kortix · Sessions |
 | Connectors, secrets, triggers, apps, flags, billing gates | Kortix · Setup & adoption |
+| How long screens take to show their data, by continent, country and screen (`screen_ready`) | Kortix · Speed |
 | Visitors, referrers, UTM, landing pages, first-touch signups, survey answers | Kortix · Acquisition |
 | Goals, visitor → paid, signup → paid, time to paid | Kortix · Conversion |
 | Does the setup prompt end in working loops, which coding agent ran it, where onboard stops | Kortix · Setup |

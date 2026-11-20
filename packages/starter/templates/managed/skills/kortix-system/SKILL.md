@@ -13,7 +13,7 @@ repository, and update in a running session. Never edit or commit a copy.
 For one your list lacks, or outside a session:
 - `kortix system-skills` lists them; `kortix system-skills get <name>` prints
   one `SKILL.md` and its reference paths; `… file <name> <path>` one reference.
-A flag-gated skill exists only while its flag is on. Optional skills: `kortix marketplace search <query>` (`kortix-marketplace`).
+A flag-gated skill exists only while its flag is on.
 </live-skills>
 <overview>
 ## The model
@@ -67,9 +67,9 @@ change request (CR) is the only way to the default branch. Do every step:
    `422 CR_HEAD_NOT_AHEAD` means the push did not land: push, then retry.
 5. Check: `kortix cr diff <n>` shows your diff. Empty: push again and check
    the same CR. Never open a second CR for the same work.
-6. Tell the user the CR number and title. The web app shows a **Review**
-   button under your reply. Name `kortix cr merge <n>` only to a CLI or
-   channel user.
+6. Share the CR number, title and URL from `cr open` or `cr show <n> --json`.
+   Copy the URL; never infer it from an API path. The web reply shows **Review**.
+   Name `kortix cr merge <n>` only to a CLI or channel user.
 7. Wait. Merge your own CR only when the user asks. The API refuses a
    self-merge (`403 CR_SELF_MERGE_REFUSED`) unless your agent holds
    `workspace.gitops.merge`.
