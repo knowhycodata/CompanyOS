@@ -70,13 +70,19 @@ person.
      A component that must never appear even as a shape takes the
      `ph-no-capture` class. Page URLs follow rule 5.
    - Interface text (`UiTextIndex`, `apps/web/src/lib/analytics/replay-text.ts`):
-     every string of the translation catalog the page renders, plus the
-     provider names. Each placeholder may stand only for a number:
-     `{count} models` shows "14 models" and hides "Acme models". Text with no
-     letter never shows. Parts joined by ` · ` or ` — ` are judged one by one.
-     Everything else hides, so a new screen with customer content is hidden
-     without a mark. Text that is not in the catalog (model names, a provider
-     name that comes from the API) stays hidden. Message and document text
+     every string of the translation catalog the page renders, the provider
+     names, the locale's relative times ("6 minutes ago") and the session
+     screen's English labels that code builds outside the catalog
+     (`replay-labels.ts`: step summaries, thought rows, tool verbs). Each
+     placeholder may stand only for a number: `{count} models` shows
+     "14 models" and hides "Acme models". Text with no letter never shows.
+     Parts joined by ` · ` or ` — ` are judged one by one; clauses joined by
+     `, ` show only when every clause is ours. Everything else hides, so a new
+     screen with customer content is hidden without a mark. A row that names
+     a file or a command renders the verb in its own text node, so the verb
+     shows and the object hides. Text that is not ours (model names and
+     provider names that come from the API) stays hidden. When a replay of the
+     session screen hides a label of ours, add it to `replay-labels.ts`. Message and document text
      never shows, even where a word equals our text: `.kortix-markdown` and
      `[data-replay-content]` (the user message bubble), `REPLAY_CONTENT_SELECTOR`.
      Mark other text a person or an agent wrote with `data-replay-content`. A click event on a
@@ -107,7 +113,7 @@ person.
 | panel events (`panel_opened`, …) | web (`@kortix/ui`) | session panel and conversation UI | `source`, `kind`, `count` |
 | `user_signed_up` | API | a new person's first `GET /v1/accounts` with no workspace (`accounts/core/signup-event.ts`) | `method` (email, google, github, apple), `invited` (an invitation to the email was open at sign-up); sets the person property `signup_kind` (`invited`, `self_serve`) once |
 | `user_logged_in` | API | a CLI device login or a headless sign-in (not a token refresh) | `method` |
-| `project_created` | API | a project is provisioned or linked | `origin` (blank, template, marketplace, github_import), `provider` |
+| `project_created` | API | a project is provisioned or linked | `origin` (blank, template, github_import; `marketplace` until 2026-11-20), `provider` |
 | `session_created` | API | a person creates a session (not triggers, channels, agents) | `session_id`, `source`, `with_prompt` |
 | `session_started` | API | the session's runtime answers for the first time in one boot: first open, every wake after sleep, every restart. It counts boots, not sessions | `provider`, `boot_ms` |
 | `session_restarted` | API | a person restarts a session | `provider` |
