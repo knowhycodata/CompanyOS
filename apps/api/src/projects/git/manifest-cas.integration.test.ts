@@ -69,7 +69,7 @@ describe('manifest file compare-and-swap', () => {
   test('persists authenticated attribution on a real manifest commit', async () => {
     const manifest = await readManifest(project, { forceRefresh: true });
     if (!manifest) throw new Error('Expected manifest');
-    manifest.raw = { connectors: [], name: 'synthetic-config' };
+    manifest.raw = { connectors: [], project: { name: 'synthetic-config' } };
     await runWithContext('PATCH', '/config', async () => {
       setContextField('userId', 'synthetic-actor');
       setContextField('authSessionId', 'synthetic-session');
@@ -122,7 +122,7 @@ describe('manifest file compare-and-swap', () => {
     const localProject = { ...project, gitAuthToken: null };
     const manifest = await readManifest(localProject);
     if (!manifest) throw new Error('Expected the seeded manifest');
-    manifest.raw.connectors = [{ slug: 'local', provider: 'http' }];
+    manifest.raw.connectors = [{ slug: 'local', provider: 'http', base_url: 'https://connector.example.test' }];
     try {
       delete process.env.KORTIX_LOCAL_DEV;
       expect(
@@ -159,9 +159,9 @@ describe('manifest file compare-and-swap', () => {
     if (!original) throw new Error('Expected the seeded manifest');
 
     const first = structuredClone(original);
-    first.raw.connectors = [{ slug: 'first', provider: 'http' }];
+    first.raw.connectors = [{ slug: 'first', provider: 'http', base_url: 'https://connector.example.test' }];
     const stale = structuredClone(original);
-    stale.raw.connectors = [{ slug: 'stale', provider: 'http' }];
+    stale.raw.connectors = [{ slug: 'stale', provider: 'http', base_url: 'https://connector.example.test' }];
 
     expect(
       await commitManifest(project as Parameters<typeof commitManifest>[0], first, 'first write'),
@@ -275,9 +275,9 @@ describe('manifest file compare-and-swap', () => {
     if (!firstObserved || !secondObserved) throw new Error('Expected both manifest reads');
 
     const first = structuredClone(firstObserved);
-    first.raw.connectors = [{ slug: 'first', provider: 'http' }];
+    first.raw.connectors = [{ slug: 'first', provider: 'http', base_url: 'https://connector.example.test' }];
     const second = structuredClone(secondObserved);
-    second.raw.connectors = [{ slug: 'second', provider: 'http' }];
+    second.raw.connectors = [{ slug: 'second', provider: 'http', base_url: 'https://connector.example.test' }];
 
     const results = await Promise.all([
       commitManifest(
@@ -299,7 +299,7 @@ describe('manifest file compare-and-swap', () => {
     const winner = remoteManifest.includes('slug: first') ? 'first' : 'second';
     const losingProject = results[0] && 'status' in results[0] ? firstProject : secondProject;
     const warmRead = await readManifest(losingProject);
-    expect(warmRead?.raw.connectors).toEqual([{ slug: winner, provider: 'http' }]);
+    expect(warmRead?.raw.connectors).toEqual([{ slug: winner, provider: 'http', base_url: 'https://connector.example.test' }]);
   });
 
   test('never exposes an unaccepted commit through the shared mirror', async () => {
@@ -315,7 +315,7 @@ describe('manifest file compare-and-swap', () => {
     const original = await readManifest(project);
     if (!original) throw new Error('Expected the seeded manifest');
     const rejected = structuredClone(original);
-    rejected.raw.connectors = [{ slug: 'never-landed', provider: 'http' }];
+    rejected.raw.connectors = [{ slug: 'never-landed', provider: 'http', base_url: 'https://connector.example.test' }];
 
     const commit = commitManifest(
       project as Parameters<typeof commitManifest>[0],
