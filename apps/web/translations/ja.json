@@ -562,6 +562,8 @@
       "backToApp": "アプリに戻る",
       "close": "閉じる",
       "docs": "ドキュメント",
+      "search": "設定を検索",
+      "searchNoResults": "一致する項目はありません",
       "groups": {
         "workspace": "ワークスペース",
         "personal": "個人",
@@ -22474,8 +22476,7 @@
       "install": {
         "title": "拡張機能を追加",
         "description": "Chrome Web Store から追加します。",
-        "done": "Kortix が Chrome に追加されました。",
-        "descriptionUnlisted": "Chrome に読み込みます。"
+        "done": "Kortix が Chrome に追加されました。"
       },
       "connect": {
         "title": "サインイン",
@@ -22529,7 +22530,6 @@
       "control": "ページ上のバーからいつでも引き継ぎまたは停止できます。",
       "own": "あなたのブラウザを使えるのは、あなた自身のセッションだけです。"
     },
-    "howToInstall": "インストール方法",
     "copyLink": "リンクをコピー",
     "linkCopied": "リンクをコピーしました",
     "copyFailed": "リンクをコピーできませんでした。もう一度お試しください。",
