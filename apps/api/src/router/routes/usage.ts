@@ -8,6 +8,7 @@ import { assertAuthorized, listAccessible } from '../../iam/authorize';
 import { visibleDirectory } from '../../iam/directory-visibility';
 import { actorOf } from '../../middleware/actor';
 import { combinedAuth } from '../../middleware/auth';
+import { createUsageRollupRateLimitMiddleware } from '../../middleware/rate-limit';
 import { rejectSandboxTokens } from '../../middleware/reject-sandbox-tokens';
 import { auth, errors, json, makeOpenApiApp } from '../../openapi';
 import { assertProjectCapability, loadProjectForUser } from '../../projects/lib/access';
@@ -24,7 +25,7 @@ import {
 } from '../../shared/cost-window';
 import { db } from '../../shared/db';
 import { resolveScopedAccountId } from '../../middleware/resolve-account';
-import { getSessionCostRecord, listSessionCosts } from '../../shared/session-costs';
+import { findSessionCostOwner, getSessionCostRecord, listSessionCosts } from '../../shared/session-costs';
 import { isUuid } from '../../shared/validate';
 import type { AppEnv } from '../../types';
 import {
@@ -49,6 +50,14 @@ usageApp.use('*', combinedAuth);
 // reason to read account-wide usage/cost rollups — without this they'd see
 // every project's spend on multi-user accounts. See reject-sandbox-tokens.ts.
 usageApp.use('*', rejectSandboxTokens);
+// The heavy account-wide rollups hold a DB pool connection for the whole query:
+// one flooding caller must not drain the pool for every other route (KRTX-4895).
+// `/session-costs/{sessionId}` takes the same per-caller bound: one detail read
+// runs six statements in parallel (getSessionCostRecord) against the 6-connection pool.
+const usageRollupGuard = createUsageRollupRateLimitMiddleware();
+for (const path of ['/', '/session-costs', '/session-costs/:sessionId', '/cost-by-project', '/cost-summary']) {
+  usageApp.use(path, usageRollupGuard);
+}
 
 /**
  * The workspace a workspace-bound token reads usage for: its own, always.
@@ -654,7 +663,7 @@ usageApp.openapi(
     },
     responses: {
       200: json(SessionCostDetailSchema, 'Session cost detail'),
-      ...errors(400, 401, 403, 404),
+      ...errors(400, 401, 403, 404, 429),
     },
   }),
   async (c) => {
@@ -834,21 +843,29 @@ usageApp.openapi(
         })
         .openapi('CostSummaryQuery'),
     },
-    responses: { 200: json(CostSummarySchema, 'Cost summary'), ...errors(400, 401, 403, 429) },
+    responses: { 200: json(CostSummarySchema, 'Cost summary'), ...errors(400, 401, 403, 404, 429) },
   }),
   async (c) => {
     try {
       const { accountId, projectId } = await resolveSessionCostScope(c, c.req.query('project_id') || undefined);
-      if (c.get('tokenProjectId') && c.req.query('session_id')) {
+      const sessionId = c.req.query('session_id') || undefined;
+      if (c.get('tokenProjectId') && sessionId) {
         throw new HTTPException(403, {
           message: 'A workspace-bound token cannot query an arbitrary session',
         });
       }
+      if (sessionId) {
+        // The same owner rule as /session-costs/{sessionId}: a caller who may
+        // read only their own session costs gets 404 for anyone else's session.
+        const owner = await sessionCostOwner(c, accountId, undefined);
+        const session = owner ? await findSessionCostOwner({ accountId, sessionId }) : undefined;
+        if (owner && session?.ownerId !== owner) {
+          throw new HTTPException(404, { message: 'Session not found' });
+        }
+      }
       const window = parseCostWindow({ from: c.req.query('from'), to: c.req.query('to') });
       return c.json(
-        await withCostReadGuard(() =>
-          getCostSummary({ accountId, projectId, sessionId: c.req.query('session_id') || undefined, window }),
-        ),
+        await withCostReadGuard(() => getCostSummary({ accountId, projectId, sessionId, window })),
       );
     } catch (error) {
       if (error instanceof InvalidCostQueryError) {

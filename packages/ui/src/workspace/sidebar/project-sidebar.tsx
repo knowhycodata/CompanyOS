@@ -41,9 +41,8 @@ import {
   NavigationArrowIcon,
 } from '@phosphor-icons/react';
 import { UiLink as Link, useUiPathname } from '../../providers/ui-provider';
-import { useWorkspaceSettingsRailStore } from '../../internal/stores/workspace-settings-rail-store';
 import { SettingsReturnTracker, SidebarDrill } from './sidebar-drill';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { SidebarBalanceWarning } from './footer/project-balance-warning';
 import { SidebarUpgradeButton } from './footer/project-upgrade-button';
 import { SidebarGlyph as PanelLeft } from '../../icons/sidebar-toggle';
@@ -53,8 +52,11 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(na
 const modSymbol = isMac ? '⌘' : 'Ctrl';
 
 
-/** Workspace pages with a centered bottom composer: home and one session (not the Sessions list). */
-const CENTERED_COMPOSER_ROUTE = /\/workspaces\/[^/]+(?:\/sessions\/[^/]+(?:\/.*)?)?\/?$/;
+/**
+ * Workspace pages with a centered bottom composer: home, one session (not the
+ * Sessions list), and `/setup`, whose modal opens over home with its banner.
+ */
+const CENTERED_COMPOSER_ROUTE = /\/workspaces\/[^/]+(?:\/setup|\/sessions\/[^/]+(?:\/.*)?)?\/?$/;
 /** Workspace pages whose composer runs to the right edge: chat, DMs, channels, Spaces. */
 const FULL_COMPOSER_ROUTE = /\/workspaces\/[^/]+\/(?:c|chat|dm|spaces)(?:\/.*)?$/;
 export function ProjectSidebar({
@@ -97,15 +99,6 @@ export function ProjectSidebar({
   const handleDrilledNavigate = useCallback(() => {
     if (isMobile) setOpenMobile(false);
   }, [isMobile, setOpenMobile]);
-  // The page hides its own rail while this panel is docked open on the
-  // desktop. The value does not depend on the route, so it is already right
-  // when the settings page renders its first frame: no rail flashes in.
-  const setSidebarDocked = useWorkspaceSettingsRailStore((s) => s.setSidebarDocked);
-  useLayoutEffect(() => {
-    setSidebarDocked(isExpanded && !isMobile);
-  }, [isExpanded, isMobile, setSidebarDocked]);
-  useLayoutEffect(() => () => setSidebarDocked(false), [setSidebarDocked]);
-
   const accountId = useBillingAccountId();
   // Chat (`chat`): the spaces list replaces New session, and the session list
   // moves below it, closed by default (fail-closed: off until the project answers).
