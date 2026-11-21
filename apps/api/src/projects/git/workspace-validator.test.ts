@@ -63,7 +63,7 @@ test('real commit adapter rejects candidate policy violations and cannot disable
     const base = 'config_validator: bash policy.sh\nimports: [import.yaml]\ndefault_agent: worker\nagents:\n  worker:\n    model: allowed\n    connectors: all\n';
     await writeFile(join(seed, 'kortix.yaml'), base);
     await writeFile(join(seed, 'import.yaml'), '# refresh: guarded\nagents:\n  helper:\n    model: allowed\n');
-    await writeFile(join(seed, 'policy.sh'), 'grep -q prohibited kortix.yaml && { echo "prohibited model" >&2; exit 1; }\ngrep -q "connectors: none" kortix.yaml && { echo "required connector" >&2; exit 1; }\ngrep -q guarded import.yaml || { echo "refresh guard" >&2; exit 1; }\n');
+    await writeFile(join(seed, 'policy.sh'), 'grep -q prohibited kortix.yaml && { echo "prohibited model" >&2; exit 1; }\ngrep -q "connectors: none" kortix.yaml && { echo "required connector" >&2; exit 1; }\ngrep -q "^# refresh: guarded$" import.yaml || { echo "refresh guard" >&2; exit 1; }\n');
     git('-C', seed, 'add', 'kortix.yaml', 'import.yaml', 'policy.sh'); git('-C', seed, 'commit', '-m', 'seed');
     git('init', '--bare', remote); git('-C', seed, 'push', remote, 'main'); git('--git-dir', remote, 'symbolic-ref', 'HEAD', 'refs/heads/main');
     const project = { projectId: 'synthetic', repoUrl: remote, defaultBranch: 'main', manifestPath: 'kortix.yaml', gitAuthToken: 'synthetic' };
@@ -80,6 +80,18 @@ test('real commit adapter rejects candidate policy violations and cannot disable
       await expect(commitMultipleFilesToBranch(project, { files: [{ path, content }], message: 'rejected' })).rejects.toThrow(diagnostic);
       expect(tip()).toBe(before);
     }
+    // export-ignore cannot hide a prohibited import from the validator.
+    await expect(commitMultipleFilesToBranch(project, { files: [
+      { path: '.gitattributes', content: 'import.yaml export-ignore\n' },
+      { path: 'import.yaml', content: '# refresh: unprotected\n' },
+    ], message: 'archive attribute bypass' })).rejects.toThrow('refresh guard');
+    expect(tip()).toBe(before);
+    // export-subst must preserve literal bytes, not turn %s into "guarded".
+    await expect(commitMultipleFilesToBranch(project, { files: [
+      { path: '.gitattributes', content: 'import.yaml export-subst\n' },
+      { path: 'import.yaml', content: '# refresh: $Format:%s$\n' },
+    ], message: 'guarded' })).rejects.toThrow('refresh guard');
+    expect(tip()).toBe(before);
     setValidatorBoxForTests(async () => { throw new Error('required validator unavailable'); });
     await expect(commitMultipleFilesToBranch(project, { files: [{ path: 'kortix.yaml', content: base }], message: 'unavailable' })).rejects.toMatchObject({ code: 'manifest_invalid' });
     expect(tip()).toBe(before);

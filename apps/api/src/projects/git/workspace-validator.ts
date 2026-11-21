@@ -2,6 +2,7 @@ import { manifestCandidatePaths, parseManifestText } from '@kortix/manifest-sche
 import { sessionSandboxes } from '@kortix/db';
 import { and, eq } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
+import { buildConfigArchive } from '../../config-releases/release-tree';
 import { getProvider, isProviderName } from '../../platform/providers';
 import { db } from '../../shared/db';
 import { ManifestWriteRefusedError } from '../manifest-io';
@@ -65,8 +66,10 @@ export async function validateWorkspaceCommit(project: GitBackedProject, repoPat
     if (typeof raw.config_validator !== 'string' || !raw.config_validator.trim()) throw new Error('config_validator must be a non-empty command.');
     const box = await resolveBox(project.projectId);
     await ensureTreeContents(repoPath, candidate, { maxBytes: MAX_BYTES, timeoutMs: DEADLINE_MS });
-    const archive = await runGitBuffer(['archive', '--format=tar', candidate], repoPath, false, null, undefined, 'github.com', DEADLINE_MS, undefined, MAX_BYTES);
-    await runWorkspaceValidator(box, raw.config_validator, archive.stdout);
+    const tree = await runGitBuffer(['rev-parse', `${candidate}^{tree}`], repoPath, false);
+    // Reuse the release archive builder: scratch attributes preserve every blob.
+    const archive = await buildConfigArchive(repoPath, tree.stdout.toString().trim(), MAX_BYTES);
+    await runWorkspaceValidator(box, raw.config_validator, archive);
     return true;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
