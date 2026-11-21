@@ -233,7 +233,7 @@ test('CIMD is never used when the authorize and token endpoints are on different
   // Every CIMD server accepts Kortix's one client_id, so a server's metadata
   // could pair a real provider's authorize endpoint with its own token
   // endpoint and receive the code + PKCE verifier. Split endpoints register
-  // a per-server client (DCR) instead, or are refused.
+  // a per-server client (DCR) instead, or get no client outside the catalogue.
   const split = {
     client_id_metadata_document_supported: true,
     authorization_url: 'https://real-provider.example/oauth/authorize',
@@ -259,6 +259,6 @@ test('CIMD is never used when the authorize and token endpoints are on different
     registration: split,
     callbackUrl: CALLBACK,
     createdBy: USER,
-  }, { fetchImpl: async () => { throw new Error('must not register'); } })).rejects.toThrow('different origins');
+  }, { fetchImpl: async () => { throw new Error('must not register'); } })).rejects.toThrow('Kortix has no OAuth client for this server');
   expect(await loadOAuth2Application(withoutDcr.connectionId)).toBeNull();
 });

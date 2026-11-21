@@ -349,15 +349,11 @@ export async function registerConnectionOAuth2Client(
   // the code to the server whose metadata was read. Use it only when the
   // authorize and token endpoints share one origin: a server's metadata must
   // never pair a real provider's authorize page with its own token endpoint,
-  // which would receive the user's code and PKCE verifier.
+  // which would receive the user's code and PKCE verifier. Split endpoints
+  // register a per-server client, or fall to the catalogue below.
   const hostedClient =
     registration.client_id_metadata_document_supported === true &&
     endpointsShareOneOrigin(registration);
-  if (registration.client_id_metadata_document_supported && !hostedClient && !registration.registration_endpoint) {
-    throw new Error(
-      'The authorization and token endpoints are on different origins, so Kortix will not sign in with its hosted client metadata document',
-    );
-  }
   if (!registration.registration_endpoint && !hostedClient) {
     // No dynamic registration: only a catalogue app signs in, with Kortix's own
     // client and the catalogue's endpoints. Nothing from the request is used.
