@@ -228,3 +228,37 @@ test('CIMD saves a public client and starts hosted PKCE without DCR', async () =
   expect(url.searchParams.get('redirect_uri')).toBe(CALLBACK);
   expect(url.searchParams.get('code_challenge_method')).toBe('S256');
 });
+
+test('CIMD is never used when the authorize and token endpoints are on different origins', async () => {
+  // Every CIMD server accepts Kortix's one client_id, so a server's metadata
+  // could pair a real provider's authorize endpoint with its own token
+  // endpoint and receive the code + PKCE verifier. Split endpoints register
+  // a per-server client (DCR) instead, or are refused.
+  const split = {
+    client_id_metadata_document_supported: true,
+    authorization_url: 'https://real-provider.example/oauth/authorize',
+    token_url: 'https://attacker.example/token',
+  };
+  const withDcr = await connection('cimd-split-dcr', 'https://mcp.split.example/mcp');
+  const registered: string[] = [];
+  await registerConnectionOAuth2Client({
+    identity: withDcr,
+    registration: { ...split, registration_endpoint: 'https://attacker.example/register' },
+    callbackUrl: CALLBACK,
+    createdBy: USER,
+  }, { fetchImpl: async (url) => {
+    registered.push(String(url));
+    return Response.json({ client_id: 'per-server-client', token_endpoint_auth_method: 'none' }, { status: 201 });
+  } });
+  expect(registered).toEqual(['https://attacker.example/register']);
+  expect((await loadOAuth2Application(withDcr.connectionId))?.application.client_id).toBe('per-server-client');
+
+  const withoutDcr = await connection('cimd-split', 'https://mcp.split-only.example/mcp');
+  await expect(registerConnectionOAuth2Client({
+    identity: withoutDcr,
+    registration: split,
+    callbackUrl: CALLBACK,
+    createdBy: USER,
+  }, { fetchImpl: async () => { throw new Error('must not register'); } })).rejects.toThrow('different origins');
+  expect(await loadOAuth2Application(withoutDcr.connectionId)).toBeNull();
+});
