@@ -562,6 +562,8 @@
       "backToApp": "Retour à l'application",
       "close": "Fermer",
       "docs": "Documentation",
+      "search": "Rechercher dans les préférences",
+      "searchNoResults": "Aucun résultat",
       "groups": {
         "workspace": "Espace de travail",
         "personal": "Personnel",
@@ -815,12 +817,36 @@
       },
       "wallpapers": {
         "dither": "Tramage",
-        "brandmark": "Marque",
-        "nebula": "Rayons pixelisés",
-        "silk": "Soie",
-        "grain": "Grain",
-        "neuro": "Neuro",
+        "ember": "Braise",
+        "prism": "Prisme",
+        "tide": "Marée",
+        "aurora": "Aurore",
+        "dusk": "Crépuscule",
+        "eclipse": "Éclipse",
+        "lagoon": "Lagon",
+        "cumulus": "Cumulus",
+        "moss": "Mousse",
+        "iris": "Iris",
+        "custom": "Personnalisé",
         "blank": "Vide"
+      },
+      "custom": {
+        "editColors": "Modifier les couleurs",
+        "shuffle": "Aléatoire",
+        "palette": "Palette",
+        "paletteLabel": "Palette {count}",
+        "colors": "Couleurs",
+        "colorLabel": "Couleur {count}",
+        "customColor": "Couleur personnalisée",
+        "addColor": "Ajouter une couleur",
+        "removeColor": "Supprimer la couleur",
+        "resetColors": "Réinitialiser",
+        "finish": "Finition",
+        "finishes": {
+          "dither": "Tramage",
+          "grain": "Grain"
+        },
+        "opacity": "Opacité"
       }
     },
     "sessions": {
@@ -22474,8 +22500,7 @@
       "install": {
         "title": "Ajouter l’extension",
         "description": "Depuis le Chrome Web Store.",
-        "done": "Kortix est dans Chrome.",
-        "descriptionUnlisted": "Chargez-la dans Chrome."
+        "done": "Kortix est dans Chrome."
       },
       "connect": {
         "title": "Se connecter",
@@ -22529,7 +22554,6 @@
       "control": "Prendre la main ou Arrêter depuis la barre de la page, à tout moment.",
       "own": "Seules vos propres sessions peuvent utiliser votre navigateur."
     },
-    "howToInstall": "Comment l’installer",
     "copyLink": "Copier le lien",
     "linkCopied": "Lien copié",
     "copyFailed": "Impossible de copier le lien. Réessayez.",

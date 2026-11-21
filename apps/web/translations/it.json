@@ -562,6 +562,8 @@
       "backToApp": "Torna all'app",
       "close": "Chiudi",
       "docs": "Documentazione",
+      "search": "Cerca nelle preferenze",
+      "searchNoResults": "Nessun risultato",
       "groups": {
         "workspace": "Workspace",
         "personal": "Personale",
@@ -815,12 +817,36 @@
       },
       "wallpapers": {
         "dither": "Retino",
-        "brandmark": "Marchio",
-        "nebula": "Raggi pixel",
-        "silk": "Seta",
-        "grain": "Grana",
-        "neuro": "Neuro",
+        "ember": "Brace",
+        "prism": "Prisma",
+        "tide": "Marea",
+        "aurora": "Aurora",
+        "dusk": "Crepuscolo",
+        "eclipse": "Eclissi",
+        "lagoon": "Laguna",
+        "cumulus": "Cumulo",
+        "moss": "Muschio",
+        "iris": "Iris",
+        "custom": "Personalizzato",
         "blank": "Vuoto"
+      },
+      "custom": {
+        "editColors": "Modifica colori",
+        "shuffle": "Casuale",
+        "palette": "Tavolozza",
+        "paletteLabel": "Tavolozza {count}",
+        "colors": "Colori",
+        "colorLabel": "Colore {count}",
+        "customColor": "Colore personalizzato",
+        "addColor": "Aggiungi colore",
+        "removeColor": "Rimuovi colore",
+        "resetColors": "Ripristina",
+        "finish": "Finitura",
+        "finishes": {
+          "dither": "Retinatura",
+          "grain": "Grana"
+        },
+        "opacity": "Opacità"
       }
     },
     "sessions": {
@@ -22474,8 +22500,7 @@
       "install": {
         "title": "Aggiungi l'estensione",
         "description": "Dal Chrome Web Store.",
-        "done": "Kortix è in Chrome.",
-        "descriptionUnlisted": "Caricala in Chrome."
+        "done": "Kortix è in Chrome."
       },
       "connect": {
         "title": "Accedi",
@@ -22529,7 +22554,6 @@
       "control": "Prendi il controllo o Ferma dalla barra sulla pagina, in qualsiasi momento.",
       "own": "Solo le tue sessioni possono usare il tuo browser."
     },
-    "howToInstall": "Come installarla",
     "copyLink": "Copia link",
     "linkCopied": "Link copiato",
     "copyFailed": "Impossibile copiare il link. Riprova.",

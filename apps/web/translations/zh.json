@@ -562,6 +562,8 @@
       "backToApp": "返回应用",
       "close": "关闭",
       "docs": "文档",
+      "search": "搜索偏好设置",
+      "searchNoResults": "无匹配项",
       "groups": {
         "workspace": "工作区",
         "personal": "个人",
@@ -815,12 +817,36 @@
       },
       "wallpapers": {
         "dither": "抖动",
-        "brandmark": "品牌标志",
-        "nebula": "像素光束",
-        "silk": "丝绸",
-        "grain": "颗粒",
-        "neuro": "神经",
+        "ember": "余烬",
+        "prism": "棱镜",
+        "tide": "潮汐",
+        "aurora": "极光",
+        "dusk": "黄昏",
+        "eclipse": "日食",
+        "lagoon": "潟湖",
+        "cumulus": "积云",
+        "moss": "苔藓",
+        "iris": "鸢尾",
+        "custom": "自定义",
         "blank": "空白"
+      },
+      "custom": {
+        "editColors": "编辑颜色",
+        "shuffle": "随机",
+        "palette": "调色板",
+        "paletteLabel": "调色板 {count}",
+        "colors": "颜色",
+        "colorLabel": "颜色 {count}",
+        "customColor": "自定义颜色",
+        "addColor": "添加颜色",
+        "removeColor": "移除颜色",
+        "resetColors": "重置",
+        "finish": "质感",
+        "finishes": {
+          "dither": "抖动",
+          "grain": "颗粒"
+        },
+        "opacity": "不透明度"
       }
     },
     "sessions": {
@@ -22474,8 +22500,7 @@
       "install": {
         "title": "添加扩展程序",
         "description": "来自 Chrome Web Store。",
-        "done": "Kortix 已在 Chrome 中。",
-        "descriptionUnlisted": "在 Chrome 中加载它。"
+        "done": "Kortix 已在 Chrome 中。"
       },
       "connect": {
         "title": "登录",
@@ -22529,7 +22554,6 @@
       "control": "随时可通过页面上的栏接管或停止。",
       "own": "只有你自己的会话可以使用你的浏览器。"
     },
-    "howToInstall": "如何安装",
     "copyLink": "复制链接",
     "linkCopied": "链接已复制",
     "copyFailed": "无法复制链接。请重试。",

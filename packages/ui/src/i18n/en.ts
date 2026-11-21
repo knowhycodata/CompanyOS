@@ -354,6 +354,8 @@ const catalog = {
       "backToApp": "Back to app",
       "close": "Close",
       "docs": "Docs",
+      "search": "Search preferences",
+      "searchNoResults": "No matches",
       "groups": {
         "workspace": "Workspace",
         "personal": "Personal",
@@ -7326,8 +7328,7 @@ const catalog = {
       "install": {
         "title": "Add the extension",
         "description": "From the Chrome Web Store.",
-        "done": "Kortix is in Chrome.",
-        "descriptionUnlisted": "Load it in Chrome."
+        "done": "Kortix is in Chrome."
       },
       "connect": {
         "title": "Sign in",
@@ -7381,7 +7382,6 @@ const catalog = {
       "control": "Take over or Stop from the bar on the page at any time.",
       "own": "Only your own sessions can use your browser."
     },
-    "howToInstall": "How to install",
     "copyLink": "Copy link",
     "linkCopied": "Link copied",
     "copyFailed": "Could not copy the link. Try again.",
