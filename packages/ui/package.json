@@ -58,6 +58,7 @@
     "./checkbox": "./src/primitives/checkbox.tsx",
     "./checkbox-group": "./src/primitives/checkbox-group.tsx",
     "./collapsible": "./src/primitives/collapsible.tsx",
+    "./color-picker": "./src/primitives/color-picker.tsx",
     "./command": "./src/primitives/command.tsx",
     "./components.css": "./src/styles/components.css",
     "./composer": "./src/session/composer/index.ts",
@@ -214,6 +215,7 @@
     "./glyph-picker": "./src/primitives/glyph-picker.tsx",
     "./glyph-registry": "./src/primitives/glyph-registry.tsx",
     "./glyph-tint": "./src/primitives/glyph-tint.ts",
+    "./gradient-wallpaper": "./src/primitives/gradient-wallpaper.tsx",
     "./hint": "./src/primitives/hint.tsx",
     "./histogram-bars": "./src/primitives/histogram-bars.tsx",
     "./hover-card": "./src/primitives/hover-card.tsx",
@@ -518,7 +520,6 @@
     "./theme.css": "./src/styles/theme.css",
     "./theme/wallpapers": "./src/theme/wallpapers.ts",
     "./toast": "./src/primitives/toast.tsx",
-    "./toast-clearance": "./src/primitives/toast-clearance.ts",
     "./toggle": "./src/primitives/toggle.tsx",
     "./tokens.css": "./src/styles/tokens.css",
     "./tooltip": "./src/primitives/tooltip.tsx",
@@ -561,7 +562,7 @@
     "./workspace/session-spaces/space-icon": "./src/workspace/session-spaces/space-icon.tsx",
     "./workspace/session-spaces/spaces-page": "./src/workspace/session-spaces/spaces-page.tsx",
     "./workspace/settings/use-leave-workspace": "./src/workspace/settings/use-leave-workspace.tsx",
-    "./workspace/setup/workspace-setup-page": "./src/workspace/setup/workspace-setup-page.tsx",
+    "./workspace/setup/workspace-setup-modal": "./src/workspace/setup/workspace-setup-modal.tsx",
     "./workspace/sidebar/footer/project-apps-nav": "./src/workspace/sidebar/footer/project-apps-nav.tsx",
     "./workspace/sidebar/footer/project-balance-warning": "./src/workspace/sidebar/footer/project-balance-warning.tsx",
     "./workspace/sidebar/footer/project-manifest-issues-alert": "./src/workspace/sidebar/footer/project-manifest-issues-alert.tsx",
@@ -723,6 +724,10 @@
       "./collapsible": {
         "types": "./dist/primitives/collapsible.d.ts",
         "import": "./dist/primitives/collapsible.js"
+      },
+      "./color-picker": {
+        "types": "./dist/primitives/color-picker.d.ts",
+        "import": "./dist/primitives/color-picker.js"
       },
       "./command": {
         "types": "./dist/primitives/command.d.ts",
@@ -1338,6 +1343,10 @@
       "./glyph-tint": {
         "types": "./dist/primitives/glyph-tint.d.ts",
         "import": "./dist/primitives/glyph-tint.js"
+      },
+      "./gradient-wallpaper": {
+        "types": "./dist/primitives/gradient-wallpaper.d.ts",
+        "import": "./dist/primitives/gradient-wallpaper.js"
       },
       "./hint": {
         "types": "./dist/primitives/hint.d.ts",
@@ -2540,10 +2549,6 @@
         "types": "./dist/primitives/toast.d.ts",
         "import": "./dist/primitives/toast.js"
       },
-      "./toast-clearance": {
-        "types": "./dist/primitives/toast-clearance.d.ts",
-        "import": "./dist/primitives/toast-clearance.js"
-      },
       "./toggle": {
         "types": "./dist/primitives/toggle.d.ts",
         "import": "./dist/primitives/toggle.js"
@@ -2709,9 +2714,9 @@
         "types": "./dist/workspace/settings/use-leave-workspace.d.ts",
         "import": "./dist/workspace/settings/use-leave-workspace.js"
       },
-      "./workspace/setup/workspace-setup-page": {
-        "types": "./dist/workspace/setup/workspace-setup-page.d.ts",
-        "import": "./dist/workspace/setup/workspace-setup-page.js"
+      "./workspace/setup/workspace-setup-modal": {
+        "types": "./dist/workspace/setup/workspace-setup-modal.d.ts",
+        "import": "./dist/workspace/setup/workspace-setup-modal.js"
       },
       "./workspace/sidebar/footer/project-apps-nav": {
         "types": "./dist/workspace/sidebar/footer/project-apps-nav.d.ts",
