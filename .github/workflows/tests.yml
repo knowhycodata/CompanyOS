@@ -113,6 +113,18 @@ jobs:
         with:
           ref: ${{ env.TEST_SHA }}
           fetch-depth: 1
+      - name: Disk speed, sticky vs root (bench only)
+        if: startsWith(matrix.lane, 'core-')
+        run: |
+          set -u
+          fsync_test() { sudo python3 -c "import os,sys,time; p=sys.argv[1]; fd=os.open(p, os.O_WRONLY|os.O_CREAT, 0o644); b=b'x'*8192; t=time.perf_counter(); n=400; [ (os.write(fd,b), os.fsync(fd)) for _ in range(n) ]; dt=time.perf_counter()-t; os.close(fd); os.remove(p); print(f'{p}: 8 KiB write+fsync {dt/n*1000:.2f} ms/op ({n/dt:.0f} op/s)')" "$1"; }
+          for d in /mnt/vulcan-sticky /var/tmp; do
+            fsync_test "$d/vulcan-iotest-fsync"
+            sudo dd if=/dev/zero of="$d/vulcan-iotest-dd" bs=1M count=512 oflag=direct conv=fsync 2>&1 | tail -1 | sed "s|^|$d: 512 MiB direct write: |"
+            sudo rm -f "$d/vulcan-iotest-dd"
+          done
+          findmnt -no SOURCE,FSTYPE /var/tmp || true
+          lsblk -o NAME,SIZE,ROTA,TYPE,MOUNTPOINT || true
       - name: Vulcan warm diagnostics (bench only)
         if: startsWith(matrix.lane, 'core-')
         run: |
