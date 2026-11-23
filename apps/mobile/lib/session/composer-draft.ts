@@ -12,12 +12,15 @@
  * reclaim, so attachments are not saved.
  */
 
-/** Where a draft belongs. Both ids are UUIDs, so the two families never collide. */
+/** Where a draft belongs. Every id is a UUID and each family has its prefix, so they never collide. */
 export type DraftScope =
   | { kind: 'project'; projectId: string }
-  | { kind: 'session'; sessionId: string };
+  | { kind: 'session'; sessionId: string }
+  /** A space's composer (project flag `chat`): one draft per channel or DM, as on web. */
+  | { kind: 'space'; spaceId: string };
 
 export function draftKey(scope: DraftScope): string {
+  if (scope.kind === 'space') return `space:${scope.spaceId}`;
   return scope.kind === 'project' ? `project:${scope.projectId}` : `session:${scope.sessionId}`;
 }
 

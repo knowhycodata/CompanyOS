@@ -15,7 +15,7 @@ export function agentSlugOfHandle(handle: string): string {
   return /^(mykortix|meta)-[0-9a-f]{8}$/.test(handle) ? 'mykortix' : handle;
 }
 
-export function AgentPixelMark({ slug, size = 14, tile = 20 }: { slug: string; size?: 14 | 21; tile?: number }) {
+export function AgentPixelMark({ slug, size = 14, tile = 20, radius = 4 }: { slug: string; size?: 14 | 21; tile?: number; radius?: number }) {
   const palette = useTurnPalette();
   const mark = pixelMarkShape(slug);
   const cell = mark.width === 7 ? size / 7 : Math.max(1, Math.floor(size / 12));
@@ -28,7 +28,7 @@ export function AgentPixelMark({ slug, size = 14, tile = 20 }: { slug: string; s
       style={{
         width: tile,
         height: tile,
-        borderRadius: 4,
+        borderRadius: radius,
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: palette.muted,

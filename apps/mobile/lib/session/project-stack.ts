@@ -45,6 +45,10 @@ export const SUB_PAGE_IDS = [
   'page:secrets-nav',
   'page:members',
   'page:files-nav',
+  // Spaces (project flag `chat`): the space on the project home's details,
+  // and a manager's list of the private spaces they are not in.
+  'page:space-details',
+  'page:space-private-not-in',
 ] as const;
 export type SubPageId = (typeof SUB_PAGE_IDS)[number];
 

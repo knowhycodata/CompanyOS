@@ -90,6 +90,21 @@ import {
 import type { Agent, Command } from '@/lib/session/runtime-data';
 import { SlashCommandSuggestions } from '@/components/session/SessionChatInput';
 
+/**
+ * A space's agent roster for the picker: a DM's agent alone, a channel's
+ * agents first (in the channel's order), then the rest. A name the roster
+ * lacks still runs (the server lets a channel's member run its agents): it
+ * gets a plain entry. Not a space: the roster unchanged.
+ */
+export function spaceAgentList(agents: Agent[], scope: ProjectHomeSpace['agents'] | undefined): Agent[] {
+  if (!scope) return agents;
+  const entry = (name: string) => agents.find((agent) => agent.name === name) ?? ({ name, mode: 'primary', options: {} } as unknown as Agent);
+  if (scope.locked) return [entry(scope.locked)];
+  if (scope.preferred.length === 0) return agents;
+  const first = scope.preferred.map(entry);
+  return [...first, ...agents.filter((agent) => !scope.preferred.includes(agent.name))];
+}
+
 /** One identity while the project detail loads, so the sheet's agent memo does not churn. */
 const EMPTY_AGENTS: Agent[] = [];
 
@@ -140,6 +155,28 @@ export interface ProjectHomeProps {
   /** A cancelled connection's immutable draft, acknowledged after the composer commits. */
   initialDraft?: { text: string; files: AttachedFile[] };
   consumeInitialDraft?: (draft: { text: string; files: AttachedFile[] }) => void;
+  /**
+   * Spaces (project flag `chat`): this home is a channel or the person's own
+   * space. Its timeline takes the symbol's place, the header names the
+   * space, and each send is a new thread in it: the composer stays and
+   * clears for the next message.
+   */
+  space?: ProjectHomeSpace;
+}
+
+export interface ProjectHomeSpace {
+  spaceId: string;
+  /** The header's centred title (the space's name; a tap opens its details). */
+  title: React.ReactNode;
+  /** The space's timeline, above the composer. */
+  body: React.ReactNode;
+  /** "Message #design", "Message Ada's space". */
+  placeholder: string;
+  /**
+   * The agents a new thread runs on. `locked`: a DM's agent, the only one.
+   * `preferred`: a channel's agents, first offered and the first the default.
+   */
+  agents: { preferred: readonly string[]; locked: string | null };
 }
 
 export function ProjectHome({
@@ -150,6 +187,7 @@ export function ProjectHome({
   notifications,
   initialDraft: initialDraftProp,
   consumeInitialDraft,
+  space,
 }: ProjectHomeProps) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -209,11 +247,12 @@ export function ProjectHome({
   // last-used agent, which the thread's chip reads while its roster loads.
   const { data: projectDetail } = useProjectDetail(projectId);
   const projectConfig = projectDetail?.config;
+  const spaceAgents = space?.agents;
   const projectAgents = React.useMemo(
-    () => (projectConfig ? threadAgents(projectConfig) : undefined),
-    [projectConfig],
+    () => (projectConfig ? spaceAgentList(threadAgents(projectConfig), spaceAgents) : undefined),
+    [projectConfig, spaceAgents],
   );
-  const defaultAgent = projectConfig?.default_agent ?? null;
+  const defaultAgent = spaceAgents?.locked ?? spaceAgents?.preferred[0] ?? projectConfig?.default_agent ?? null;
   // `/`: home has no session runtime, so the list is the project config's
   // skills and commands, the same list web's home composer shows.
   const homeCommands = React.useMemo<Command[]>(() => {
@@ -228,13 +267,17 @@ export function ProjectHome({
     return [...projectConfig.skills.map(toCommand('skill')), ...projectConfig.commands.map(toCommand('command'))];
   }, [projectConfig]);
   const [pickedAgent, setPickedAgent] = React.useState<string | null>(null);
+  // A DM's agent is the only one: no pick or last-used agent replaces it.
   const lastUsedAgent = useLocalConfigStore((s) => s.selectedAgent);
   const setLastUsedAgent = useLocalConfigStore((s) => s.setAgent);
-  const agentName = resolveComposerAgent({
-    agents: projectAgents,
-    defaultAgent,
-    selectedAgent: homeAgentPick({ picked: pickedAgent, defaultAgent, lastUsed: lastUsedAgent }),
-  }).selected;
+  const agentName =
+    spaceAgents?.locked ??
+    resolveComposerAgent({
+      agents: projectAgents,
+      defaultAgent,
+      // A space starts on its own default agent, never the last one picked elsewhere.
+      selectedAgent: space ? pickedAgent : homeAgentPick({ picked: pickedAgent, defaultAgent, lastUsed: lastUsedAgent }),
+    }).selected;
   const handleAgentChange = React.useCallback(
     (name: string) => {
       setPickedAgent(name);
@@ -358,6 +401,9 @@ export function ProjectHome({
   // uploads back to the composer. Web does the same (`clearOnSend={false}` on
   // the home composer).
   const isSending = sending || preparing;
+  // A space's composer remounts empty after each send (its draft was cleared).
+  const [composerKey, setComposerKey] = React.useState(0);
+  const composerDraftKey = space ? draftKey({ kind: 'space', spaceId: space.spaceId }) : draftKey({ kind: 'project', projectId });
   const submitNow = React.useCallback(async (draft: string, pastes: PastedContent[]) => {
     // Every paste tile inline, then the text: what the session's first prompt carries.
     const text = serializePromptWithPastes(draft.trim(), pastes);
@@ -403,8 +449,13 @@ export function ProjectHome({
       attachments.reclaim(
         sent.files.map((f) => f.uploadId).filter((id): id is string => Boolean(id)),
       );
+    } else if (space) {
+      // A space keeps its composer on screen: an empty one, for the next message.
+      attachments.clearAfterSend();
+      setComposerKey((key) => key + 1);
     }
   }, [
+    space,
     files,
     isSending,
     modelUnavailable,
@@ -425,7 +476,7 @@ export function ProjectHome({
       {/* Floating menu button — opens the left drawer. The one header control
           is the Notifications bell, top right (Jay, 2026-10-16); the agent is
           picked in the model sheet's Agent tab (Jay, 2026-09-23). */}
-      <FloatingMenuButton onPress={onOpenDrawer}>
+      <FloatingMenuButton onPress={onOpenDrawer} title={space?.title} fade={!!space}>
         {/* Dev builds only: Metro folds `__DEV__` to false, so a release build has no button. */}
         {__DEV__ ? (
           <Button variant="secondary" size="sm" className="rounded-full" onPress={() => router.push('/debug')}>
@@ -439,21 +490,29 @@ export function ProjectHome({
 
       <KeyboardAvoidingView className="flex-1" behavior="padding">
         <View className="flex-1">
-          {/* Tap outside the field to close the keyboard. Not a control. */}
-          <Pressable className="flex-1" onPress={Keyboard.dismiss} accessible={false} />
+          {space ? (
+            <View className="flex-1">{space.body}</View>
+          ) : (
+            <>
+              {/* Tap outside the field to close the keyboard. Not a control. */}
+              <Pressable className="flex-1" onPress={Keyboard.dismiss} accessible={false} />
 
-          {/* `box-none`: only the symbol takes touches (its hidden 5-second
-              press); the space around it still reaches the Pressable above. */}
-          <View
-            pointerEvents="box-none"
-            className="absolute inset-0 items-center justify-center">
-            <ProjectHero />
-          </View>
+              {/* `box-none`: only the symbol takes touches (its hidden 5-second
+                  press); the space around it still reaches the Pressable above. */}
+              <View
+                pointerEvents="box-none"
+                className="absolute inset-0 items-center justify-center">
+                <ProjectHero />
+              </View>
+            </>
+          )}
 
           <Reanimated.View className="px-4" style={[{ paddingBottom: restingGap }, composerStyle]}>
             <HomeComposer
-              projectId={projectId}
-              initialText={initialDraft.text}
+              key={composerKey}
+              draftStorageKey={composerDraftKey}
+              placeholder={space?.placeholder}
+              initialText={composerKey === 0 ? initialDraft.text : ''}
               commands={homeCommands}
               onSubmit={submitNow}
               autoFocus={focusComposer}
@@ -500,14 +559,17 @@ export function ProjectHome({
  * An oversized paste goes to `onPasteFile` as a text file.
  */
 function HomeComposer({
-  projectId,
+  draftStorageKey,
+  placeholder = 'Ask anything',
   initialText,
   commands,
   onSubmit,
   onPasteFile,
   ...composer
 }: {
-  projectId: string;
+  /** Where the draft is kept (`draftKey`): the project home's, or a space's. */
+  draftStorageKey: string;
+  placeholder?: string;
   initialText: string;
   commands: Command[];
   onSubmit: (draft: string, pastes: PastedContent[]) => Promise<void>;
@@ -528,7 +590,7 @@ function HomeComposer({
   const pasted = usePastedTiles(onPasteFile, initial.pastes);
   // Survives the OS killing the app (COR-143). ProjectScreen clears it once a
   // send starts a session.
-  useComposerDraft(draftKey({ kind: 'project', projectId }), draft, setDraft);
+  useComposerDraft(draftStorageKey, draft, setDraft);
   const draftRef = React.useRef(draft);
   draftRef.current = draft;
   const pastesRef = React.useRef(pasted.pastes);
@@ -584,7 +646,7 @@ function HomeComposer({
         onRemovePaste={pasted.remove}
         onOpenPaste={openPastedText}
         onSubmit={handleSubmit}
-        placeholder="Ask anything"
+        placeholder={placeholder}
       />
     </View>
   );

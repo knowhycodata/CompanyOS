@@ -148,6 +148,8 @@ import { useAuthContext } from '@/contexts';
 import type { SessionNeedsYou } from '@/lib/session/needs-you';
 import { BUTTON_LABEL_MAX_FONT_SCALE } from '@/lib/ui/font-scale';
 import { THEME, withAlpha } from '@/lib/utils/theme';
+import { DrawerSpaces } from '@/components/spaces/DrawerSpaces';
+import { useSpacesEnabled } from '@/components/spaces/space-hooks';
 
 /** `Button size="lg"` height: the New session pill and the avatar match it. */
 const BAR_CONTROL_HEIGHT = 44;
@@ -280,6 +282,18 @@ export interface ProjectLeftDrawerProps {
   /** Close the drawer. Every action calls this before it navigates. */
   onClose: () => void;
   /**
+   * Spaces (project flag `chat`): the space the home shows (null: the
+   * personal space), whether the home is on screen, and the moves. With the
+   * flag on, the drawer lists spaces instead of sessions.
+   */
+  spaces?: {
+    activeSpaceId: string | null;
+    homeShown: boolean;
+    onOpenSpace: (spaceId: string | null) => void;
+    onCreateSpace: () => void;
+    onOpenPrivateNotIn: () => void;
+  };
+  /**
    * The drawer is open (false as soon as it starts to close). Its list
    * loaders draw only while it is open: a row tap closes the drawer over the
    * connecting session's loader, and one loader shows at a time (KRTX-244).
@@ -320,6 +334,7 @@ export const ProjectLeftDrawer = React.memo(function ProjectLeftDrawer({
   onOpenSwitcher,
   onClose,
   open,
+  spaces,
 }: ProjectLeftDrawerProps): React.ReactElement {
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -340,6 +355,11 @@ export const ProjectLeftDrawer = React.memo(function ProjectLeftDrawer({
   // Artifacts: the platform stores a Drive, and the caller may read artifacts.
   const artifactsFlag = useFeatureFlag(projectId, 'artifacts');
   const showArtifacts = artifactsRowVisible(navCans, artifactsFlag.enabled);
+  // Spaces on: the spaces list replaces the session list (web's `ProjectSpacesNav`).
+  const spacesOn = useSpacesEnabled(projectId).enabled && !!spaces;
+  const sessionsOn = !spacesOn;
+  // The nav rows other than Review sit in a collapsed "More" group, as on web.
+  const [moreOpen, setMoreOpen] = useState(false);
 
   // The switcher row's workspace tile and name.
   const { data: project } = useProject(projectId);
@@ -360,10 +380,10 @@ export const ProjectLeftDrawer = React.memo(function ProjectLeftDrawer({
   // Polls only while the drawer is open: its content stays mounted while
   // closed, every poll result re-rendered it (~2 renders per 3 s), and the
   // open refetch below already shows a fresh list.
-  const mine = useProjectSessionsPaged(projectId, { poll: isFocused && open, parent: 'root', startedBy: 'me' });
+  const mine = useProjectSessionsPaged(projectId, { poll: isFocused && open, parent: 'root', startedBy: 'me', enabled: sessionsOn });
   // KRTX-2418: the viewer's pinned sessions, any starter and any depth (a pin
   // is the viewer's choice), above the three sections.
-  const pinned = useProjectSessionsPaged(projectId, { poll: false, view: 'pinned', limit: SIDE_SECTION_PAGE_SIZE });
+  const pinned = useProjectSessionsPaged(projectId, { poll: false, view: 'pinned', limit: SIDE_SECTION_PAGE_SIZE, enabled: sessionsOn });
   // Shared and Automated load always, one small page each: a section shows
   // only when it has a row, so the drawer must know whether it has one.
   const shared = useProjectSessionsPaged(projectId, {
@@ -371,12 +391,14 @@ export const ProjectLeftDrawer = React.memo(function ProjectLeftDrawer({
     parent: 'root',
     startedBy: 'others',
     limit: SIDE_SECTION_PAGE_SIZE,
+    enabled: sessionsOn,
   });
   const automated = useProjectSessionsPaged(projectId, {
     poll: false,
     parent: 'root',
     startedBy: 'automated',
     limit: SIDE_SECTION_PAGE_SIZE,
+    enabled: sessionsOn,
   });
   const {
     isPending: projectSessionsPending,
@@ -407,13 +429,15 @@ export const ProjectLeftDrawer = React.memo(function ProjectLeftDrawer({
   const refetchAutomated = automated.refetch;
   const refetchPinned = pinned.refetch;
   const refetchAll = useCallback(async () => {
+    // Spaces on: no session list is shown, and `refetch` ignores `enabled`.
+    if (spacesOn) return;
     await Promise.all([
       refetchMine(),
       refetchPinned(),
       refetchShared(),
       refetchAutomated(),
     ]);
-  }, [refetchMine, refetchPinned, refetchShared, refetchAutomated]);
+  }, [spacesOn, refetchMine, refetchPinned, refetchShared, refetchAutomated]);
   // Sessions that wait on the user, newest wait first: their own group above
   // the list, from every loaded top-level row. A session not loaded yet (an
   // older page, a child) is left to the Review row's count.
@@ -491,7 +515,7 @@ export const ProjectLeftDrawer = React.memo(function ProjectLeftDrawer({
   // a next page, read on once on its own (the same bounded read).
   const autoReadRef = useRef(new Set<string>());
   useEffect(() => {
-    if (sessionsLoading) return;
+    if (sessionsLoading || spacesOn) return;
     const sides = [
       ['pinned', pinned],
       ['shared', shared],
@@ -507,7 +531,7 @@ export const ProjectLeftDrawer = React.memo(function ProjectLeftDrawer({
   });
   const items = useMemo(
     () =>
-      sessionsLoading
+      sessionsLoading || spacesOn
         ? []
         : buildDrawerItems(
             [
@@ -546,7 +570,7 @@ export const ProjectLeftDrawer = React.memo(function ProjectLeftDrawer({
             isExpanded
           ),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sectionOpen reads `choices`
-    [sessionsLoading, pinnedRows, mineRoots, sharedRoots, automatedRoots, withoutNeedsYou, sharedOpen, automatedOpen, choices, projectId, hasNextPage, pinned.hasNextPage, shared.hasNextPage, automated.hasNextPage, isExpanded, t]
+    [spacesOn, sessionsLoading, pinnedRows, mineRoots, sharedRoots, automatedRoots, withoutNeedsYou, sharedOpen, automatedOpen, choices, projectId, hasNextPage, pinned.hasNextPage, shared.hasNextPage, automated.hasNextPage, isExpanded, t]
   );
   // loading / error / empty / more / rows — shared with the Sessions page
   // (lib/session/session-pages) so a failed fetch, or a first load paused
@@ -847,8 +871,62 @@ export const ProjectLeftDrawer = React.memo(function ProjectLeftDrawer({
   );
   // The nav pills scroll with the list, as its first rows: pinned above it,
   // every new pill took list height away for good.
+  // Spaces on: a space row puts that space on the project home.
+  const spacesProp = spaces;
+  const goToSpace = useCallback(
+    (spaceId: string | null) => navigateOnce(() => spacesProp?.onOpenSpace(spaceId)),
+    [navigateOnce, spacesProp]
+  );
+  const goToCreateSpace = useCallback(() => {
+    // A sheet over the drawer, as the switcher: the drawer stays open behind it.
+    haptics.tap();
+    spacesProp?.onCreateSpace();
+  }, [spacesProp]);
+  const goToPrivateNotIn = useCallback(
+    () => navigateOnce(() => spacesProp?.onOpenPrivateNotIn()),
+    [navigateOnce, spacesProp]
+  );
+  const spacesHeader = spacesOn && spacesProp ? (
+    <View>
+      <DrawerSpaces
+        projectId={projectId}
+        activeSpaceId={spacesProp.activeSpaceId}
+        homeShown={spacesProp.homeShown}
+        showReview={showReview}
+        reviewNeedsYouCount={reviewNeedsYouCount}
+        onOpenReview={goToReview}
+        onOpenSpace={goToSpace}
+        onCreateSpace={goToCreateSpace}
+        onOpenPrivateNotIn={goToPrivateNotIn}
+      />
+      <View className={`${ROW_COLUMN} mt-3`}>
+        <Pressable
+          onPress={() => {
+            haptics.selection();
+            setMoreOpen((value) => !value);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={`${t('spaces.more')}, ${moreOpen ? 'collapse' : 'expand'}`}
+          accessibilityState={{ expanded: moreOpen }}
+          className="flex-row items-center gap-1 pb-1 pt-2">
+          <Text variant="muted" className="pl-4">
+            {t('spaces.more')}
+          </Text>
+          <Icon as={moreOpen ? CaretDownIcon : CaretRightIcon} size={12} className="text-muted-foreground" />
+        </Pressable>
+        {moreOpen ? (
+          <>
+            <NavPill icon={MagnifyingGlassIcon} label="Search" onPress={goToSearch} />
+            <NavPill icon={FoldersIcon} label="Files" onPress={goToFiles} />
+            {showArtifacts ? <NavPill icon={CardsThreeIcon} label={t('artifacts.title')} onPress={goToArtifacts} /> : null}
+            {showApps ? <NavPill icon={SquaresFourIcon} label="Apps" onPress={goToApps} /> : null}
+          </>
+        ) : null}
+      </View>
+    </View>
+  ) : null;
   const listHeader = useMemo(
-    () => (
+    () => spacesHeader ?? (
       <View>
         <View className={ROW_COLUMN}>
           <NavPill icon={MagnifyingGlassIcon} label="Search" onPress={goToSearch} />
@@ -913,6 +991,7 @@ export const ProjectLeftDrawer = React.memo(function ProjectLeftDrawer({
       handleOpenProjectSession,
       onSessionActions,
       handleOpenSubsession,
+      spacesHeader,
     ]
   );
 
@@ -1030,10 +1109,10 @@ export const ProjectLeftDrawer = React.memo(function ProjectLeftDrawer({
             variant="default"
             // On glass the tint is the fill: the solid primary would hide the glass.
             className={glassy ? 'rounded-full bg-transparent dark:bg-transparent' : 'rounded-full'}
-            onPress={handleNewSession}>
+            onPress={spacesOn ? goToCreateSpace : handleNewSession}>
             {/* A plus, as the Claude iOS sidebar's New session (Jay, 2026-11-11). */}
             <Icon as={PlusIcon} size={20} />
-            <Text maxFontSizeMultiplier={BUTTON_LABEL_MAX_FONT_SCALE.lg}>New session</Text>
+            <Text maxFontSizeMultiplier={BUTTON_LABEL_MAX_FONT_SCALE.lg}>{spacesOn ? t('spaces.newSpace') : 'New session'}</Text>
           </Button>
         </GlassButtons>
       </PinnedBar>

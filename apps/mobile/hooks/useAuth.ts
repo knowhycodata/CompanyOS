@@ -39,6 +39,7 @@ import { useTabScreenshotStore } from '@/stores/tab-screenshot-store';
 import { useComposerDraftStore } from '@/stores/composer-draft-store';
 import { useSessionFilterStore } from '@/stores/session-filter-store';
 import { useSessionTreeStore } from '@/stores/session-tree-store';
+import { useActiveSpaceStore } from '@/stores/active-space-store';
 
 import { useTracking } from '@/contexts/TrackingContext';
 import type {
@@ -72,6 +73,7 @@ function resetUserStores() {
   // A session search is the user's text too.
   useSessionFilterStore.getState().reset();
   useSessionTreeStore.getState().reset();
+  useActiveSpaceStore.getState().reset();
   // Also deletes the screenshot files.
   useTabScreenshotStore.getState().clear();
 }
@@ -333,6 +335,7 @@ export function useAuth() {
             }
           }
         } else if (_event === 'SIGNED_OUT') {
+          useActiveSpaceStore.getState().reset();
           initializedUserIdRef.current = null;
           initializedCanTrackRef.current = null;
         }

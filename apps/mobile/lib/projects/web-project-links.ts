@@ -48,3 +48,20 @@ export const WEB_CREATE_RETURN_URL = 'kortix://web';
 export function newWorkspaceWebUrl(frontendUrl: string): string {
   return `${frontendUrl.replace(/\/$/, '')}/workspaces/new`;
 }
+
+/**
+ * A space's tab on web (project flag `chat`): `/workspaces/<id>/c/<slug>?tab=<tabId>`
+ * for a channel, `/workspaces/<id>/chat?tab=<tabId>` for the personal space.
+ * Mobile has no Drive browser: a file or folder tab opens there, in the
+ * in-app browser.
+ */
+export function spaceTabWebUrl(
+  frontendUrl: string,
+  projectId: string,
+  space: { kind: 'channel' | 'dm'; slug: string | null },
+  tabId: string
+): string {
+  const base = `${frontendUrl.replace(/\/$/, '')}/workspaces/${encodeURIComponent(projectId)}`;
+  const page = space.kind === 'channel' && space.slug ? `/c/${encodeURIComponent(space.slug)}` : '/chat';
+  return `${base}${page}?tab=${encodeURIComponent(tabId)}`;
+}

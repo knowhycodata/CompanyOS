@@ -34,6 +34,8 @@ export const PAGE_TABS: Record<string, PageTab> = {
   'page:files-nav':         { id: 'page:files-nav',         label: 'Files' },
   'page:settings':          { id: 'page:settings',          label: 'Settings' },
   'page:members':           { id: 'page:members',           label: 'Members' },
+  'page:space-details':     { id: 'page:space-details',     label: 'Space' },
+  'page:space-private-not-in': { id: 'page:space-private-not-in', label: 'Private spaces' },
 };
 
 // ---------------------------------------------------------------------------

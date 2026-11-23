@@ -28,6 +28,12 @@ import { useState, useCallback, useMemo, useRef, useEffect, useLayoutEffect } fr
 import { useProjectSessionConnect } from '@/lib/session/project-connect';
 import { markComposerFocus } from '@/lib/onboarding/composer-handoff';
 import { useProjectHomeSend } from '@/components/session/use-project-home-send';
+import { SpaceHome } from '@/components/spaces/SpaceHome';
+import { CreateSpaceSheet, type CreateSpaceSheetRef } from '@/components/spaces/CreateSpaceSheet';
+import { SpaceDetailsPage } from '@/components/spaces/SpaceDetailsPage';
+import { PrivateSpacesNotInPage } from '@/components/spaces/PrivateSpacesNotInPage';
+import { useSpacesEnabled } from '@/components/spaces/space-hooks';
+import { useActiveSpaceId, useActiveSpaceStore } from '@/stores/active-space-store';
 import { useProjectStack } from '@/components/session/use-project-stack';
 import { View, useWindowDimensions } from 'react-native';
 import { Stack, useIsFocused, useLocalSearchParams } from 'expo-router';
@@ -53,6 +59,8 @@ import {
   type ProjectRouteValue,
 } from '@/components/session/ProjectRoutes';
 import { FloatingMenuButton } from '@/components/session/FloatingMenuButton';
+import { NotificationsButton } from '@/components/session/NotificationsButton';
+import { PageHeader } from '@/components/kortix/page-header';
 import {
   DRAWER_SWAP_PARAMS,
   drawerPageViewKey,
@@ -257,8 +265,11 @@ export function ProjectScreen() {
   // clean composer (ProjectRoutes `homeKey`). A push that ends AFTER the store
   // already went home — Cancel tapped during the push transition — is not a
   // cover: remounting then would drop the draft Cancel just restored.
+  // A space home (flag `chat`) clears its own composer after each send and
+  // keeps its timeline's scroll under a thread: it is never remounted.
+  const spacesOnRef = useRef(false);
   const handleViewCovered = useCallback(() => {
-    if (isHomeRef.current) return;
+    if (isHomeRef.current || spacesOnRef.current) return;
     setHomeKey((key) => key + 1);
   }, []);
   const {
@@ -578,6 +589,57 @@ export function ProjectScreen() {
     [openThreadFromDrawer]
   );
 
+  // ── Spaces (project flag `chat`) ──
+  // The home shows a space: the drawer's space rows pick it, a thread opens
+  // over it, and Back returns to it.
+  const spacesFlag = useSpacesEnabled(projectId);
+  const spacesOn = spacesFlag.enabled;
+  spacesOnRef.current = spacesOn;
+  const activeSpaceId = useActiveSpaceId(projectId);
+  const createSpaceSheetRef = useRef<CreateSpaceSheetRef>(null);
+  const openSpace = useCallback(
+    (spaceId: string | null) => {
+      useActiveSpaceStore.getState().setActiveSpace(projectId, spaceId);
+      returnHome();
+    },
+    [projectId, returnHome]
+  );
+  const openCreateSpace = useCallback(() => createSpaceSheetRef.current?.open(), []);
+  const openSpaceDetails = useCallback(
+    (section?: 'people' | 'add') => {
+      useActiveSpaceStore.getState().setDetailsSection(section ?? null);
+      openSubPage('page:space-details');
+    },
+    [openSubPage]
+  );
+  const openPrivateNotIn = useCallback(() => openSubPage('page:space-private-not-in'), [openSubPage]);
+  const openProjectMembers = useCallback(() => openSubPage('page:members'), [openSubPage]);
+  // A new space opens on the home with its Add sheet, as web opens `?details=add`.
+  const handleSpaceCreated = useCallback(
+    (spaceId: string) => {
+      closeDrawer();
+      openSpace(spaceId);
+      requestAnimationFrame(() => openSpaceDetails('add'));
+    },
+    [closeDrawer, openSpace, openSpaceDetails]
+  );
+  // The drawer's spaces section: present only while the flag is on.
+  // The same test as `isHome` below: no page, thread or connecting session on screen.
+  const homeShown = !scopeReady || (!activePageId && !activeSessionId && !connectingProjectSessionId);
+  const drawerSpaces = useMemo(
+    () =>
+      spacesOn
+        ? {
+            activeSpaceId,
+            homeShown,
+            onOpenSpace: openSpace,
+            onCreateSpace: openCreateSpace,
+            onOpenPrivateNotIn: openPrivateNotIn,
+          }
+        : undefined,
+    [spacesOn, activeSpaceId, homeShown, openSpace, openCreateSpace, openPrivateNotIn]
+  );
+
   // New session (the drawer's button, the Sessions page's pinned one): project
   // home with the keyboard up, so the next thing is typing the prompt.
   const startNewSession = useCallback(() => {
@@ -608,6 +670,7 @@ export function ProjectScreen() {
           onOpenSwitcher={openSwitcher}
           onClose={closeDrawer}
           open={drawerOpen}
+          spaces={drawerSpaces}
         />
       </DrawerSidebarDim>
     ),
@@ -627,6 +690,7 @@ export function ProjectScreen() {
       openSessionActions,
       openSwitcher,
       closeDrawer,
+      drawerSpaces,
     ]
   );
 
@@ -869,9 +933,22 @@ export function ProjectScreen() {
           return <Pages.MembersNavPage page={page} projectId={projectId} onBack={onBack} />;
         case 'page:files-nav':
           return <Pages.FilesNavPage page={page} projectId={projectId} onBack={onBack} />;
+        case 'page:space-details':
+          if (!spacesOn) return <View className="flex-1 bg-background"><PageHeader title="" onBack={onBack} /></View>;
+          return (
+            <SpaceDetailsPage
+              projectId={projectId}
+              onBack={onBack}
+              onOpenProjectMembers={openProjectMembers}
+              onOpenSchedules={() => openSubPage('page:schedules')}
+            />
+          );
+        case 'page:space-private-not-in':
+          if (!spacesOn) return <View className="flex-1 bg-background"><PageHeader title="" onBack={onBack} /></View>;
+          return <PrivateSpacesNotInPage projectId={projectId} onBack={onBack} />;
       }
     },
-    [projectId, openSubPage]
+    [projectId, openSubPage, openProjectMembers, spacesOn]
   );
 
   // The session ··· sheet's Files row (KRTX-1636): the project's Files as a
@@ -897,7 +974,29 @@ export function ProjectScreen() {
     [notificationsUnreadCount, openNotifications]
   );
   const homeContent = useMemo(
-    () => (
+    () => spacesFlag.isLoading ? (
+      // The flag decides what home is: only the drawer and bell until it lands.
+      <View className="flex-1 bg-background">
+        <FloatingMenuButton onPress={openDrawer}>
+          <NotificationsButton unreadCount={homeNotifications.unreadCount} onPress={homeNotifications.onOpen} />
+        </FloatingMenuButton>
+      </View>
+    ) : spacesOn ? (
+      <View className="flex-1 bg-background">
+        <SpaceHome
+          projectId={projectId}
+          onOpenDrawer={openDrawer}
+          notifications={homeNotifications}
+          needsYouBySession={needsYouSessions}
+          onOpenThread={handleOpenProjectSession}
+          onThreadActions={openSessionActions}
+          onOpenDetails={openSpaceDetails}
+          onCreateSpace={openCreateSpace}
+          onInviteToProject={openProjectMembers}
+          showUpgradeForError={showUpgradeForError}
+        />
+      </View>
+    ) : (
       <View className="flex-1 bg-background">
         <ProjectHome
           projectId={projectId}
@@ -910,7 +1009,24 @@ export function ProjectScreen() {
         />
       </View>
     ),
-    [projectId, isDashboardSending, submitNewSession, openDrawer, homeNotifications, initialDraft, consumeInitialDraft]
+    [
+      spacesFlag.isLoading,
+      spacesOn,
+      needsYouSessions,
+      handleOpenProjectSession,
+      openSessionActions,
+      openSpaceDetails,
+      openCreateSpace,
+      openProjectMembers,
+      showUpgradeForError,
+      projectId,
+      isDashboardSending,
+      submitNewSession,
+      openDrawer,
+      homeNotifications,
+      initialDraft,
+      consumeInitialDraft,
+    ]
   );
 
   // Memoized: a new value re-renders every project route that reads it.
@@ -1052,6 +1168,10 @@ export function ProjectScreen() {
           Sessions page's long press, and the drawer's session row long press
           all open it through `openSessionActions` (ProjectRouteValue). */}
       <SessionActionsSheet ref={actionsSheetRef} projectId={projectId} onOpenFiles={openFilesOverThread} />
+
+      {/* Spaces: one "New space" sheet, opened from the drawer (over it) and
+          from #general's setup block. */}
+      {spacesOn ? <CreateSpaceSheet ref={createSpaceSheetRef} projectId={projectId} onCreated={handleSpaceCreated} /> : null}
 
       {/* The workspace switcher (COR-124, Workspaces ux.md §3), opened by
           the drawer's switcher row. A picked workspace closes the drawer too. */}

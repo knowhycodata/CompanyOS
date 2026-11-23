@@ -166,6 +166,8 @@ describe('sub-pages', () => {
       'page:secrets-nav',
       'page:members',
       'page:files-nav',
+      'page:space-details',
+      'page:space-private-not-in',
     ]);
     for (const id of SUB_PAGE_IDS) expect(isSubPageId(id)).toBe(true);
   });

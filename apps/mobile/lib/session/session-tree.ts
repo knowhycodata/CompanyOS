@@ -44,6 +44,8 @@ export interface SessionListFilter {
   q?: string;
   /** Only the viewer's pinned or archived sessions. Absent: the list, which leaves out the archived ones. */
   view?: SessionListView;
+  /** Only the threads of one space (project flag `chat`): sent as `space_id`. */
+  spaceId?: string;
 }
 
 /**
@@ -57,6 +59,7 @@ export function normalizeSessionListFilter(filter: SessionListFilter | undefined
   const q = filter?.q?.trim();
   if (q) out.q = q.slice(0, 200);
   if (filter?.view) out.view = filter.view;
+  if (filter?.spaceId) out.spaceId = filter.spaceId;
   return out;
 }
 
