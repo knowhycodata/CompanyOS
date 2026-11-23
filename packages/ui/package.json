@@ -59,6 +59,7 @@
     "./checkbox": "./src/primitives/checkbox.tsx",
     "./checkbox-group": "./src/primitives/checkbox-group.tsx",
     "./collapsible": "./src/primitives/collapsible.tsx",
+    "./color-picker": "./src/primitives/color-picker.tsx",
     "./combobox": "./src/primitives/combobox.tsx",
     "./command": "./src/primitives/command.tsx",
     "./components.css": "./src/styles/components.css",
@@ -216,6 +217,7 @@
     "./glyph-picker": "./src/primitives/glyph-picker.tsx",
     "./glyph-registry": "./src/primitives/glyph-registry.tsx",
     "./glyph-tint": "./src/primitives/glyph-tint.ts",
+    "./gradient-wallpaper": "./src/primitives/gradient-wallpaper.tsx",
     "./hint": "./src/primitives/hint.tsx",
     "./histogram-bars": "./src/primitives/histogram-bars.tsx",
     "./hover-card": "./src/primitives/hover-card.tsx",
@@ -520,7 +522,6 @@
     "./theme.css": "./src/styles/theme.css",
     "./theme/wallpapers": "./src/theme/wallpapers.ts",
     "./toast": "./src/primitives/toast.tsx",
-    "./toast-clearance": "./src/primitives/toast-clearance.ts",
     "./toggle": "./src/primitives/toggle.tsx",
     "./tokens.css": "./src/styles/tokens.css",
     "./tooltip": "./src/primitives/tooltip.tsx",
@@ -729,6 +730,10 @@
       "./collapsible": {
         "types": "./dist/primitives/collapsible.d.ts",
         "import": "./dist/primitives/collapsible.js"
+      },
+      "./color-picker": {
+        "types": "./dist/primitives/color-picker.d.ts",
+        "import": "./dist/primitives/color-picker.js"
       },
       "./combobox": {
         "types": "./dist/primitives/combobox.d.ts",
@@ -1348,6 +1353,10 @@
       "./glyph-tint": {
         "types": "./dist/primitives/glyph-tint.d.ts",
         "import": "./dist/primitives/glyph-tint.js"
+      },
+      "./gradient-wallpaper": {
+        "types": "./dist/primitives/gradient-wallpaper.d.ts",
+        "import": "./dist/primitives/gradient-wallpaper.js"
       },
       "./hint": {
         "types": "./dist/primitives/hint.d.ts",
@@ -2549,10 +2558,6 @@
       "./toast": {
         "types": "./dist/primitives/toast.d.ts",
         "import": "./dist/primitives/toast.js"
-      },
-      "./toast-clearance": {
-        "types": "./dist/primitives/toast-clearance.d.ts",
-        "import": "./dist/primitives/toast-clearance.js"
       },
       "./toggle": {
         "types": "./dist/primitives/toggle.d.ts",

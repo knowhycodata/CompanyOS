@@ -562,6 +562,8 @@
       "backToApp": "返回应用",
       "close": "关闭",
       "docs": "文档",
+      "search": "搜索偏好设置",
+      "searchNoResults": "无匹配项",
       "groups": {
         "workspace": "工作区",
         "personal": "个人",
@@ -815,12 +817,36 @@
       },
       "wallpapers": {
         "dither": "抖动",
-        "brandmark": "品牌标志",
-        "nebula": "像素光束",
-        "silk": "丝绸",
-        "grain": "颗粒",
-        "neuro": "神经",
+        "ember": "余烬",
+        "prism": "棱镜",
+        "tide": "潮汐",
+        "aurora": "极光",
+        "dusk": "黄昏",
+        "eclipse": "日食",
+        "lagoon": "潟湖",
+        "cumulus": "积云",
+        "moss": "苔藓",
+        "iris": "鸢尾",
+        "custom": "自定义",
         "blank": "空白"
+      },
+      "custom": {
+        "editColors": "编辑颜色",
+        "shuffle": "随机",
+        "palette": "调色板",
+        "paletteLabel": "调色板 {count}",
+        "colors": "颜色",
+        "colorLabel": "颜色 {count}",
+        "customColor": "自定义颜色",
+        "addColor": "添加颜色",
+        "removeColor": "移除颜色",
+        "resetColors": "重置",
+        "finish": "质感",
+        "finishes": {
+          "dither": "抖动",
+          "grain": "颗粒"
+        },
+        "opacity": "不透明度"
       }
     },
     "sessions": {
@@ -2234,6 +2260,10 @@
     "panel": {
       "outputNew": "新",
       "outputUpdated": "已更新",
+      "backgroundTasks": "后台任务",
+      "finished": "已完成",
+      "finishedCount": "已完成 {count} 个",
+      "running": "进行中",
       "resizePane": "调整窗格大小"
     }
   },
@@ -2436,7 +2466,8 @@
     "collapseQueue": "折叠等待中的消息",
     "expandQueue": "展开等待中的消息",
     "myKortixRoutes": "把每个任务交给合适的智能体",
-    "chatInputReset": "Reset"
+    "chatInputReset": "Reset",
+    "queuedDisconnected": "此会话与 Kortix 的连接已断开。请开始新会话以继续。"
   },
   "billing": {
     "plan": {
@@ -3410,7 +3441,18 @@
         "completed": "已完成",
         "failed": "未完成",
         "stopped": "已停止"
-      }
+      },
+      "card": {
+        "session": "会话",
+        "copyId": "复制会话 ID",
+        "openNewTab": "在新标签页中打开",
+        "model": "模型",
+        "runsAs": "运行身份",
+        "inline": "在此会话内运行，因此没有可打开的独立会话。"
+      },
+      "notStarted": "未启动",
+      "notStartedSentence": "Kortix 无法启动这位同事。没有运行任何内容。",
+      "policyBlocked": "已被此项目的策略阻止。请让项目管理员允许它。"
     }
   },
   "agentRunLimit": {
@@ -22474,8 +22516,7 @@
       "install": {
         "title": "添加扩展程序",
         "description": "来自 Chrome Web Store。",
-        "done": "Kortix 已在 Chrome 中。",
-        "descriptionUnlisted": "在 Chrome 中加载它。"
+        "done": "Kortix 已在 Chrome 中。"
       },
       "connect": {
         "title": "登录",
@@ -22529,7 +22570,6 @@
       "control": "随时可通过页面上的栏接管或停止。",
       "own": "只有你自己的会话可以使用你的浏览器。"
     },
-    "howToInstall": "如何安装",
     "copyLink": "复制链接",
     "linkCopied": "链接已复制",
     "copyFailed": "无法复制链接。请重试。",
@@ -26380,6 +26420,7 @@
       },
       "workingFor": "工作中 · {elapsed}",
       "runsAs": "以 {agent} 运行",
+      "stateCount": "{count} {state}",
       "teamRole": "仅限本会话的角色",
       "attention": {
         "question": "有问题要问你",

@@ -108,7 +108,7 @@ import {
 } from '@/lib/menu-registry';
 import { track } from '@/lib/track';
 import { cn, uiRoutes } from '@kortix/ui';
-import { DEFAULT_WALLPAPER_ID } from '@kortix/ui/theme';
+import { DEFAULT_WALLPAPER_ID, getSelectableWallpaper } from '@kortix/ui/theme';
 import { hubTarget, openAccountPanel } from '@kortix/ui/internal/stores/account-panel-store';
 import { workspaceSettingsPath } from '@kortix/shared/workspace-settings';
 import { useChatSendStore } from '@kortix/ui/internal/stores/chat-send-store';
@@ -863,8 +863,9 @@ export function CommandPalette() {
   } = useInterfaceTheme();
   const { preview: previewInterfaceTheme, commit: commitThemePreview } =
     useInterfaceThemePreview(themeChoice);
+  // A retired stored id renders the default, so the default is the active row.
   const activeWallpaperId = useUserPreferencesStore(
-    (s) => s.preferences.wallpaperId ?? DEFAULT_WALLPAPER_ID,
+    (s) => getSelectableWallpaper(s.preferences.wallpaperId ?? DEFAULT_WALLPAPER_ID).id,
   );
   const panelMode = useUserPreferencesStore((s) => s.preferences.panelMode ?? 'easy');
   const conversationDensity = useUserPreferencesStore(

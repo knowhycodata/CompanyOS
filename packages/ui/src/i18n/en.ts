@@ -354,6 +354,8 @@ const catalog = {
       "backToApp": "Back to app",
       "close": "Close",
       "docs": "Docs",
+      "search": "Search preferences",
+      "searchNoResults": "No matches",
       "groups": {
         "workspace": "Workspace",
         "personal": "Personal",
@@ -1628,6 +1630,10 @@ const catalog = {
     "panel": {
       "outputNew": "New",
       "outputUpdated": "Updated",
+      "backgroundTasks": "Background tasks",
+      "finished": "Finished",
+      "finishedCount": "{count} finished",
+      "running": "Running",
       "resizePane": "Resize pane"
     }
   },
@@ -1737,7 +1743,8 @@ const catalog = {
     "hintSettings": "Press {modifier}, to open settings",
     "hintCompact": "Ask to compact the session when it gets long",
     "myKortixRoutes": "Routes each task to the right agent",
-    "chatInputReset": "Reset"
+    "chatInputReset": "Reset",
+    "queuedDisconnected": "This session lost its connection to Kortix. Start a new session to continue."
   },
   "auth": {
     "haveReferralCode": "Have a referral code?",
@@ -2168,7 +2175,18 @@ const catalog = {
         "completed": "Done",
         "failed": "Didn’t finish",
         "stopped": "Stopped"
-      }
+      },
+      "card": {
+        "session": "Session",
+        "copyId": "Copy session ID",
+        "openNewTab": "Open in new tab",
+        "model": "Model",
+        "runsAs": "Runs as",
+        "inline": "Ran inside this session, so it has no session of its own to open."
+      },
+      "notStarted": "Didn’t start",
+      "notStartedSentence": "Kortix couldn’t start this colleague. Nothing ran.",
+      "policyBlocked": "Blocked by this project’s policy. Ask a project admin to allow it."
     }
   },
   "agentScope": {
@@ -7326,8 +7344,7 @@ const catalog = {
       "install": {
         "title": "Add the extension",
         "description": "From the Chrome Web Store.",
-        "done": "Kortix is in Chrome.",
-        "descriptionUnlisted": "Load it in Chrome."
+        "done": "Kortix is in Chrome."
       },
       "connect": {
         "title": "Sign in",
@@ -7381,7 +7398,6 @@ const catalog = {
       "control": "Take over or Stop from the bar on the page at any time.",
       "own": "Only your own sessions can use your browser."
     },
-    "howToInstall": "How to install",
     "copyLink": "Copy link",
     "linkCopied": "Link copied",
     "copyFailed": "Could not copy the link. Try again.",
@@ -9769,6 +9785,7 @@ const catalog = {
       },
       "workingFor": "working · {elapsed}",
       "runsAs": "runs as {agent}",
+      "stateCount": "{count} {state}",
       "teamRole": "Role for this session only",
       "attention": {
         "question": "Has a question for you",

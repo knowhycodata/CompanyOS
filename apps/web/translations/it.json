@@ -562,6 +562,8 @@
       "backToApp": "Torna all'app",
       "close": "Chiudi",
       "docs": "Documentazione",
+      "search": "Cerca nelle preferenze",
+      "searchNoResults": "Nessun risultato",
       "groups": {
         "workspace": "Workspace",
         "personal": "Personale",
@@ -815,12 +817,36 @@
       },
       "wallpapers": {
         "dither": "Retino",
-        "brandmark": "Marchio",
-        "nebula": "Raggi pixel",
-        "silk": "Seta",
-        "grain": "Grana",
-        "neuro": "Neuro",
+        "ember": "Brace",
+        "prism": "Prisma",
+        "tide": "Marea",
+        "aurora": "Aurora",
+        "dusk": "Crepuscolo",
+        "eclipse": "Eclissi",
+        "lagoon": "Laguna",
+        "cumulus": "Cumulo",
+        "moss": "Muschio",
+        "iris": "Iris",
+        "custom": "Personalizzato",
         "blank": "Vuoto"
+      },
+      "custom": {
+        "editColors": "Modifica colori",
+        "shuffle": "Casuale",
+        "palette": "Tavolozza",
+        "paletteLabel": "Tavolozza {count}",
+        "colors": "Colori",
+        "colorLabel": "Colore {count}",
+        "customColor": "Colore personalizzato",
+        "addColor": "Aggiungi colore",
+        "removeColor": "Rimuovi colore",
+        "resetColors": "Ripristina",
+        "finish": "Finitura",
+        "finishes": {
+          "dither": "Retinatura",
+          "grain": "Grana"
+        },
+        "opacity": "Opacità"
       }
     },
     "sessions": {
@@ -2234,6 +2260,10 @@
     "panel": {
       "outputNew": "Nuovo",
       "outputUpdated": "Aggiornato",
+      "backgroundTasks": "Attività in background",
+      "finished": "Completate",
+      "finishedCount": "{count} completate",
+      "running": "In corso",
       "resizePane": "Ridimensiona il riquadro"
     }
   },
@@ -2436,7 +2466,8 @@
     "collapseQueue": "Comprimi i messaggi in attesa",
     "expandQueue": "Espandi i messaggi in attesa",
     "myKortixRoutes": "Affida ogni attività all’agente giusto",
-    "chatInputReset": "Reset"
+    "chatInputReset": "Reset",
+    "queuedDisconnected": "Questa sessione ha perso la connessione a Kortix. Avvia una nuova sessione per continuare."
   },
   "billing": {
     "plan": {
@@ -3410,7 +3441,18 @@
         "completed": "Fatto",
         "failed": "Non ha finito",
         "stopped": "Interrotto"
-      }
+      },
+      "card": {
+        "session": "Sessione",
+        "copyId": "Copia ID sessione",
+        "openNewTab": "Apri in una nuova scheda",
+        "model": "Modello",
+        "runsAs": "Eseguito come",
+        "inline": "Eseguito in questa sessione, quindi non ha una sessione propria da aprire."
+      },
+      "notStarted": "Non avviato",
+      "notStartedSentence": "Kortix non è riuscito ad avviare questo collega. Non è stato eseguito nulla.",
+      "policyBlocked": "Bloccato dalla policy di questo progetto. Chiedi a un amministratore del progetto di consentirlo."
     }
   },
   "agentRunLimit": {
@@ -22474,8 +22516,7 @@
       "install": {
         "title": "Aggiungi l'estensione",
         "description": "Dal Chrome Web Store.",
-        "done": "Kortix è in Chrome.",
-        "descriptionUnlisted": "Caricala in Chrome."
+        "done": "Kortix è in Chrome."
       },
       "connect": {
         "title": "Accedi",
@@ -22529,7 +22570,6 @@
       "control": "Prendi il controllo o Ferma dalla barra sulla pagina, in qualsiasi momento.",
       "own": "Solo le tue sessioni possono usare il tuo browser."
     },
-    "howToInstall": "Come installarla",
     "copyLink": "Copia link",
     "linkCopied": "Link copiato",
     "copyFailed": "Impossibile copiare il link. Riprova.",
@@ -26380,6 +26420,7 @@
       },
       "workingFor": "al lavoro · {elapsed}",
       "runsAs": "esegue come {agent}",
+      "stateCount": "{count} {state}",
       "teamRole": "Ruolo solo per questa sessione",
       "attention": {
         "question": "Ha una domanda per te",
