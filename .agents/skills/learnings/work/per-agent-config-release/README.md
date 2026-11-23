@@ -1,6 +1,6 @@
 ---
 title: Per-agent config releases (each session's box holds only what its agent uses)
-status: planned; D1–D3 decided 2026-11-23; nothing built
+status: phase 1 built on branch `per-agent-release` (file lists, `repo-agent` variant, D3); D1–D3 decided 2026-11-23
 owner: Dimitrije (decisions)
 updated: 2026-11-23
 ---
@@ -87,28 +87,36 @@ something under the release path still reads.
 
 ### 1. The file list of one agent
 
-Inputs: the governance `compileSelectedAgentConfig` builds for the agent. It
-already holds the agent, the subagents it may start (transitively), and the
-commands and extensions they enable. Rules, all relative to the repository
-root:
+`agentReleaseFiles` in `release-tree.ts`, called by `agentRelease` in
+`builder.ts`. Inputs: the governance `compileSelectedAgentConfig` builds for
+the agent. It holds the agent and the subagents it may start (transitively),
+and the commands and extensions they enable. Built-in agents are in the set
+but disabled. Every rule reads "any enabled agent of the set".
 
-| What pi or the agent reads | Rule |
-|---|---|
-| Agent and command prompts | Inlined in governance. No file. |
-| Root `AGENTS.md`, else `CLAUDE.md` | Always. |
-| Every manifest file (`kortix.yaml` and its `imports`) | Always. |
-| A skill any agent of the set may load | The whole skill folder. |
-| Relative links in a skill's text files (`](../x)`, quoted relative paths) | Each target that exists, and its folder when it is a folder. |
-| A project tool any agent of the set may call | The whole folder of the module. |
-| Each file a tool module imports by a relative specifier, transitively | The whole folder of that file. |
-| The nearest `package.json`, `tsconfig.json`, `bunfig.toml` and lockfile above each tool folder | Each one. |
-| A local `./` pi package an agent of the set enables | The whole package folder. |
-| `include:` globs in kortix.yaml | Each match. |
-| `.gitattributes` `export-ignore` | Still removes a path, as today. |
+Two scopes:
 
-Whole folders, not single files: a tool that reads a template next to itself
-at run time still finds it. `startOnlyFiles` in the daemon already treats a
-tool's folder as the tool's.
+- `exact`: `agent:<name>`, a session WITHOUT repository access. Only the
+  files named, nothing beside them: a file the agent may not use is never
+  disclosed.
+- `folders`: `repo-agent:<name>`, a session WITH repository access. It holds
+  the whole checkout in `/workspace` anyway, so the list takes whole folders
+  to never drop a file a tool reads at run time.
+
+| What pi or the agent reads | `exact` | `folders` |
+|---|---|---|
+| Agent and command prompts | Inlined in governance. No file. | Same |
+| Root `AGENTS.md` and `CLAUDE.md` | Each one present | Same |
+| Root manifest (`kortix.yaml`): the box reads `sandbox.on_boot` from the release root (`lib/config/config.ts`) | No (no checkout to start) | Yes |
+| A skill an agent of the set may load | The whole skill folder | Same |
+| Relative links in a skill's `.md`/`.mdx`/`.txt` files (`](x)`, quoted `./x`, `../x`) | Each target that exists: the file, or every file under the folder. Never the repository root. | Same |
+| A project tool an agent of the set may call | The module and its relative imports, transitively | Plus every file under the folder of each of those files (never the root), the imports of the code in those folders, to a fixed point |
+| `package.json`, `tsconfig.json`, `jsconfig.json`, `bunfig.toml`, lockfiles, `.npmrc` in each folder from a tool file up to the root | No | Yes |
+| A local pi package an agent of the set enables | The package folder (a file package is its folder, except at the root) | Same |
+| `.gitattributes` `export-ignore` | Removes the path | Same |
+| `include:` globs in kortix.yaml | Not built (phase 5) | Same |
+
+Imports and skill links are parsed once per blob per API process
+(`git cat-file --batch`, memo by blob ID).
 
 `include:` is new manifest schema. Proposal: a top-level `release.include`
 (project-wide globs) and `agents.<name>.include` (that agent only). The exact
@@ -123,12 +131,17 @@ ID, so a commit that does not change an agent's files reuses its archive.
 
 ### 3. Variants
 
-- Every session gets `agent:<name>`: with or without repository access (D3).
-- `mykortix` and `none` stay as they are.
+- A session without repository access keeps `agent:<name>` (`exact`).
+- A session with repository access gets `repo-agent:<name>` (`folders`) once
+  the flag is `on`. Phase 1 builds it; nothing assigns it yet. Its archive
+  URL carries `&agent=<name>&scope=repo`, and the archive route rebuilds it
+  from those (`archiveQueryVariant`).
+- `mykortix` and `none` stay as they are. `none` receives no file.
 - `project` stays as the full release: the fallback of section 7, and the
   release a session gets while the rollout flag is off.
 - One helper decides the governance and the variant for a session. The four
-  call sites in "What exists today" call it.
+  call sites in "What exists today" call it. Built in the phase that assigns
+  `repo-agent` (phase 5), where it changes behavior.
 
 ### 4. Publish (D2)
 
@@ -168,20 +181,24 @@ ID, so a commit that does not change an agent's files reuses its archive.
 
 ### 6. Shadow mode: prove no file is missing before any box loses one
 
-The API computes each agent's file list but the box still runs the full
-release. The box logs every read under the release path that is outside its
-agent's list.
+The box still runs the full `project` release. It reports which release
+files were READ, and the API compares them with the agent's file list. The
+box needs no list, and a later rule change is checked against the stored
+reads without new box data.
 
-- The descriptor carries `agent_files` (the list) in shadow mode.
-- Access log, proposal: after `verifyRelease`, reset each file's atime to its
-  mtime. Under `relatime` the first later read sets atime again. At turn end
-  and at session stop, list files with atime above the reset time and outside
-  `agent_files`. Unverified: the mount options on a Platinum box. If atime is
-  off there, use instrumentation: the tool module loader, the `read` and
-  `bash` path arguments, and ENOENT errors under the release path.
-- The box reports misses (`POST …/config-release/misses`: release ID, paths).
-  The API logs `[config-releases] closure miss` and stores
-  `(project, agent, path, first_seen, count)`.
+- Access log: after each `verifyRelease` (which reads every file), the box
+  resets each file's atime to its mtime. Under `relatime` the first later
+  read sets atime again. At turn end and at session stop, the box lists the
+  release files whose atime is above the reset time.
+- Verified on a dev Platinum box (2026-11-23): `/` is `ext4 rw,relatime`,
+  `/opt/kortix/config` is on it, the daemon runs as `kortix` and owns the
+  sealed files (mode 0444). After `touch -a -d @<mtime>`, one `cat` moved
+  atime from `1795456343` to `1795456384`. `/workspace` is `noatime`; it is
+  not used.
+- Limit: a `stat` or `existsSync` without a read is not logged.
+- The box reports `(release ID, read paths)` to the API. The API stores the
+  reads per `(project, commit, agent)`, computes the misses against the
+  agent's `folders` list, and logs `[config-releases] closure miss`.
 - Run shadow mode on dev, then on internal prod projects, for at least 7 days
   of normal use. The flip needs 0 misses, or an `include:` that covers each.
 
@@ -210,18 +227,36 @@ A per-project flag `agent_releases` with three values: `off` (today),
 `shadow`, `on`. Default `off`. Graduate as `config_releases` graduated
 (`config-releases/ROLLOUT.md`): flag removed, value inert.
 
+## Measured with the phase 1 rules
+
+The internal project of the Problem section, commit `e9b33abb`, 42 enabled
+agents, the `agentReleaseFiles` code run on a local clone as the mirror:
+
+| Scope | Files per agent (min / median / max) | Build, all 42 agents |
+|---|---|---|
+| `exact` | 1 / 172 / 762 | 0.58 s |
+| `folders` | 2 / 187 / 777 | 0.57 s |
+
+- `folders`: 2.91 MB median, 7.7 MB max per agent. All agents together use
+  777 of 2,324 files.
+- The medians are above the first estimate (~104) because subagent tools,
+  skill links and `AGENTS.md` now count. Agents that start many subagents
+  approach the union.
+- The first version read one blob per `git` process: 27.5 s for the `exact`
+  lists. `git cat-file --batch` and the blob memo took it to 0.58 s.
+
 ## Phases
 
 Each phase lands on `dev` behind the flag and is verified on the local stack
 with real Platinum boxes, then on dev.
 
-1. **API file list.** The file-list rules, the one helper of section 3, D3
-   for no-repo sessions (`AGENTS.md`, `./` packages). Shadow descriptors carry
-   `agent_files`. Unit tests on `release-tree.ts` with synthetic repositories
-   (each rule: a tool that reads a sibling file, a dynamic import, a skill
-   link to `../`, a nested `package.json`).
-2. **Box shadow log.** Check atime on a real box first. Miss report route and
-   table. Turn `shadow` on for internal projects on dev, then on prod.
+1. **API file list. Built.** `agentReleaseFiles` with both scopes, the
+   `repo-agent` variant and its archive URL, D3 for no-repo sessions
+   (`AGENTS.md`, local pi packages). Tests: `builder.test.ts` (real Git
+   repositories) and the CFG-2 flow step for D3.
+2. **Box shadow log.** atime reset after verify, read report at turn end
+   and stop, the API route and table, miss computation. Turn `shadow` on for
+   internal projects on dev, then on prod.
 3. **Agent switch.** Current-agent record, the awaited converge before a
    switching turn, convergence keyed on the current agent. Measure the
    switch cost on pi.
@@ -235,9 +270,9 @@ with real Platinum boxes, then on dev.
 
 ## Risks and open questions
 
-- atime may be off on Platinum boxes (`noatime`). Then the shadow log needs
-  instrumentation, which cannot see a read from a child process the model
-  starts.
+- atime works on Platinum boxes today (verified). A future image that mounts
+  `/` with `noatime` disables the shadow log silently: the box must report
+  the mount option with its reads.
 - The real cost of the converge before a switching turn on pi.
 - Retention: a box that switches agents holds more releases. The
   2026-11-21 ledger entry keeps every sealed release for the sandbox
