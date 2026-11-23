@@ -30,6 +30,12 @@ if [ -z "$body" ]; then
   exit 2
 fi
 
+# A review in progress keeps the previous verdict on the page under a live status.
+if printf '%s' "$body" | grep -qE 'pr-review-live\.gif|strix-pr-review:in-progress'; then
+  echo "#${pr}: a Strix review is in progress. Wait, then check again." >&2
+  exit 2
+fi
+
 if printf '%s' "$body" | grep -q 'To fix before merging'; then
   echo "#${pr}: the Strix review lists findings to fix before merging:" >&2
   printf '%s\n' "$body" | grep -E '^- .*(CRITICAL|HIGH|MEDIUM|LOW)' >&2 || true
