@@ -113,6 +113,15 @@ jobs:
         with:
           ref: ${{ env.TEST_SHA }}
           fetch-depth: 1
+      - name: Vulcan warm diagnostics (bench only)
+        if: startsWith(matrix.lane, 'core-')
+        run: |
+          echo "uptime: $(cut -d' ' -f1 /proc/uptime) s"
+          echo "docker root: $(docker info --format '{{.DockerRootDir}}' 2>&1)"
+          findmnt /mnt/vulcan-sticky || echo "no sticky mount"
+          ls -la /opt/vulcan/warm/images 2>&1 | head -20 || true
+          for m in loading done; do f=/run/vulcan/warm-images.$m; if [ -e "$f" ]; then echo "$f: $(cat "$f")"; else echo "$f: absent"; fi; done
+          docker images --format '{{.Repository}}:{{.Tag}} {{.Size}}' | sort | head -30
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
@@ -256,6 +265,21 @@ jobs:
               docker ps -a --filter "publish=$port" --format '{{.ID}} {{.Image}} {{.Status}} {{.Ports}}' || true
             fi
           done
+      - name: Vulcan warm diagnostics (bench only)
+        if: startsWith(matrix.lane, 'core-')
+        run: |
+          echo "uptime: $(cut -d' ' -f1 /proc/uptime) s"
+          echo "docker root: $(docker info --format '{{.DockerRootDir}}' 2>&1)"
+          findmnt /mnt/vulcan-sticky || echo "no sticky mount"
+          ls -la /opt/vulcan/warm/images 2>&1 | head -20 || true
+          for m in loading done; do f=/run/vulcan/warm-images.$m; if [ -e "$f" ]; then echo "$f: $(cat "$f")"; else echo "$f: absent"; fi; done
+          docker images --format '{{.Repository}}:{{.Tag}} {{.Size}}' | sort | head -30
+      - name: Wait for the warm template's Docker images
+        if: startsWith(matrix.lane, 'core-')
+        run: |
+          if [ -x /opt/vulcan/bin/wait-warm-images ]; then
+            /opt/vulcan/bin/wait-warm-images 120
+          fi
       - name: Run the root test lane
         run: |
           set -euo pipefail
