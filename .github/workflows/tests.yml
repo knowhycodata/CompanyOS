@@ -123,9 +123,13 @@ jobs:
           pid=$(pgrep -x dockerd)
           sudo kill "$pid"
           for _ in $(seq 1 120); do kill -0 "$pid" 2>/dev/null || break; sleep 0.5; done
+          echo "old dockerd: $(sudo cat /proc/$pid/cmdline 2>/dev/null | tr '\\0' ' ')"
+          ps -eo pid,ppid,args | grep -E 'dockerd|containerd' | grep -v grep || true
+          sudo ls -la /var/run/docker.pid /var/run/docker.sock /run/containerd 2>&1 || true
           sudo mkdir -p /var/lib/docker-local
           sudo sh -c 'nohup dockerd --data-root /var/lib/docker-local >/var/log/dockerd-local.log 2>&1 &'
           for _ in $(seq 1 120); do docker info >/dev/null 2>&1 && break; sleep 0.5; done
+          if ! docker info >/dev/null 2>&1; then sudo tail -40 /var/log/dockerd-local.log; exit 1; fi
           echo "docker root: $before -> $(docker info --format '{{.DockerRootDir}}')"
           t=$SECONDS
           for f in /opt/vulcan/warm/images/*.tar; do sudo docker load -q -i "$f"; done
