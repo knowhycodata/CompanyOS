@@ -113,6 +113,23 @@ jobs:
         with:
           ref: ${{ env.TEST_SHA }}
           fetch-depth: 1
+      - name: Docker data root on the local disk (bench only)
+        # A/B against bench/ci-setup-ab-sticky: what a core lane gets when
+        # Docker is not on the sticky disk and the warm template's images load.
+        if: startsWith(matrix.lane, 'core-')
+        run: |
+          set -euo pipefail
+          before=$(docker info --format '{{.DockerRootDir}}')
+          pid=$(pgrep -x dockerd)
+          sudo kill "$pid"
+          for _ in $(seq 1 120); do kill -0 "$pid" 2>/dev/null || break; sleep 0.5; done
+          sudo mkdir -p /var/lib/docker-local
+          sudo sh -c 'nohup dockerd --data-root /var/lib/docker-local >/var/log/dockerd-local.log 2>&1 &'
+          for _ in $(seq 1 120); do docker info >/dev/null 2>&1 && break; sleep 0.5; done
+          echo "docker root: $before -> $(docker info --format '{{.DockerRootDir}}')"
+          t=$SECONDS
+          for f in /opt/vulcan/warm/images/*.tar; do sudo docker load -q -i "$f"; done
+          echo "warm images loaded in $((SECONDS - t)) s"
       - name: Disk speed, sticky vs root (bench only)
         if: startsWith(matrix.lane, 'core-')
         run: |
