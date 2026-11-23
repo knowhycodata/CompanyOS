@@ -451,6 +451,29 @@ function localPackageSources(compiled: Partial<CompiledAgentSet>): string[] {
   });
 }
 
+// replica-local: the tail of each project's file-list builds in this process; an entry is deleted when its build is the last.
+const projectBuildTails = new Map<string, Promise<unknown>>();
+
+/**
+ * Run one project's file-list builds one at a time in this process: requests
+ * for many commits of one project cannot multiply a build's peak memory.
+ * Builds of other projects run beside it.
+ */
+async function oneBuildPerProject<T>(projectId: string, build: () => Promise<T>): Promise<T> {
+  const previous = projectBuildTails.get(projectId) ?? Promise.resolve();
+  const run = previous.then(build, build);
+  const tail = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  projectBuildTails.set(projectId, tail);
+  try {
+    return await run;
+  } finally {
+    if (projectBuildTails.get(projectId) === tail) projectBuildTails.delete(projectId);
+  }
+}
+
 /** The root files pi reads from any release: `AGENTS.md`, else `CLAUDE.md` (`harness/pi/config.ts`). */
 const AGENT_ROOT_FILES = ['AGENTS.md', 'CLAUDE.md'];
 
@@ -485,18 +508,20 @@ async function agentRelease(
     const resolved = await resolveReleaseTreeSource(mirror, project, commit);
     if (!('source' in resolved)) return { ...withGovernance, reason: resolved.reason };
     const ignored = new Set(resolved.source.exportIgnored);
-    files = (
-      await agentReleaseFiles(mirror, resolved.source.rootTree, {
+    const listed = await oneBuildPerProject(project.projectId, () =>
+      agentReleaseFiles(mirror, resolved.source.rootTree, {
         toolModules: grantedToolModules(compiled),
         skillFolders: grantedSkillFolders(compiled),
         packageSources: localPackageSources(compiled),
         rootFiles: repository ? [...AGENT_ROOT_FILES, project.manifestPath] : AGENT_ROOT_FILES,
         scope: repository ? 'folders' : 'exact',
-      })
-    ).filter(([path]) => !ignored.has(path));
+      }),
+    );
+    files = listed.filter(([path]) => !ignored.has(path));
   } catch (error) {
-    // The modules it parses did not fit the default download bound.
-    if (isObjectFetchTooLarge(error)) return tooLarge;
+    // The modules it parses did not fit the default download bound, or the
+    // list passed a bound of `agentReleaseFiles`.
+    if (isObjectFetchTooLarge(error) || error instanceof ConfigArchiveTooLargeError) return tooLarge;
     throw error;
   }
   if (files.length === 0) return governanceOnly;

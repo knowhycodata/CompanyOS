@@ -118,6 +118,15 @@ Two scopes:
 Imports and skill links are parsed once per blob per API process
 (`git cat-file --batch`, memo by blob ID).
 
+Bounds (the Strix review of #13024 found the first version unbounded): the
+link scan is a linear `indexOf` pass, never a backtracking regex; a text file
+over 256 KiB is not scanned; a module over 10 MiB ships but is not parsed;
+one build reads at most the 128 MiB tar bound; the `folders` walk takes each
+folder once, at most 2,000 folders and 64 folder hops. Past a bound the
+release is "too large": an `agent:` session keeps its running config, a
+`repo-agent:` session keeps the whole-tree release. File-list builds run one
+at a time per project in each API process.
+
 `include:` is new manifest schema. Proposal: a top-level `release.include`
 (project-wide globs) and `agents.<name>.include` (that agent only). The exact
 key needs a schema review with the `kortix-yaml-versionless` owners.

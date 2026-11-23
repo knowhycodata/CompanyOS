@@ -791,6 +791,67 @@ describe('buildConfigRelease', () => {
     expect(unscoped.status).toBe(404);
   });
 
+  // Strix review of #13024: repository content drives the file-list scan, so
+  // its work must stay bounded on the API's event loop.
+  test('a skill text built to make a link regex backtrack is scanned in linear time', async () => {
+    const hostile = `${'](a'.repeat(40_000)}\n${'"./'.repeat(20_000)}\n${'](<'.repeat(20_000)}`;
+    expect(hostile.length).toBeGreaterThan(200 * 1024);
+    const sha = commit(
+      {
+        'kortix.yaml': ['project:', '  name: builder-test', 'default_agent: kortix', 'skills:', '  notes: skills/notes', 'agents:', '  kortix:', '    prompt: Main.', '    skills: all', ''].join('\n'),
+        'skills/notes/SKILL.md': `---\nname: notes\ndescription: Notes.\n---\nSee [style](../../shared/style.md).\n${hostile}\n`,
+        'shared/style.md': 'Style.\n',
+      },
+      'hostile skill text',
+    );
+    const started = performance.now();
+    const release = await buildConfigRelease(project, sha, 'agent:kortix', { store });
+    expect(performance.now() - started).toBeLessThan(3_000);
+    expect(release.files?.map(([path]) => path)).toEqual(['shared/style.md', 'skills/notes/SKILL.md']);
+  });
+
+  test('the folders scope follows an import chain across folders, and a chain past the hop bound is too large', async () => {
+    const chain = (length: number) => {
+      const files: Record<string, string> = {
+        'kortix.yaml': ['project:', '  name: builder-test', 'default_agent: kortix', 'tools:', '  start: d0/tool.ts', 'agents:', '  kortix:', '    prompt: Main.', ''].join('\n'),
+        'd0/tool.ts': 'export default { description: "t", parameters: { type: "object" }, execute: () => 1 }\n',
+      };
+      // Each folder holds a file nothing imports, which imports the next folder: only the folder rule reaches it.
+      for (let at = 0; at < length; at += 1) {
+        files[`d${at}/side.ts`] = `import { x } from '../d${at + 1}/x'\nexport const y = x\n`;
+        files[`d${at + 1}/x.ts`] = 'export const x = 1\n';
+      }
+      return files;
+    };
+    const sha = commit(chain(30), 'import chain');
+    const release = await buildConfigRelease(project, sha, 'repo-agent:kortix', { store });
+    expect(release.reason).toBeNull();
+    const paths = new Set(release.files!.map(([path]) => path));
+    expect(paths.has('d30/x.ts')).toBe(true);
+    expect(paths.has('d29/side.ts')).toBe(true);
+
+    const started = performance.now();
+    const over = await buildConfigRelease(project, commit(chain(500), 'longer chain'), 'repo-agent:kortix', { store });
+    expect(performance.now() - started).toBeLessThan(15_000);
+    expect(over.release_id).toBeNull();
+    expect(over.reason).toContain('exceed');
+  }, 60_000);
+
+  test('a tool module over the parse bound ships but is not parsed for imports', async () => {
+    const big = `import { side } from './side'\nexport const blob = "${'a'.repeat(11 * 1024 * 1024)}"\nexport default { description: "b", parameters: { type: "object" }, execute: () => side }\n`;
+    const sha = commit(
+      {
+        'kortix.yaml': ['project:', '  name: builder-test', 'default_agent: kortix', 'tools:', '  big: tools/big.ts', 'agents:', '  kortix:', '    prompt: Main.', ''].join('\n'),
+        'tools/big.ts': big,
+        'tools/side.ts': 'export const side = 1\n',
+      },
+      'big module',
+    );
+    const release = await buildConfigRelease(project, sha, 'agent:kortix', { store });
+    expect(release.reason).toBeNull();
+    expect(release.files?.map(([path]) => path)).toEqual(['tools/big.ts']);
+  }, 60_000);
+
   test('an unknown selected agent produces no release and names the reason', async () => {
     const sha = seed();
     const release = await buildConfigRelease(project, sha, 'agent:ghost', { store });

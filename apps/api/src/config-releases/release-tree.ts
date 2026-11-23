@@ -252,8 +252,16 @@ async function gitWithInput(
   return (await gitStdin(repo, env, args, records.map((record) => `${record}\0`).join(''))).toString('utf8');
 }
 
-/** `git <args>` in `repo` with `input` on stdin; its stdout bytes. Throws on a non-zero exit. */
-async function gitStdin(repo: string, env: Record<string, string>, args: string[], input: string): Promise<Buffer> {
+/** The default bound on what one `gitStdin` call holds from stdout. */
+const MAX_GIT_STDOUT_BYTES = 64 * 1024 * 1024;
+
+/**
+ * `git <args>` in `repo` with `input` on stdin; its stdout bytes. Throws on a
+ * non-zero exit. Output over `maxOutputBytes` kills the child and throws
+ * `ConfigArchiveTooLargeError`: the API process never holds more than that
+ * from one call, whatever the repository holds.
+ */
+async function gitStdin(repo: string, env: Record<string, string>, args: string[], input: string, maxOutputBytes = MAX_GIT_STDOUT_BYTES): Promise<Buffer> {
   const child = spawn('git', args, {
     cwd: repo,
     // It may read the mirror (alternates), which must never fetch on its own.
@@ -262,39 +270,92 @@ async function gitStdin(repo: string, env: Record<string, string>, args: string[
   });
   const stdout: Buffer[] = [];
   const stderr: Buffer[] = [];
-  child.stdout.on('data', (chunk: Buffer) => stdout.push(chunk));
-  child.stderr.on('data', (chunk: Buffer) => stderr.push(chunk));
+  let stdoutBytes = 0;
+  let overBudget = false;
+  child.stdout.on('data', (chunk: Buffer) => {
+    if (overBudget) return;
+    stdoutBytes += chunk.length;
+    if (stdoutBytes > maxOutputBytes) {
+      overBudget = true;
+      stdout.length = 0;
+      child.kill('SIGKILL');
+      return;
+    }
+    stdout.push(chunk);
+  });
+  child.stderr.on('data', (chunk: Buffer) => {
+    if (stderr.length < 64) stderr.push(chunk);
+  });
   const exit = new Promise<number | null>((resolveExit, reject) => {
     child.once('error', reject);
     child.once('close', resolveExit);
   });
+  child.stdin.on('error', () => undefined);
   child.stdin.end(input);
-  if ((await exit) !== 0) {
+  const code = await exit;
+  if (overBudget) throw new ConfigArchiveTooLargeError(maxOutputBytes, stdoutBytes);
+  if (code !== 0) {
     throw new Error(`git ${args[0]} failed: ${Buffer.concat(stderr).toString('utf8').trim()}`);
   }
   return Buffer.concat(stdout);
 }
 
 /**
- * The bytes of each blob of `blobs` the mirror holds, in one `git cat-file
- * --batch`: one process for a whole round, not one per file. A missing blob,
- * or one over `maxBytes`, is absent from the result.
+ * What one file-list build may read from blobs, in total. Every blob it reads
+ * ships in the release, so the bound is the uncompressed tar bound: a build
+ * that would read more throws `ConfigArchiveTooLargeError`.
  */
-async function readBlobs(mirror: string, blobs: readonly string[], maxBytes = Number.POSITIVE_INFINITY): Promise<Map<string, Buffer>> {
+export interface BlobReadBudget {
+  remaining: number;
+}
+
+/** A blob larger than this is never read to be parsed: the one-blob `execFile` read this replaced had the same 10 MiB bound. */
+const MAX_PARSED_BLOB_BYTES = 10 * 1024 * 1024;
+/** The bytes one `git cat-file --batch` call returns at most. */
+const MAX_BLOB_READ_CHUNK_BYTES = 32 * 1024 * 1024;
+
+/**
+ * The bytes of each blob of `blobs` the mirror holds and that is at most
+ * `maxBlobBytes`, in as few `git cat-file --batch` calls as fit
+ * `MAX_BLOB_READ_CHUNK_BYTES` each. The sizes are read first
+ * (`--batch-check`), so a blob over the bound is never read, and the bytes
+ * read count against `budget`. A missing or skipped blob is absent from the
+ * result.
+ */
+async function readBlobs(mirror: string, blobs: readonly string[], maxBlobBytes: number, budget: BlobReadBudget): Promise<Map<string, Buffer>> {
   const wanted = [...new Set(blobs)].filter((blob) => HEX40.test(blob));
   const out = new Map<string, Buffer>();
   if (wanted.length === 0) return out;
-  const raw = await gitStdin(mirror, {}, ['cat-file', '--batch'], `${wanted.join('\n')}\n`);
-  let at = 0;
-  while (at < raw.length) {
-    const eol = raw.indexOf(0x0a, at);
-    if (eol < 0) break;
-    const [oid, type, size] = raw.subarray(at, eol).toString('utf8').split(' ');
-    at = eol + 1;
-    if (type === 'missing' || size === undefined) continue;
+  const sizes = (await gitStdin(mirror, {}, ['cat-file', '--batch-check'], `${wanted.join('\n')}\n`)).toString('utf8');
+  const chunks: Array<{ ids: string[]; bytes: number }> = [];
+  for (const line of sizes.split('\n')) {
+    const [oid, type, size] = line.split(' ');
     const bytes = Number(size);
-    if (type === 'blob' && bytes <= maxBytes) out.set(oid!, raw.subarray(at, at + bytes));
-    at += bytes + 1;
+    if (type !== 'blob' || !Number.isFinite(bytes) || bytes > maxBlobBytes) continue;
+    budget.remaining -= bytes;
+    if (budget.remaining < 0) throw new ConfigArchiveTooLargeError(MAX_CONFIG_TAR_BYTES);
+    const last = chunks.at(-1);
+    if (last && last.bytes + bytes <= MAX_BLOB_READ_CHUNK_BYTES) {
+      last.ids.push(oid!);
+      last.bytes += bytes;
+    } else {
+      chunks.push({ ids: [oid!], bytes });
+    }
+  }
+  for (const chunk of chunks) {
+    // Each record is a header line, the bytes and a newline: 128 bytes of slack per blob.
+    const raw = await gitStdin(mirror, {}, ['cat-file', '--batch'], `${chunk.ids.join('\n')}\n`, chunk.bytes + chunk.ids.length * 128);
+    let at = 0;
+    while (at < raw.length) {
+      const eol = raw.indexOf(0x0a, at);
+      if (eol < 0) break;
+      const [oid, type, size] = raw.subarray(at, eol).toString('utf8').split(' ');
+      at = eol + 1;
+      if (type === 'missing' || size === undefined) continue;
+      const bytes = Number(size);
+      if (type === 'blob') out.set(oid!, raw.subarray(at, at + bytes));
+      at += bytes + 1;
+    }
   }
   return out;
 }
@@ -443,10 +504,18 @@ async function treeFiles(mirror: string, rootTree: string): Promise<Map<string, 
  * The files the modules `modules` load: each module and every file it imports
  * by a relative specifier, transitively, from `tree`. A package import is not
  * followed. A module that is not in the tree is left out, and the box reports
- * it as missing.
+ * it as missing. Adds them to `found` and returns the ones it added: a file
+ * already in `found` is never parsed again. A module over
+ * `MAX_PARSED_BLOB_BYTES` ships but is not parsed.
  */
-async function importClosure(mirror: string, tree: ReadonlyMap<string, ConfigReleaseFile>, modules: readonly string[]): Promise<ConfigReleaseFile[]> {
-  const found = new Map<string, ConfigReleaseFile>();
+async function importClosure(
+  mirror: string,
+  tree: ReadonlyMap<string, ConfigReleaseFile>,
+  modules: readonly string[],
+  found: Map<string, ConfigReleaseFile>,
+  budget: BlobReadBudget,
+): Promise<ConfigReleaseFile[]> {
+  const added: ConfigReleaseFile[] = [];
   let queue = [...modules];
   // One round per import depth: one download for the modules the round parses.
   while (queue.length > 0) {
@@ -455,12 +524,13 @@ async function importClosure(mirror: string, tree: ReadonlyMap<string, ConfigRel
       const file = tree.get(path);
       if (!file || found.has(path)) continue;
       found.set(path, file);
+      added.push(file);
       if (file[1] !== '120000' && !path.endsWith('.json')) round.push(file);
     }
     queue = [];
     const unparsed = round.filter(([path, , blob]) => !parsedImports.has(`${blob}\0${path}`));
     await ensureStoreObjects(mirror, unparsed.map(([, , blob]) => blob));
-    const sources = await readBlobs(mirror, unparsed.map(([, , blob]) => blob));
+    const sources = await readBlobs(mirror, unparsed.map(([, , blob]) => blob), MAX_PARSED_BLOB_BYTES, budget);
     for (const [path, , blob] of round) {
       const key = `${blob}\0${path}`;
       let imports = parsedImports.get(key);
@@ -485,7 +555,7 @@ async function importClosure(mirror: string, tree: ReadonlyMap<string, ConfigRel
       }
     }
   }
-  return [...found.values()].sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+  return added;
 }
 
 /**
@@ -544,17 +614,59 @@ function resolveRelative(from: string, relative: string): string | null {
   return joined;
 }
 
-/** Markdown link targets and quoted `./` / `../` paths in a text file. */
+/** The characters a path reference ends at. */
+const REFERENCE_END = new Set([')', '(', '[', ']', '<', '>', '"', "'", '`', ' ', '\t', '\n', '\r']);
+/** The longest path reference read; a longer run ends the reference there. */
+const MAX_REFERENCE_CHARS = 512;
+/** The references read from one file at most. */
+const MAX_REFERENCES_PER_FILE = 2_000;
+
+/** Where a reference that starts at `start` ends: the first `REFERENCE_END` character, at most `MAX_REFERENCE_CHARS` on. */
+function referenceEnd(text: string, start: number): number {
+  const limit = Math.min(text.length, start + MAX_REFERENCE_CHARS);
+  let end = start;
+  while (end < limit && !REFERENCE_END.has(text[end]!)) end += 1;
+  return end;
+}
+
+/**
+ * Markdown link targets (`](x)`, `](<x>)`) and quoted `./x` / `../x` paths in
+ * a text file. One linear pass per form with `indexOf`, never a backtracking
+ * regex: the text is repository content, and the API parses it on its event
+ * loop. Work per file is at most `MAX_REFERENCES_PER_FILE` references of
+ * `MAX_REFERENCE_CHARS` each.
+ */
 function relativeReferences(text: string): string[] {
   const out: string[] = [];
-  for (const match of text.matchAll(/\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)/g)) out.push(match[1]!);
-  for (const match of text.matchAll(/[`'"](\.\.?\/[^`'"\s]+)[`'"]/g)) out.push(match[1]!);
+  for (let at = text.indexOf(']('); at >= 0 && out.length < MAX_REFERENCES_PER_FILE; at = text.indexOf('](', at + 2)) {
+    let start = at + 2;
+    while (start < text.length && (text[start] === ' ' || text[start] === '\t')) start += 1;
+    if (text[start] === '<') start += 1;
+    const end = referenceEnd(text, start);
+    if (end > start) out.push(text.slice(start, end));
+  }
+  for (let at = text.indexOf('./'); at >= 0 && out.length < MAX_REFERENCES_PER_FILE; at = text.indexOf('./', at + 2)) {
+    const start = text[at - 1] === '.' ? at - 1 : at;
+    const quote = text[start - 1];
+    if (quote !== '`' && quote !== "'" && quote !== '"') continue;
+    const end = referenceEnd(text, start);
+    if (end > start && text[end] === quote) out.push(text.slice(start, end));
+  }
   return out;
 }
 
-/** A text file a skill may link from. Bounded so a huge file is never scanned. */
+/** A text file a skill may link from. */
 const SKILL_TEXT_FILE = /\.(?:md|mdx|txt)$/i;
-const MAX_SCANNED_TEXT_BYTES = 1024 * 1024;
+/** A skill text file larger than this is not scanned for links. */
+const MAX_SCANNED_TEXT_BYTES = 256 * 1024;
+/** The tool folders one `folders` build takes at most; more makes the release too large. */
+const MAX_TOOL_FOLDERS = 2_000;
+/**
+ * The folder hops one `folders` build follows at most: each round is a file a
+ * new folder brought in importing yet another folder. More makes the release
+ * too large, and the session keeps the whole-tree release.
+ */
+const MAX_FOLDER_ROUNDS = 64;
 
 /**
  * The files one agent's release holds (see `AgentFileScope`), from the root
@@ -572,21 +684,43 @@ const MAX_SCANNED_TEXT_BYTES = 1024 * 1024;
  *   config (`RESOLUTION_FILES`) in each folder from there up to the root.
  *
  * Paths never move: each file keeps the path the repository gives it.
+ *
+ * Bounded work on repository content: path lookups by range over the sorted
+ * tree, each tool folder taken once, link scanning without a backtracking
+ * regex (`relativeReferences`), at most `MAX_PARSED_BLOB_BYTES` per parsed
+ * module, `MAX_SCANNED_TEXT_BYTES` per scanned text file, and
+ * `MAX_CONFIG_TAR_BYTES` read in all. Past `MAX_TOOL_FOLDERS` folders,
+ * `MAX_FOLDER_ROUNDS` folder hops or the total read bound it throws
+ * `ConfigArchiveTooLargeError`.
  */
 export async function agentReleaseFiles(mirror: string, rootTree: string, input: AgentFileListInput): Promise<ConfigReleaseFile[]> {
   const tree = await treeFiles(mirror, rootTree);
+  // `listConfigFiles` sorts by path: every file under a folder is one range of `paths`.
+  const paths = [...tree.keys()];
+  const filesUnder = function* (folder: string): Generator<ConfigReleaseFile> {
+    if (!folder) return;
+    let low = 0;
+    let high = paths.length;
+    while (low < high) {
+      const middle = (low + high) >>> 1;
+      if (paths[middle]! < folder) low = middle + 1;
+      else high = middle;
+    }
+    for (let at = low; at < paths.length && paths[at]!.startsWith(folder); at += 1) yield tree.get(paths[at]!)!;
+  };
   const out = new Map<string, ConfigReleaseFile>();
   const take = (file: ConfigReleaseFile | undefined) => {
     if (file) out.set(file[0], file);
   };
   const underFolder = (folder: string) => {
-    if (!folder) return;
-    for (const [path, file] of tree) if (path.startsWith(folder)) take(file);
+    for (const file of filesUnder(folder)) take(file);
   };
   const folderOrFile = (path: string) => {
     if (tree.has(path)) take(tree.get(path));
     else underFolder(`${path}/`);
   };
+  // Every blob this build reads also ships: past the tar bound the release is too large anyway.
+  const budget: BlobReadBudget = { remaining: MAX_CONFIG_TAR_BYTES };
 
   for (const path of input.rootFiles) take(tree.get(path));
 
@@ -613,7 +747,7 @@ export async function agentReleaseFiles(mirror: string, rootTree: string, input:
   const unread = texts.filter(([, , blob]) => !textReferences.has(blob)).map(([, , blob]) => blob);
   if (unread.length > 0) {
     await ensureStoreObjects(mirror, unread);
-    const read = await readBlobs(mirror, unread, MAX_SCANNED_TEXT_BYTES);
+    const read = await readBlobs(mirror, unread, MAX_SCANNED_TEXT_BYTES, budget);
     // A blob over the bound links nothing; one that did not arrive is asked again next time.
     for (const blob of unread) {
       const bytes = read.get(blob);
@@ -627,27 +761,32 @@ export async function agentReleaseFiles(mirror: string, rootTree: string, input:
     }
   }
 
-  let tools = await importClosure(mirror, tree, input.toolModules);
-  if (input.scope === 'folders' && tools.length > 0) {
-    // To a fixed point: a file a folder brings in may import from another folder.
+  const tools = new Map<string, ConfigReleaseFile>();
+  let added = await importClosure(mirror, tree, input.toolModules, tools, budget);
+  if (input.scope === 'folders') {
+    // A worklist: each folder is taken once, and only the code files it adds are parsed.
     const folders = new Set<string>();
-    for (;;) {
-      const next = tools.map(([path]) => folderOf(path)).filter((folder) => folder && !folders.has(folder));
-      if (next.length === 0) break;
-      for (const folder of next) folders.add(folder);
-      const code = [...tree.keys()].filter((path) => CODE_FILE.test(path) && [...folders].some((folder) => path.startsWith(folder)));
-      tools = await importClosure(mirror, tree, [...tools.map(([path]) => path), ...code]);
+    for (let round = 0; added.length > 0; round += 1) {
+      if (round >= MAX_FOLDER_ROUNDS) throw new ConfigArchiveTooLargeError(MAX_CONFIG_TAR_BYTES);
+      const code: string[] = [];
+      for (const [path] of added) {
+        const folder = folderOf(path);
+        if (!folder || folders.has(folder)) continue;
+        folders.add(folder);
+        if (folders.size > MAX_TOOL_FOLDERS) throw new ConfigArchiveTooLargeError(MAX_CONFIG_TAR_BYTES);
+        for (const [candidate] of filesUnder(folder)) if (CODE_FILE.test(candidate) && !tools.has(candidate)) code.push(candidate);
+      }
+      added = await importClosure(mirror, tree, code, tools, budget);
     }
     for (const folder of folders) underFolder(folder);
-    for (const [path] of tools) {
+    const dirs = new Set<string>();
+    for (const path of tools.keys()) {
       const parts = path.split('/').slice(0, -1);
-      for (let depth = parts.length; depth >= 0; depth -= 1) {
-        const dir = parts.slice(0, depth).join('/');
-        for (const name of RESOLUTION_FILES) take(tree.get(dir ? `${dir}/${name}` : name));
-      }
+      for (let depth = parts.length; depth >= 0; depth -= 1) dirs.add(parts.slice(0, depth).join('/'));
     }
+    for (const dir of dirs) for (const name of RESOLUTION_FILES) take(tree.get(dir ? `${dir}/${name}` : name));
   }
-  for (const file of tools) take(file);
+  for (const file of tools.values()) take(file);
 
   return [...out.values()].sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
 }
