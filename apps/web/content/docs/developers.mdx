@@ -6548,7 +6548,7 @@ triggers:
 
 Reconcile stores the normalized policy for later session creation. It does not reshare existing sessions, reused sessions or pinned targets. No bulk backfill is implicit or exposed by this feature; a later authorized migration must select and audit its targets explicitly. A session retains the reader policy stamped at creation. A later explicit session-sharing choice clears that stamp, including a choice of private. DMs never receive additive readers; private-channel membership and deleted-session gates still apply.
 
-Reader standing permits session inventory, session details, saved log/transcript and authorized trigger-run history reads only. It does not permit prompts, start/restart/stop/delete, configuration or scope changes, sharing, approval answers or runtime proxy access. Existing independent owner/manager privileges remain unchanged.
+Reader standing permits session inventory, session details, the saved session log and authorized trigger-run history reads only. It does not permit prompts, start/restart/stop/delete, configuration or scope changes, sharing, approval answers or runtime proxy access. Existing independent owner/manager privileges remain unchanged.
 
 In trigger history, `status: fired` means delivery, not a successful agent turn. Inspect `run_status`, `run_error` and `ended_at` for terminal execution. Hidden runs are not counted as successes: an empty page with `next_cursor` can still have older authorized records.
 
@@ -6852,11 +6852,10 @@ Saved history is the copy of the session log that the API stores. A stopped sand
 - When `GET …/log` fails (a `5xx`, the network, a `404` with no `code`, an invalid page), `useSession` keeps the copy on screen and reads the page again after 2 s, 10 s and 30 s, or after the API's `Retry-After` (at most 60 s).
 - No hook reads `GET …/transcript`.
 
-To show a session before `useSession` binds it, for example on a connecting screen, call `readSavedSessionCopy({ projectId, sessionId, runtimeSessionId })` from `@kortix/sdk`. It never throws and resolves `{ log, empty, envelope }`:
+To show a session before `useSession` binds it, for example on a connecting screen, call `readSavedSessionCopy({ projectId, sessionId, runtimeSessionId })` from `@kortix/sdk`. It never throws and resolves `{ log, empty }`:
 
 - `log` is the newest session-log page (`GET …/log`). A new session with no stored log answers `404` `session_log_missing`: `log` is `null` and nothing else is read.
 - `empty` is `true` when the page proves the conversation empty and no turn ended or is open. Show the composer then.
-- `envelope` is deprecated and always `null`.
 
 `useSession` reads the log page again when it binds.
 
@@ -7282,7 +7281,7 @@ Two device stores keep what a person already saw, so a reload or a cold start pa
 | Store | Keeps | Default bounds |
 | --- | --- | --- |
 | `createPersistedQueryCache({ storage, userId, shouldPersist })` | React Query results that `shouldPersist` accepts. `isPersistableQueryKey` accepts accounts, workspaces, workspace detail, session lists and session rows. A restored entry refetches when it is first read. | 1,000,000 characters, 7 days |
-| `createSavedCopyStore({ storage, userId })`, registered with `setSavedCopyStore` | The saved session copies the server sent. `useSession` paints a kept copy before the server answers. | 12 sessions, 1,500,000 characters, 300,000 characters per copy, 14 days |
+| `createSavedCopyStore({ storage, userId })`, registered with `setSavedCopyStore` | The newest session-log page (`GET …/log`) of each session the person opened. `useSession` paints a kept page before the server answers. | 12 sessions, 1,500,000 characters, 300,000 characters per page, 14 days |
 
 ```ts
 import type { QueryClient } from '@tanstack/react-query';
@@ -8995,7 +8994,7 @@ See [Computers](/docs/guide#computers).
 | Agents | `workflows.list()` · `workflows.control(runId, body)` | The workflow runs on this session's sandbox, newest first · pause, resume or stop a run, or restart one of its agents. `list` starts a sleeping session. |
 | Loops | `reminders.list()` · `.create(input)` · `.update(reminderId, input)` · `.remove(reminderId)` · `.run(reminderId)` | The session's reminders. `run` fires one now; the schedule does not move. |
 
-`s.transcript()`, `s.transcriptSync()`, `s.pending()` and `s.runtime` are deprecated. See [Deprecated names](#deprecated-names).
+`s.pending()` and `s.runtime` are deprecated. See [Deprecated names](#deprecated-names).
 
 ### React hooks
 
@@ -9216,12 +9215,12 @@ Pure functions over session-log blocks, from the root `@kortix/sdk`. They have n
 | Name | What it does |
 | --- | --- |
 | `sessionLogTurns(thread, options?)` | One `SessionLogTurn` per user message: `id`, `user`, `assistant` (the replies, by `reply_to` then order), `partial` (the prompt is not loaded), `blocks`, `status`, `error` (`code`, `message`, `details`, `raw`), `cost` (the replies' usage priced with the platform markup), `compaction` (`block`, `hasContent`, `inFlight`), `threads` (the sub-threads it spawned), `plan`, `shell` (the bash call of a shell turn, which needs `session.shell`), `response` (the last text block), `attachments`, `live`, `queued`, `retrying`. Options: `busy`, `liveMessageId`, `held` (the prompts the inbox holds, in queue order), `threads`, `pricing`, `hideOutOfContext`. `hideOutOfContext: true` leaves out every message with `in_context: false` that is not streaming. A turn keeps its identity while its messages and derived fields do. |
-| `sessionLogTurnSegments(blocks, options?)` | The segments of a turn: `burst` (a run of non-text blocks), `text`, `standalone` (a `show`, `image_gen` or sub-agent call, or a call named in `standaloneCallIds`), `show-group` (adjacent `show` calls). |
+| `sessionLogTurnSegments(blocks, options?)` | The segments of a turn: `burst` (a run of non-text blocks), `text`, `standalone` (a `show`, `image_gen` or sub-agent call, or a call named in `standaloneCallIds`), `show-group` (adjacent `show` calls). A failed `show` call is in no segment. |
 | `splitSessionLogTurnWork(segments, { working })` | The settled-turn fold: `work`, `hoisted` (the deliverables: `show-group` segments and `show`, `show_user` and `image_gen` calls, in call order), `final` (the last text). `null` while the turn works or has no work. |
 | `sessionLogBurstSteps(blocks)` | The rows of a burst: `thought` (a run of reasoning), `block`, `group` (same-family calls, with `family`, `label`, `status`). An answered question is its own row. |
 | `sessionLogBurstSummary(blocks)` | A burst's step counts: `total` (a run of reasoning is one), `failed`, `completed`, `hasPlumbing`. |
 | `sessionLogBurstRunning(blocks, { working, trailing? })` | Whether the burst is in progress. Never once the turn stops working. |
-| `sessionLogShowGroupCall(calls)` | A `show-group` segment as one `show` call: `input.items` is the carousel; a failed call keeps its slot as an `error` item. |
+| `sessionLogShowGroupCall(calls)` | A `show-group` segment as one `show` call: `input.items` is the carousel. A failed call adds no item; it stays in the session log. `id` is the first call's, `call_id` the first call that did not fail. |
 | `sessionLogAnsweredQuestionCall(call, answers, input?)` | A `question` call shown as answered before the runtime confirms the answers. |
 | `sessionLogRetrying(thread)` | Whether the thread's last reply is open with a retryable provider error, read without grouping turns. Pass it into `busy`. |
 | `sessionLogActivityText(turn, childMessages?)` | The activity line of a live turn, for example `Reading files...`. A running task reads its sub-thread's messages. |
@@ -9317,6 +9316,22 @@ Pure functions over v1 messages (`MessageWithParts`, `kortix.transcript.v1`, `KO
 
 The grouping and status functions accept the structural types `PartLike`, `MessageInfoLike`, `TurnLike`, `ToolStateLike` and `SessionStatusLike`, so your own message shapes work.
 
+### Removed with the v1 transcript
+
+The session-log major is a breaking release. The API serves no `GET …/sessions/:sid/transcript` and no `/v1/public/session-shares/**`, so the SDK removed every name that read them. The session log (`GET …/log`) is every session's saved history.
+
+| Removed | Use instead |
+| --- | --- |
+| `getSessionTranscript`, `getSessionTranscriptSync`, `s.transcript()`, `s.transcriptSync()` | `getSessionLogPage(projectId, sessionId, query)` or `s.log(query)`. |
+| The types `SessionTranscript`, `SessionTranscriptMessage`, `SessionTranscriptToolCall`, `SessionTranscriptSource`, `SessionTranscriptSyncEnvelope`, `SessionTranscriptSyncMessage` | `SessionLogPage`, `SessionLogMessage`, `SessionLogBlock`. |
+| `loadSessionTranscriptMessages` | `loadSessionExportMessages(sessionId, kortixSessionScope?)`: the session log first, else the runtime. |
+| `isPaintableSavedCopy`, `savedCopyEmptyRoot` | No replacement. `readSavedSessionCopy` returns `empty`. |
+| `findActiveTranscriptShare`, `getPublicSessionShare`, `getPublicSessionShareMessages`, `PublicSessionShareError`, `PublicSessionShareMeta`, `PublicSessionTranscript`, `PublicSessionTranscriptMessage`, `PublicSessionTranscriptToolCall` | No replacement. The API removed public transcript sharing. |
+| `saveSessionToIDB`, `flushIDBWrites`, `loadSessionFromIDB`, `loadAllSessionIdsFromIDB`, `pruneIDBCache` | No replacement. They stored nothing. |
+| `FeatureFlagKey` member `session_transcript_history` | No replacement. Every session saves its history in the session log. |
+
+Four shapes changed with them. The snapshot's `transcript` leg is always `{ known: true, requested: false }`, and `getSessionOpenBundle` takes no `transcript` option. `SavedCopyStore` reads and writes a `SessionLogPage`. `SavedSessionCopy` has no `envelope`. `useSessionSync`'s `mirror` option accepts only `null`.
+
 ### Removed in 0.15.0
 
 0.15.0 is a breaking release. It removed these subpaths and names. Every session runs pi, so nothing removed here reached a route a current box serves.
@@ -9342,10 +9357,8 @@ Each name below carries `@deprecated` and resolves until a later major version. 
 | --- | --- |
 | `wireIdClock`, `wireIdClockAt`, `wireIdClockDelta`, `maxWireIdClock`, `isWireIdAheadOf`, `newestWireIdClock`, `mintWireMessageIdAbove`, `MintWireMessageIdAboveInput`, `MintedWireMessageId`, `WIRE_ID_TIME_SCALE`, `WIRE_ID_TIME_MASK`, `WIRE_ID_CLOCK_TOLERANCE`, `WIRE_ID_BACKDATE_MS` | `mintWireMessageId` and `WIRE_MESSAGE_ID`, which stay current. Message ids are opaque. |
 | `s.runtime` | The session methods: `messages`, `pendingRequests`, `answerPermission`, `answerQuestion`, `compact`, `send`, `abort`, `rewind`. |
-| `s.transcript()` · `s.transcriptSync()` | `s.log(query)`. |
 | `s.pending()` | `s.pendingRequests()`. |
 | `p.sessions.ensureWarm()` · `p.sessions.claimWarm(input)` | `p.sessions.create()`. They reject with `ENDPOINT_RETIRED`. |
-| `findActiveTranscriptShare`, `getPublicSessionShare`, `getPublicSessionShareMessages`, `PublicSessionShareError`, `PublicSessionShareMeta`, `PublicSessionTranscript`, `PublicSessionTranscriptMessage`, `PublicSessionTranscriptToolCall` | No replacement. The API removed public transcript sharing; every call returns `404`. |
 | `clientSource` (a `createKortix` option) | Remove it. It is inert. Send `clientVersion` to identify a release. |
 | `p.updateExperimentalFeature` · `updateExperimentalFeature` · `ExperimentalFeatureKey` · `ExperimentalFeatureView` | `p.updateFeatureFlag` · `updateFeatureFlag` · `FeatureFlagKey` · `FeatureFlagView` |
 | `p.connectors.setAuthorizationStrategy` · `setConnectorAuthorizationStrategy` | Remove the call. It changes nothing. |

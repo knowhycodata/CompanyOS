@@ -817,12 +817,36 @@
       },
       "wallpapers": {
         "dither": "Retino",
-        "brandmark": "Marchio",
-        "nebula": "Raggi pixel",
-        "silk": "Seta",
-        "grain": "Grana",
-        "neuro": "Neuro",
+        "ember": "Brace",
+        "prism": "Prisma",
+        "tide": "Marea",
+        "aurora": "Aurora",
+        "dusk": "Crepuscolo",
+        "eclipse": "Eclissi",
+        "lagoon": "Laguna",
+        "cumulus": "Cumulo",
+        "moss": "Muschio",
+        "iris": "Iris",
+        "custom": "Personalizzato",
         "blank": "Vuoto"
+      },
+      "custom": {
+        "editColors": "Modifica colori",
+        "shuffle": "Casuale",
+        "palette": "Tavolozza",
+        "paletteLabel": "Tavolozza {count}",
+        "colors": "Colori",
+        "colorLabel": "Colore {count}",
+        "customColor": "Colore personalizzato",
+        "addColor": "Aggiungi colore",
+        "removeColor": "Rimuovi colore",
+        "resetColors": "Ripristina",
+        "finish": "Finitura",
+        "finishes": {
+          "dither": "Retinatura",
+          "grain": "Grana"
+        },
+        "opacity": "Opacità"
       }
     },
     "sessions": {
@@ -1348,6 +1372,10 @@
         "calendar": {
           "name": "Calendario",
           "description": "Un calendario condiviso per persone e agenti: elementi con una data, i partecipanti e commenti, accanto ai trigger e ai Loop pianificati. Menziona qualcuno con @ per avvisarlo. Gli agenti usano `kortix calendar`."
+        },
+        "review_swipe": {
+          "name": "Schede di revisione",
+          "description": "«Serve a te» nella pagina Revisione si apre come un mazzo di schede: un elemento per scheda. Scorri a destra per approvare o unire, a sinistra per rimandarlo all’agente con cosa cambiare."
         }
       },
       "channelsSwitch": {
@@ -2236,6 +2264,10 @@
     "panel": {
       "outputNew": "Nuovo",
       "outputUpdated": "Aggiornato",
+      "backgroundTasks": "Attività in background",
+      "finished": "Completate",
+      "finishedCount": "{count} completate",
+      "running": "In corso",
       "resizePane": "Ridimensiona il riquadro"
     }
   },
@@ -2438,7 +2470,8 @@
     "collapseQueue": "Comprimi i messaggi in attesa",
     "expandQueue": "Espandi i messaggi in attesa",
     "myKortixRoutes": "Affida ogni attività all’agente giusto",
-    "chatInputReset": "Reset"
+    "chatInputReset": "Reset",
+    "queuedDisconnected": "Questa sessione ha perso la connessione a Kortix. Avvia una nuova sessione per continuare."
   },
   "billing": {
     "plan": {
@@ -3412,7 +3445,18 @@
         "completed": "Fatto",
         "failed": "Non ha finito",
         "stopped": "Interrotto"
-      }
+      },
+      "card": {
+        "session": "Sessione",
+        "copyId": "Copia ID sessione",
+        "openNewTab": "Apri in una nuova scheda",
+        "model": "Modello",
+        "runsAs": "Eseguito come",
+        "inline": "Eseguito in questa sessione, quindi non ha una sessione propria da aprire."
+      },
+      "notStarted": "Non avviato",
+      "notStartedSentence": "Kortix non è riuscito ad avviare questo collega. Non è stato eseguito nulla.",
+      "policyBlocked": "Bloccato dalla policy di questo progetto. Chiedi a un amministratore del progetto di consentirlo."
     }
   },
   "agentRunLimit": {
@@ -21534,6 +21578,37 @@
     "reviewPane": {
       "emptyTitle": "Seleziona un elemento",
       "emptyDescription": "I dettagli si aprono qui. Premi J e K per scorrere l’elenco."
+    },
+    "reviewDeck": {
+      "label": "Schede di revisione",
+      "remaining": "{count, plural, one {# scheda rimasta} other {# schede rimaste}}",
+      "merge": "Unisci",
+      "close": "Chiudi",
+      "approve": "Approva",
+      "deny": "Nega",
+      "dismiss": "Ignora",
+      "yes": "Sì",
+      "no": "No",
+      "skip": "Salta",
+      "open": "Apri",
+      "undo": "Annulla",
+      "staged": "{verdict}: {title}",
+      "needsChoice": "Aprila per scegliere una risposta",
+      "noVerdict": "Non puoi decidere qui. Aprila per i dettagli.",
+      "emptyTitle": "Tutto in pari",
+      "emptyDescription": "Al momento non c’è nulla per te.",
+      "highRisk": "Rischio alto",
+      "files": "{count, plural, one {# file} other {# file}}",
+      "conflicts": "{count, plural, one {# conflitto} other {# conflitti}}",
+      "items": "{count, plural, one {# elemento} other {# elementi}}",
+      "showCards": "Mostra come schede",
+      "showList": "Mostra come elenco",
+      "sendBack": "Rimanda",
+      "whatShouldChange": "Cosa deve cambiare?",
+      "sendToAgent": "Invia all’agente",
+      "cancel": "Annulla",
+      "reviews": "Revisioni",
+      "questions": "Domande"
     }
   },
   "commandPalette": {
@@ -26380,6 +26455,7 @@
       },
       "workingFor": "al lavoro · {elapsed}",
       "runsAs": "esegue come {agent}",
+      "stateCount": "{count} {state}",
       "teamRole": "Ruolo solo per questa sessione",
       "attention": {
         "question": "Ha una domanda per te",

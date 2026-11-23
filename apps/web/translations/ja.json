@@ -817,12 +817,36 @@
       },
       "wallpapers": {
         "dither": "ディザー",
-        "brandmark": "ブランドマーク",
-        "nebula": "ピクセルビーム",
-        "silk": "シルク",
-        "grain": "グレイン",
-        "neuro": "ニューロ",
+        "ember": "エンバー",
+        "prism": "プリズム",
+        "tide": "タイド",
+        "aurora": "オーロラ",
+        "dusk": "ダスク",
+        "eclipse": "エクリプス",
+        "lagoon": "ラグーン",
+        "cumulus": "キュムラス",
+        "moss": "モス",
+        "iris": "アイリス",
+        "custom": "カスタム",
         "blank": "なし"
+      },
+      "custom": {
+        "editColors": "カラーを編集",
+        "shuffle": "ランダム",
+        "palette": "パレット",
+        "paletteLabel": "パレット {count}",
+        "colors": "カラー",
+        "colorLabel": "カラー {count}",
+        "customColor": "カスタムカラー",
+        "addColor": "カラーを追加",
+        "removeColor": "カラーを削除",
+        "resetColors": "リセット",
+        "finish": "仕上げ",
+        "finishes": {
+          "dither": "ディザ",
+          "grain": "グレイン"
+        },
+        "opacity": "不透明度"
       }
     },
     "sessions": {
@@ -1348,6 +1372,10 @@
         "calendar": {
           "name": "カレンダー",
           "description": "人とエージェントの共有カレンダー：日付・参加者・コメント付きの項目を、スケジュール済みのトリガーとループと並べて表示します。@ でメンションすると通知されます。エージェントは `kortix calendar` を使います。"
+        },
+        "review_swipe": {
+          "name": "レビューカード",
+          "description": "レビューページの「対応待ち」をカードの山で表示します。1 枚に 1 件。右にスワイプで承認またはマージ、左にスワイプで変更点を添えてエージェントに差し戻します。"
         }
       },
       "channelsSwitch": {
@@ -2236,6 +2264,10 @@
     "panel": {
       "outputNew": "新規",
       "outputUpdated": "更新済み",
+      "backgroundTasks": "バックグラウンドタスク",
+      "finished": "完了",
+      "finishedCount": "{count} 件完了",
+      "running": "実行中",
       "resizePane": "ペインのサイズを変更"
     }
   },
@@ -2438,7 +2470,8 @@
     "collapseQueue": "待機中のメッセージを折りたたむ",
     "expandQueue": "待機中のメッセージを展開",
     "myKortixRoutes": "各タスクを適したエージェントへ",
-    "chatInputReset": "Reset"
+    "chatInputReset": "Reset",
+    "queuedDisconnected": "このセッションは Kortix への接続を失いました。続けるには新しいセッションを開始してください。"
   },
   "billing": {
     "plan": {
@@ -3412,7 +3445,18 @@
         "completed": "完了",
         "failed": "完了しませんでした",
         "stopped": "停止"
-      }
+      },
+      "card": {
+        "session": "セッション",
+        "copyId": "セッション ID をコピー",
+        "openNewTab": "新しいタブで開く",
+        "model": "モデル",
+        "runsAs": "実行エージェント",
+        "inline": "このセッション内で実行されたため、開ける専用のセッションはありません。"
+      },
+      "notStarted": "開始されませんでした",
+      "notStartedSentence": "Kortix はこの同僚を開始できませんでした。何も実行されていません。",
+      "policyBlocked": "このプロジェクトのポリシーでブロックされています。プロジェクト管理者に許可を依頼してください。"
     }
   },
   "agentRunLimit": {
@@ -21534,6 +21578,37 @@
     "reviewPane": {
       "emptyTitle": "項目を選択してください",
       "emptyDescription": "詳細はここに表示されます。J と K でリストを移動できます。"
+    },
+    "reviewDeck": {
+      "label": "レビューカード",
+      "remaining": "{count, plural, other {残り # 枚}}",
+      "merge": "マージ",
+      "close": "閉じる",
+      "approve": "承認",
+      "deny": "拒否",
+      "dismiss": "却下",
+      "yes": "はい",
+      "no": "いいえ",
+      "skip": "スキップ",
+      "open": "開く",
+      "undo": "元に戻す",
+      "staged": "{verdict}: {title}",
+      "needsChoice": "開いて回答を選んでください",
+      "noVerdict": "この項目は決定できません。開いて詳細を確認してください。",
+      "emptyTitle": "すべて完了しました",
+      "emptyDescription": "現在対応が必要なものはありません。",
+      "highRisk": "高リスク",
+      "files": "{count, plural, other {# ファイル}}",
+      "conflicts": "{count, plural, other {# 件の競合}}",
+      "items": "{count, plural, other {# 件}}",
+      "showCards": "カードで表示",
+      "showList": "リストで表示",
+      "sendBack": "差し戻す",
+      "whatShouldChange": "何を変更すべきですか？",
+      "sendToAgent": "エージェントに送信",
+      "cancel": "キャンセル",
+      "reviews": "レビュー",
+      "questions": "質問"
     }
   },
   "commandPalette": {
@@ -26380,6 +26455,7 @@
       },
       "workingFor": "作業中 · {elapsed}",
       "runsAs": "{agent} として実行",
+      "stateCount": "{count} {state}",
       "teamRole": "このセッション限りの役割",
       "attention": {
         "question": "質問があります",

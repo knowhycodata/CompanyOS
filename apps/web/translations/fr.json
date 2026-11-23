@@ -817,12 +817,36 @@
       },
       "wallpapers": {
         "dither": "Tramage",
-        "brandmark": "Marque",
-        "nebula": "Rayons pixelisés",
-        "silk": "Soie",
-        "grain": "Grain",
-        "neuro": "Neuro",
+        "ember": "Braise",
+        "prism": "Prisme",
+        "tide": "Marée",
+        "aurora": "Aurore",
+        "dusk": "Crépuscule",
+        "eclipse": "Éclipse",
+        "lagoon": "Lagon",
+        "cumulus": "Cumulus",
+        "moss": "Mousse",
+        "iris": "Iris",
+        "custom": "Personnalisé",
         "blank": "Vide"
+      },
+      "custom": {
+        "editColors": "Modifier les couleurs",
+        "shuffle": "Aléatoire",
+        "palette": "Palette",
+        "paletteLabel": "Palette {count}",
+        "colors": "Couleurs",
+        "colorLabel": "Couleur {count}",
+        "customColor": "Couleur personnalisée",
+        "addColor": "Ajouter une couleur",
+        "removeColor": "Supprimer la couleur",
+        "resetColors": "Réinitialiser",
+        "finish": "Finition",
+        "finishes": {
+          "dither": "Tramage",
+          "grain": "Grain"
+        },
+        "opacity": "Opacité"
       }
     },
     "sessions": {
@@ -1348,6 +1372,10 @@
         "calendar": {
           "name": "Calendrier",
           "description": "Un calendrier partagé pour les personnes et les agents : des éléments avec une date, des participants et des commentaires, à côté des déclencheurs et Loops planifiés. Mentionnez quelqu’un avec @ pour le notifier. Les agents utilisent `kortix calendar`."
+        },
+        "review_swipe": {
+          "name": "Cartes de revue",
+          "description": "« Vous attend » sur la page Revue s’ouvre en pile de cartes : un élément par carte. Glissez à droite pour approuver ou fusionner, à gauche pour le renvoyer à l’agent avec ce qui doit changer."
         }
       },
       "channelsSwitch": {
@@ -2236,6 +2264,10 @@
     "panel": {
       "outputNew": "Nouveau",
       "outputUpdated": "Mis à jour",
+      "backgroundTasks": "Tâches en arrière-plan",
+      "finished": "Terminées",
+      "finishedCount": "{count} terminées",
+      "running": "En cours",
       "resizePane": "Redimensionner le panneau"
     }
   },
@@ -2438,7 +2470,8 @@
     "collapseQueue": "Réduire les messages en attente",
     "expandQueue": "Développer les messages en attente",
     "myKortixRoutes": "Confie chaque tâche au bon agent",
-    "chatInputReset": "Reset"
+    "chatInputReset": "Reset",
+    "queuedDisconnected": "Cette session a perdu sa connexion à Kortix. Démarrez une nouvelle session pour continuer."
   },
   "billing": {
     "plan": {
@@ -3412,7 +3445,18 @@
         "completed": "Terminé",
         "failed": "N’a pas terminé",
         "stopped": "Arrêté"
-      }
+      },
+      "card": {
+        "session": "Session",
+        "copyId": "Copier l’ID de session",
+        "openNewTab": "Ouvrir dans un nouvel onglet",
+        "model": "Modèle",
+        "runsAs": "S’exécute en tant que",
+        "inline": "Exécuté dans cette session : il n’a pas de session propre à ouvrir."
+      },
+      "notStarted": "Pas démarré",
+      "notStartedSentence": "Kortix n’a pas pu démarrer ce collègue. Rien n’a été exécuté.",
+      "policyBlocked": "Bloqué par la politique de ce projet. Demandez à un administrateur du projet de l’autoriser."
     }
   },
   "agentRunLimit": {
@@ -21534,6 +21578,37 @@
     "reviewPane": {
       "emptyTitle": "Sélectionnez un élément",
       "emptyDescription": "Ses détails s’ouvrent ici. Appuyez sur J et K pour parcourir la liste."
+    },
+    "reviewDeck": {
+      "label": "Cartes de revue",
+      "remaining": "{count, plural, one {# carte restante} other {# cartes restantes}}",
+      "merge": "Fusionner",
+      "close": "Fermer",
+      "approve": "Approuver",
+      "deny": "Refuser",
+      "dismiss": "Ignorer",
+      "yes": "Oui",
+      "no": "Non",
+      "skip": "Passer",
+      "open": "Ouvrir",
+      "undo": "Annuler",
+      "staged": "{verdict} : {title}",
+      "needsChoice": "Ouvrez-la pour choisir une réponse",
+      "noVerdict": "Vous ne pouvez pas décider ici. Ouvrez-la pour les détails.",
+      "emptyTitle": "Tout est à jour",
+      "emptyDescription": "Rien ne vous attend pour l’instant.",
+      "highRisk": "Risque élevé",
+      "files": "{count, plural, one {# fichier} other {# fichiers}}",
+      "conflicts": "{count, plural, one {# conflit} other {# conflits}}",
+      "items": "{count, plural, one {# élément} other {# éléments}}",
+      "showCards": "Afficher en cartes",
+      "showList": "Afficher en liste",
+      "sendBack": "Renvoyer",
+      "whatShouldChange": "Que faut-il changer ?",
+      "sendToAgent": "Envoyer à l’agent",
+      "cancel": "Annuler",
+      "reviews": "Revues",
+      "questions": "Questions"
     }
   },
   "commandPalette": {
@@ -26380,6 +26455,7 @@
       },
       "workingFor": "en cours · {elapsed}",
       "runsAs": "s’exécute en tant que {agent}",
+      "stateCount": "{count} {state}",
       "teamRole": "Rôle pour cette session uniquement",
       "attention": {
         "question": "A une question pour vous",

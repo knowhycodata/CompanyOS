@@ -817,12 +817,36 @@
       },
       "wallpapers": {
         "dither": "抖动",
-        "brandmark": "品牌标志",
-        "nebula": "像素光束",
-        "silk": "丝绸",
-        "grain": "颗粒",
-        "neuro": "神经",
+        "ember": "余烬",
+        "prism": "棱镜",
+        "tide": "潮汐",
+        "aurora": "极光",
+        "dusk": "黄昏",
+        "eclipse": "日食",
+        "lagoon": "潟湖",
+        "cumulus": "积云",
+        "moss": "苔藓",
+        "iris": "鸢尾",
+        "custom": "自定义",
         "blank": "空白"
+      },
+      "custom": {
+        "editColors": "编辑颜色",
+        "shuffle": "随机",
+        "palette": "调色板",
+        "paletteLabel": "调色板 {count}",
+        "colors": "颜色",
+        "colorLabel": "颜色 {count}",
+        "customColor": "自定义颜色",
+        "addColor": "添加颜色",
+        "removeColor": "移除颜色",
+        "resetColors": "重置",
+        "finish": "质感",
+        "finishes": {
+          "dither": "抖动",
+          "grain": "颗粒"
+        },
+        "opacity": "不透明度"
       }
     },
     "sessions": {
@@ -1348,6 +1372,10 @@
         "calendar": {
           "name": "日历",
           "description": "人与智能体共享的日历：带日期、参与者和评论的事项，与已排程的触发器和循环并列显示。用 @ 提及某人即可通知对方。智能体使用 `kortix calendar`。"
+        },
+        "review_swipe": {
+          "name": "审阅卡片",
+          "description": "审阅页面的“待你处理”以卡片堆显示：每张卡片一项。向右滑动批准或合并，向左滑动附上修改意见退回给智能体。"
         }
       },
       "channelsSwitch": {
@@ -2236,6 +2264,10 @@
     "panel": {
       "outputNew": "新",
       "outputUpdated": "已更新",
+      "backgroundTasks": "后台任务",
+      "finished": "已完成",
+      "finishedCount": "已完成 {count} 个",
+      "running": "进行中",
       "resizePane": "调整窗格大小"
     }
   },
@@ -2438,7 +2470,8 @@
     "collapseQueue": "折叠等待中的消息",
     "expandQueue": "展开等待中的消息",
     "myKortixRoutes": "把每个任务交给合适的智能体",
-    "chatInputReset": "Reset"
+    "chatInputReset": "Reset",
+    "queuedDisconnected": "此会话与 Kortix 的连接已断开。请开始新会话以继续。"
   },
   "billing": {
     "plan": {
@@ -3412,7 +3445,18 @@
         "completed": "已完成",
         "failed": "未完成",
         "stopped": "已停止"
-      }
+      },
+      "card": {
+        "session": "会话",
+        "copyId": "复制会话 ID",
+        "openNewTab": "在新标签页中打开",
+        "model": "模型",
+        "runsAs": "运行身份",
+        "inline": "在此会话内运行，因此没有可打开的独立会话。"
+      },
+      "notStarted": "未启动",
+      "notStartedSentence": "Kortix 无法启动这位同事。没有运行任何内容。",
+      "policyBlocked": "已被此项目的策略阻止。请让项目管理员允许它。"
     }
   },
   "agentRunLimit": {
@@ -21534,6 +21578,37 @@
     "reviewPane": {
       "emptyTitle": "选择一个项目",
       "emptyDescription": "详情会在这里打开。按 J 和 K 在列表中移动。"
+    },
+    "reviewDeck": {
+      "label": "审阅卡片",
+      "remaining": "{count, plural, other {剩余 # 张}}",
+      "merge": "合并",
+      "close": "关闭",
+      "approve": "批准",
+      "deny": "拒绝",
+      "dismiss": "忽略",
+      "yes": "是",
+      "no": "否",
+      "skip": "跳过",
+      "open": "打开",
+      "undo": "撤销",
+      "staged": "{verdict}：{title}",
+      "needsChoice": "打开以选择答案",
+      "noVerdict": "你无法决定此项。打开查看详情。",
+      "emptyTitle": "全部处理完毕",
+      "emptyDescription": "目前没有需要你处理的内容。",
+      "highRisk": "高风险",
+      "files": "{count, plural, other {# 个文件}}",
+      "conflicts": "{count, plural, other {# 处冲突}}",
+      "items": "{count, plural, other {# 项}}",
+      "showCards": "以卡片显示",
+      "showList": "以列表显示",
+      "sendBack": "退回",
+      "whatShouldChange": "需要修改什么？",
+      "sendToAgent": "发送给智能体",
+      "cancel": "取消",
+      "reviews": "审阅",
+      "questions": "问题"
     }
   },
   "commandPalette": {
@@ -26380,6 +26455,7 @@
       },
       "workingFor": "工作中 · {elapsed}",
       "runsAs": "以 {agent} 运行",
+      "stateCount": "{count} {state}",
       "teamRole": "仅限本会话的角色",
       "attention": {
         "question": "有问题要问你",

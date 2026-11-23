@@ -817,12 +817,36 @@
       },
       "wallpapers": {
         "dither": "Дитеринг",
-        "brandmark": "Знак бренда",
-        "nebula": "Пикселски зраци",
-        "silk": "Свила",
-        "grain": "Зрно",
-        "neuro": "Неуро",
+        "ember": "Жар",
+        "prism": "Призма",
+        "tide": "Плима",
+        "aurora": "Аурора",
+        "dusk": "Сумрак",
+        "eclipse": "Помрачење",
+        "lagoon": "Лагуна",
+        "cumulus": "Кумулус",
+        "moss": "Маховина",
+        "iris": "Ирис",
+        "custom": "Прилагођено",
         "blank": "Празно"
+      },
+      "custom": {
+        "editColors": "Уреди боје",
+        "shuffle": "Насумично",
+        "palette": "Палета",
+        "paletteLabel": "Палета {count}",
+        "colors": "Боје",
+        "colorLabel": "Боја {count}",
+        "customColor": "Прилагођена боја",
+        "addColor": "Додај боју",
+        "removeColor": "Уклони боју",
+        "resetColors": "Врати",
+        "finish": "Завршна обрада",
+        "finishes": {
+          "dither": "Дитеринг",
+          "grain": "Зрно"
+        },
+        "opacity": "Непрозирност"
       }
     },
     "sessions": {
@@ -1348,6 +1372,10 @@
         "calendar": {
           "name": "Kalendar",
           "description": "Zajednički kalendar za ljude i agente: stavke sa datumom, učesnicima i komentarima, pored zakazanih okidača i petlji. Pomeni nekoga sa @ da ga obavestiš. Agenti koriste `kortix calendar`."
+        },
+        "review_swipe": {
+          "name": "Kartice za pregled",
+          "description": "„Čeka tebe“ na stranici Pregled otvara se kao špil kartica: jedna stavka po kartici. Prevuci desno da odobriš ili spojiš, levo da je vratiš agentu sa onim što treba promeniti."
         }
       },
       "channelsSwitch": {
@@ -2236,6 +2264,10 @@
     "panel": {
       "outputNew": "Ново",
       "outputUpdated": "Ажурирано",
+      "backgroundTasks": "Позадински задаци",
+      "finished": "Завршено",
+      "finishedCount": "{count} завршено",
+      "running": "У току",
       "resizePane": "Промени величину окна"
     }
   },
@@ -2438,7 +2470,8 @@
     "collapseQueue": "Скупи поруке на чекању",
     "expandQueue": "Прошири поруке на чекању",
     "myKortixRoutes": "Сваки задатак шаље правом агенту",
-    "chatInputReset": "Reset"
+    "chatInputReset": "Reset",
+    "queuedDisconnected": "Ova sesija je izgubila vezu sa Kortixom. Pokreni novu sesiju da nastaviš."
   },
   "billing": {
     "plan": {
@@ -3412,7 +3445,18 @@
         "completed": "Готово",
         "failed": "Није завршио",
         "stopped": "Заустављено"
-      }
+      },
+      "card": {
+        "session": "Sesija",
+        "copyId": "Kopiraj ID sesije",
+        "openNewTab": "Otvori u novoj kartici",
+        "model": "Model",
+        "runsAs": "Radi kao",
+        "inline": "Radio je u ovoj sesiji, pa nema svoju sesiju za otvaranje."
+      },
+      "notStarted": "Nije pokrenut",
+      "notStartedSentence": "Kortix nije mogao da pokrene ovog kolegu. Ništa nije pokrenuto.",
+      "policyBlocked": "Blokirano pravilima ovog projekta. Zamoli administratora projekta da to dozvoli."
     }
   },
   "agentRunLimit": {
@@ -21534,6 +21578,37 @@
     "reviewPane": {
       "emptyTitle": "Izaberi stavku",
       "emptyDescription": "Detalji se otvaraju ovde. Pritisni J i K da se krećeš kroz listu."
+    },
+    "reviewDeck": {
+      "label": "Kartice za pregled",
+      "remaining": "{count, plural, one {Preostala # kartica} few {Preostale # kartice} other {Preostalo # kartica}}",
+      "merge": "Spoji",
+      "close": "Zatvori",
+      "approve": "Odobri",
+      "deny": "Odbij",
+      "dismiss": "Odbaci",
+      "yes": "Da",
+      "no": "Ne",
+      "skip": "Preskoči",
+      "open": "Otvori",
+      "undo": "Poništi",
+      "staged": "{verdict}: {title}",
+      "needsChoice": "Otvori da izabereš odgovor",
+      "noVerdict": "Ne možeš da odlučiš o ovome. Otvori za detalje.",
+      "emptyTitle": "Sve je završeno",
+      "emptyDescription": "Trenutno ništa ne čeka na tebe.",
+      "highRisk": "Visok rizik",
+      "files": "{count, plural, one {# fajl} few {# fajla} other {# fajlova}}",
+      "conflicts": "{count, plural, one {# konflikt} few {# konflikta} other {# konflikata}}",
+      "items": "{count, plural, one {# stavka} few {# stavke} other {# stavki}}",
+      "showCards": "Prikaži kao kartice",
+      "showList": "Prikaži kao listu",
+      "sendBack": "Vrati",
+      "whatShouldChange": "Šta treba promeniti?",
+      "sendToAgent": "Pošalji agentu",
+      "cancel": "Otkaži",
+      "reviews": "Pregledi",
+      "questions": "Pitanja"
     }
   },
   "commandPalette": {
@@ -26380,6 +26455,7 @@
       },
       "workingFor": "ради · {elapsed}",
       "runsAs": "ради као {agent}",
+      "stateCount": "{count} {state}",
       "teamRole": "Улога само за ову сесију",
       "attention": {
         "question": "Има питање за тебе",
