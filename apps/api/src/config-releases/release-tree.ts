@@ -301,39 +301,76 @@ async function gitStdin(repo: string, env: Record<string, string>, args: string[
 }
 
 /**
- * What one file-list build may read from blobs, in total. Every blob it reads
- * ships in the release, so the bound is the uncompressed tar bound: a build
- * that would read more throws `ConfigArchiveTooLargeError`.
+ * The work one file-list build may do on repository content. Every axis an
+ * author of the repository controls is counted, and the build stops with
+ * `ConfigArchiveTooLargeError` past any of them: the caller then answers
+ * "too large", and the session keeps the config it runs (or, for a
+ * `repo-agent` release, the whole-tree release).
  */
-export interface BlobReadBudget {
-  remaining: number;
+export class ListBudget {
+  /** Bytes read from blobs. Every read blob ships, so the tar bound applies. */
+  readBytes = MAX_CONFIG_TAR_BYTES;
+  /** Bytes of code parsed for imports, synchronously on the API event loop. */
+  parseBytes = MAX_PARSED_CODE_BYTES;
+  /** Bytes downloaded into a partial mirror. */
+  downloadBytes = MAX_CONFIG_TAR_BYTES;
+  /** Git round trips: one download, one size check or one batch read each. */
+  gitCalls = MAX_LIST_GIT_CALLS;
+  /** Steps: a path a folder walk visits, a reference or an import specifier resolved, a queued module. */
+  steps = MAX_LIST_STEPS;
+
+  spend(axis: 'readBytes' | 'parseBytes' | 'downloadBytes' | 'gitCalls' | 'steps', amount: number): void {
+    this[axis] -= amount;
+    if (this[axis] < 0) throw new ConfigArchiveTooLargeError(MAX_CONFIG_TAR_BYTES);
+  }
+
+  /** `ensureStoreObjects` for `oids`, charged to this build. */
+  async download(mirror: string, oids: readonly string[]): Promise<void> {
+    if (oids.length === 0) return;
+    this.spend('gitCalls', 1);
+    this.spend('downloadBytes', await ensureStoreObjects(mirror, oids, { maxBytes: Math.max(1, this.downloadBytes) }));
+  }
 }
+
+/** Code one build parses for imports at most. */
+const MAX_PARSED_CODE_BYTES = 32 * 1024 * 1024;
+/** Git round trips one build makes at most. */
+const MAX_LIST_GIT_CALLS = 512;
+/** Steps one build takes at most (see `ListBudget.steps`). */
+const MAX_LIST_STEPS = 1_000_000;
 
 /** A blob larger than this is never read to be parsed: the one-blob `execFile` read this replaced had the same 10 MiB bound. */
 const MAX_PARSED_BLOB_BYTES = 10 * 1024 * 1024;
 /** The bytes one `git cat-file --batch` call returns at most. */
 const MAX_BLOB_READ_CHUNK_BYTES = 32 * 1024 * 1024;
 
+// replica-local: blob IDs over a read bound; a blob never changes, so a miss only checks its size again.
+const oversizedBlobs = new Map<string, number>();
+
 /**
  * The bytes of each blob of `blobs` the mirror holds and that is at most
  * `maxBlobBytes`, in as few `git cat-file --batch` calls as fit
  * `MAX_BLOB_READ_CHUNK_BYTES` each. The sizes are read first
- * (`--batch-check`), so a blob over the bound is never read, and the bytes
- * read count against `budget`. A missing or skipped blob is absent from the
- * result.
+ * (`--batch-check`), so a blob over the bound is never read, and it is
+ * remembered by ID. Calls and bytes are charged to `budget`. A missing or
+ * skipped blob is absent from the result.
  */
-async function readBlobs(mirror: string, blobs: readonly string[], maxBlobBytes: number, budget: BlobReadBudget): Promise<Map<string, Buffer>> {
-  const wanted = [...new Set(blobs)].filter((blob) => HEX40.test(blob));
+async function readBlobs(mirror: string, blobs: readonly string[], maxBlobBytes: number, budget: ListBudget): Promise<Map<string, Buffer>> {
+  const wanted = [...new Set(blobs)].filter((blob) => HEX40.test(blob) && (oversizedBlobs.get(blob) ?? 0) <= maxBlobBytes);
   const out = new Map<string, Buffer>();
   if (wanted.length === 0) return out;
+  budget.spend('gitCalls', 1);
   const sizes = (await gitStdin(mirror, {}, ['cat-file', '--batch-check'], `${wanted.join('\n')}\n`)).toString('utf8');
   const chunks: Array<{ ids: string[]; bytes: number }> = [];
   for (const line of sizes.split('\n')) {
     const [oid, type, size] = line.split(' ');
     const bytes = Number(size);
-    if (type !== 'blob' || !Number.isFinite(bytes) || bytes > maxBlobBytes) continue;
-    budget.remaining -= bytes;
-    if (budget.remaining < 0) throw new ConfigArchiveTooLargeError(MAX_CONFIG_TAR_BYTES);
+    if (type !== 'blob' || !Number.isFinite(bytes)) continue;
+    if (bytes > maxBlobBytes) {
+      bumpBounded(oversizedBlobs, oid!, bytes, MAX_PARSED_IMPORTS);
+      continue;
+    }
+    budget.spend('readBytes', bytes);
     const last = chunks.at(-1);
     if (last && last.bytes + bytes <= MAX_BLOB_READ_CHUNK_BYTES) {
       last.ids.push(oid!);
@@ -343,6 +380,7 @@ async function readBlobs(mirror: string, blobs: readonly string[], maxBlobBytes:
     }
   }
   for (const chunk of chunks) {
+    budget.spend('gitCalls', 1);
     // Each record is a header line, the bytes and a newline: 128 bytes of slack per blob.
     const raw = await gitStdin(mirror, {}, ['cat-file', '--batch'], `${chunk.ids.join('\n')}\n`, chunk.bytes + chunk.ids.length * 128);
     let at = 0;
@@ -489,8 +527,15 @@ const IMPORT_SUFFIXES = ['', '.ts', '.tsx', '.mts', '.cts', '.js', '.jsx', '.mjs
 /** A file Bun parses for imports. */
 const CODE_FILE = /\.(?:[cm]?[jt]s|[jt]sx)$/;
 
-// replica-local: the import specifiers of a blob at a path; a blob never changes, so a miss only parses it again.
+// replica-local: the import specifiers of a blob under a loader; a blob never changes, so a miss only parses it again.
 const parsedImports = new Map<string, string[]>();
+
+/** Tests and measurement: forget every parse and size memo, as a new API process would. */
+export function __clearReleaseTreeMemosForTests(): void {
+  parsedImports.clear();
+  textReferences.clear();
+  oversizedBlobs.clear();
+}
 // replica-local: the relative references of a skill text blob; a miss only reads it again.
 const textReferences = new Map<string, string[]>();
 const MAX_PARSED_IMPORTS = 20_000;
@@ -513,12 +558,13 @@ async function importClosure(
   tree: ReadonlyMap<string, ConfigReleaseFile>,
   modules: readonly string[],
   found: Map<string, ConfigReleaseFile>,
-  budget: BlobReadBudget,
+  budget: ListBudget,
 ): Promise<ConfigReleaseFile[]> {
   const added: ConfigReleaseFile[] = [];
   let queue = [...modules];
-  // One round per import depth: one download for the modules the round parses.
+  // One round per import depth: one download and one read for the modules the round parses.
   while (queue.length > 0) {
+    budget.spend('steps', queue.length);
     const round: ConfigReleaseFile[] = [];
     for (const path of queue) {
       const file = tree.get(path);
@@ -528,34 +574,47 @@ async function importClosure(
       if (file[1] !== '120000' && !path.endsWith('.json')) round.push(file);
     }
     queue = [];
-    const unparsed = round.filter(([path, , blob]) => !parsedImports.has(`${blob}\0${path}`));
-    await ensureStoreObjects(mirror, unparsed.map(([, , blob]) => blob));
-    const sources = await readBlobs(mirror, unparsed.map(([, , blob]) => blob), MAX_PARSED_BLOB_BYTES, budget);
+    const unparsed = [...new Set(round.filter(([path, , blob]) => !parsedImports.has(importKey(blob, path))).map(([, , blob]) => blob))];
+    await budget.download(mirror, unparsed);
+    const sources = await readBlobs(mirror, unparsed, MAX_PARSED_BLOB_BYTES, budget);
     for (const [path, , blob] of round) {
-      const key = `${blob}\0${path}`;
+      const key = importKey(blob, path);
       let imports = parsedImports.get(key);
       if (!imports) {
         const source = sources.get(blob);
-        const loader = path.endsWith('.tsx') ? 'tsx' : path.endsWith('.jsx') ? 'jsx' : /\.[cm]?ts$/.test(path) ? 'ts' : 'js';
         imports = [];
-        try {
-          if (source) imports = new Bun.Transpiler({ loader }).scanImports(source.toString('utf8')).map((entry) => entry.path);
-        } catch {
-          // A syntax error: the box reports it when it imports the module.
+        if (source) {
+          budget.spend('parseBytes', source.length);
+          try {
+            imports = new Bun.Transpiler({ loader: loaderOf(path) }).scanImports(source.toString('utf8')).map((entry) => entry.path);
+          } catch {
+            // A syntax error: the box reports it when it imports the module.
+          }
+          bumpBounded(parsedImports, key, imports, MAX_PARSED_IMPORTS);
         }
-        if (source) bumpBounded(parsedImports, key, imports, MAX_PARSED_IMPORTS);
       }
+      budget.spend('steps', imports.length);
       for (const specifier of imports) {
         if (!specifier.startsWith('./') && !specifier.startsWith('../')) continue;
         const base = posix.normalize(posix.join(posix.dirname(path), specifier));
         // `./x.js` names `x.ts` in TypeScript, and Bun resolves it so.
         const candidates = [...IMPORT_SUFFIXES.map((suffix) => base + suffix), base.replace(/js$/, 'ts'), ...IMPORT_SUFFIXES.slice(1).map((suffix) => `${base}/index${suffix}`)];
         const target = candidates.find((candidate) => tree.has(candidate));
-        if (target) queue.push(target);
+        if (target && !found.has(target)) queue.push(target);
       }
     }
   }
   return added;
+}
+
+/** The loader Bun parses a module at `path` with. */
+function loaderOf(path: string): 'tsx' | 'jsx' | 'ts' | 'js' {
+  return path.endsWith('.tsx') ? 'tsx' : path.endsWith('.jsx') ? 'jsx' : /\.[cm]?ts$/.test(path) ? 'ts' : 'js';
+}
+
+/** The memo key of a module's imports: they depend on its bytes and its loader, not on its path. */
+function importKey(blob: string, path: string): string {
+  return `${blob}\0${loaderOf(path)}`;
 }
 
 /**
@@ -661,6 +720,8 @@ const SKILL_TEXT_FILE = /\.(?:md|mdx|txt)$/i;
 const MAX_SCANNED_TEXT_BYTES = 256 * 1024;
 /** The tool folders one `folders` build takes at most; more makes the release too large. */
 const MAX_TOOL_FOLDERS = 2_000;
+/** The folders one build walks at most (skills, packages, link targets, tool folders), each once. */
+const MAX_WALKED_FOLDERS = 4_000;
 /**
  * The folder hops one `folders` build follows at most: each round is a file a
  * new folder brought in importing yet another folder. More makes the release
@@ -686,14 +747,14 @@ const MAX_FOLDER_ROUNDS = 64;
  * Paths never move: each file keeps the path the repository gives it.
  *
  * Bounded work on repository content: path lookups by range over the sorted
- * tree, each tool folder taken once, link scanning without a backtracking
- * regex (`relativeReferences`), at most `MAX_PARSED_BLOB_BYTES` per parsed
- * module, `MAX_SCANNED_TEXT_BYTES` per scanned text file, and
- * `MAX_CONFIG_TAR_BYTES` read in all. Past `MAX_TOOL_FOLDERS` folders,
- * `MAX_FOLDER_ROUNDS` folder hops or the total read bound it throws
- * `ConfigArchiveTooLargeError`.
+ * tree, each folder walked once, link scanning without a backtracking regex
+ * (`relativeReferences`), at most `MAX_PARSED_BLOB_BYTES` per parsed module
+ * and `MAX_SCANNED_TEXT_BYTES` per scanned text file, and one `ListBudget`
+ * for the whole build (bytes read, parsed and downloaded, git round trips,
+ * steps). Past `MAX_WALKED_FOLDERS`, `MAX_TOOL_FOLDERS`, `MAX_FOLDER_ROUNDS`
+ * or any budget axis it throws `ConfigArchiveTooLargeError`.
  */
-export async function agentReleaseFiles(mirror: string, rootTree: string, input: AgentFileListInput): Promise<ConfigReleaseFile[]> {
+export async function agentReleaseFiles(mirror: string, rootTree: string, input: AgentFileListInput, budget = new ListBudget()): Promise<ConfigReleaseFile[]> {
   const tree = await treeFiles(mirror, rootTree);
   // `listConfigFiles` sorts by path: every file under a folder is one range of `paths`.
   const paths = [...tree.keys()];
@@ -712,15 +773,22 @@ export async function agentReleaseFiles(mirror: string, rootTree: string, input:
   const take = (file: ConfigReleaseFile | undefined) => {
     if (file) out.set(file[0], file);
   };
+  // A walk costs the folder's size: each folder is walked once, and every path it visits is a step.
+  const walked = new Set<string>();
   const underFolder = (folder: string) => {
-    for (const file of filesUnder(folder)) take(file);
+    if (!folder || walked.has(folder)) return;
+    walked.add(folder);
+    if (walked.size > MAX_WALKED_FOLDERS) throw new ConfigArchiveTooLargeError(MAX_CONFIG_TAR_BYTES);
+    for (const file of filesUnder(folder)) {
+      budget.spend('steps', 1);
+      take(file);
+    }
   };
   const folderOrFile = (path: string) => {
+    budget.spend('steps', 1);
     if (tree.has(path)) take(tree.get(path));
     else underFolder(`${path}/`);
   };
-  // Every blob this build reads also ships: past the tar bound the release is too large anyway.
-  const budget: BlobReadBudget = { remaining: MAX_CONFIG_TAR_BYTES };
 
   for (const path of input.rootFiles) take(tree.get(path));
 
@@ -744,9 +812,9 @@ export async function agentReleaseFiles(mirror: string, rootTree: string, input:
 
   // The links of every skill text file. The blobs ship anyway; a blob is read once per process.
   const texts = [...out.values()].filter(([path, mode]) => mode !== '120000' && SKILL_TEXT_FILE.test(path) && skillPrefixes.some((prefix) => path.startsWith(prefix)));
-  const unread = texts.filter(([, , blob]) => !textReferences.has(blob)).map(([, , blob]) => blob);
+  const unread = [...new Set(texts.filter(([, , blob]) => !textReferences.has(blob)).map(([, , blob]) => blob))];
   if (unread.length > 0) {
-    await ensureStoreObjects(mirror, unread);
+    await budget.download(mirror, unread);
     const read = await readBlobs(mirror, unread, MAX_SCANNED_TEXT_BYTES, budget);
     // A blob over the bound links nothing; one that did not arrive is asked again next time.
     for (const blob of unread) {
@@ -754,10 +822,16 @@ export async function agentReleaseFiles(mirror: string, rootTree: string, input:
       if (bytes) bumpBounded(textReferences, blob, relativeReferences(bytes.toString('utf8')), MAX_PARSED_IMPORTS);
     }
   }
+  const applied = new Set<string>();
   for (const [path, , blob] of texts) {
-    for (const reference of textReferences.get(blob) ?? []) {
+    const references = textReferences.get(blob) ?? [];
+    budget.spend('steps', references.length);
+    for (const reference of references) {
       const target = resolveRelative(path, reference);
-      if (target) folderOrFile(target);
+      if (target && !applied.has(target)) {
+        applied.add(target);
+        folderOrFile(target);
+      }
     }
   }
 
@@ -774,7 +848,10 @@ export async function agentReleaseFiles(mirror: string, rootTree: string, input:
         if (!folder || folders.has(folder)) continue;
         folders.add(folder);
         if (folders.size > MAX_TOOL_FOLDERS) throw new ConfigArchiveTooLargeError(MAX_CONFIG_TAR_BYTES);
-        for (const [candidate] of filesUnder(folder)) if (CODE_FILE.test(candidate) && !tools.has(candidate)) code.push(candidate);
+        for (const [candidate] of filesUnder(folder)) {
+          budget.spend('steps', 1);
+          if (CODE_FILE.test(candidate) && !tools.has(candidate)) code.push(candidate);
+        }
       }
       added = await importClosure(mirror, tree, code, tools, budget);
     }
@@ -782,6 +859,7 @@ export async function agentReleaseFiles(mirror: string, rootTree: string, input:
     const dirs = new Set<string>();
     for (const path of tools.keys()) {
       const parts = path.split('/').slice(0, -1);
+      budget.spend('steps', parts.length + 1);
       for (let depth = parts.length; depth >= 0; depth -= 1) dirs.add(parts.slice(0, depth).join('/'));
     }
     for (const dir of dirs) for (const name of RESOLUTION_FILES) take(tree.get(dir ? `${dir}/${name}` : name));

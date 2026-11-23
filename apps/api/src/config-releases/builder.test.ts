@@ -837,6 +837,58 @@ describe('buildConfigRelease', () => {
     expect(over.reason).toContain('exceed');
   }, 60_000);
 
+  // Strix review of #13028: work must not scale with repeated links, paths or import depth.
+  test('repeated folder links in many skill files walk the folder once', async () => {
+    const links = '[apps](../../apps)\n'.repeat(2_000);
+    const files: Record<string, string> = {
+      'kortix.yaml': ['project:', '  name: builder-test', 'default_agent: kortix', 'skills:', '  notes: skills/notes', 'agents:', '  kortix:', '    prompt: Main.', '    skills: all', ''].join('\n'),
+      'skills/notes/SKILL.md': `---\nname: notes\ndescription: Notes.\n---\n${links}`,
+    };
+    for (let at = 0; at < 200; at += 1) files[`skills/notes/copies/c${at}.md`] = links;
+    for (let at = 0; at < 3_000; at += 1) files[`apps/file-${at}.txt`] = `${at}\n`;
+    const sha = commit(files, 'repeated links');
+    const started = performance.now();
+    const release = await buildConfigRelease(project, sha, 'agent:kortix', { store });
+    expect(performance.now() - started).toBeLessThan(5_000);
+    expect(release.reason).toBeNull();
+    expect(release.files!.filter(([path]) => path.startsWith('apps/')).length).toBe(3_000);
+  }, 60_000);
+
+  test('an import chain inside one folder past the git round-trip bound is too large; a short one is followed', async () => {
+    const chain = (length: number) => {
+      const files: Record<string, string> = {
+        'kortix.yaml': ['project:', '  name: builder-test', 'default_agent: kortix', 'tools:', '  start: tools/m0.ts', 'agents:', '  kortix:', '    prompt: Main.', ''].join('\n'),
+      };
+      for (let at = 0; at < length; at += 1) files[`tools/m${at}.ts`] = `import './m${at + 1}'\nexport const v${at} = ${at}\n`;
+      files[`tools/m${length}.ts`] = 'export const end = 1\n';
+      return files;
+    };
+    const short = await buildConfigRelease(project, commit(chain(20), 'short chain'), 'agent:kortix', { store });
+    expect(short.reason).toBeNull();
+    expect(short.files!.length).toBe(21);
+
+    const started = performance.now();
+    const long = await buildConfigRelease(project, commit(chain(400), 'long chain'), 'agent:kortix', { store });
+    expect(performance.now() - started).toBeLessThan(20_000);
+    expect(long.release_id).toBeNull();
+    expect(long.reason).toContain('exceed');
+  }, 60_000);
+
+  test('a module imported from 3,000 paths with one blob is parsed once per loader', async () => {
+    const files: Record<string, string> = {
+      'kortix.yaml': ['project:', '  name: builder-test', 'default_agent: kortix', 'tools:', '  fan: tools/fan.ts', 'agents:', '  kortix:', '    prompt: Main.', ''].join('\n'),
+      'tools/fan.ts': Array.from({ length: 3_000 }, (_, at) => `import './copies/m${at}'`).join('\n') + '\nexport default {}\n',
+      'tools/copies/shared.ts': 'export const shared = 1\n',
+    };
+    for (let at = 0; at < 3_000; at += 1) files[`tools/copies/m${at}.ts`] = "import './shared'\nexport const same = 1\n";
+    const sha = commit(files, 'fan out');
+    const started = performance.now();
+    const release = await buildConfigRelease(project, sha, 'agent:kortix', { store });
+    expect(performance.now() - started).toBeLessThan(10_000);
+    expect(release.reason).toBeNull();
+    expect(release.files!.length).toBe(3_002);
+  }, 60_000);
+
   test('a tool module over the parse bound ships but is not parsed for imports', async () => {
     const big = `import { side } from './side'\nexport const blob = "${'a'.repeat(11 * 1024 * 1024)}"\nexport default { description: "b", parameters: { type: "object" }, execute: () => side }\n`;
     const sha = commit(
