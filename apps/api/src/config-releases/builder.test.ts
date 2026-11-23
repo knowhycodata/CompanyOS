@@ -58,6 +58,42 @@ function commit(files: Record<string, string | Buffer>, message: string): string
   return git('rev-parse', 'HEAD');
 }
 
+/** Commit `entries` through git plumbing: a path may be longer than the filesystem allows. */
+function commitEntries(entries: Record<string, string>, message: string): string {
+  const blobs = new Map<string, string>();
+  const lines: string[] = [];
+  for (const [path, body] of Object.entries(entries)) {
+    let blob = blobs.get(body);
+    if (!blob) {
+      blob = run('git', ['hash-object', '-w', '--stdin'], work, body);
+      blobs.set(body, blob);
+    }
+    lines.push(`100644 ${blob}\t${path}`);
+  }
+  run('git', ['update-index', '--add', '--index-info'], work, `${lines.join('\n')}\n`);
+  git('commit', '-qm', message);
+  git('push', '-q', 'origin', 'main');
+  return git('rev-parse', 'HEAD');
+}
+
+/** Run `fn` and return the longest time, in ms, the event loop could not run a 5 ms timer. */
+async function longestStall<T>(fn: () => Promise<T>): Promise<{ result: T; stallMs: number }> {
+  let last = performance.now();
+  let stallMs = 0;
+  const timer = setInterval(() => {
+    const now = performance.now();
+    stallMs = Math.max(stallMs, now - last);
+    last = now;
+  }, 5);
+  try {
+    const result = await fn();
+    stallMs = Math.max(stallMs, performance.now() - last);
+    return { result, stallMs };
+  } finally {
+    clearInterval(timer);
+  }
+}
+
 const MANIFEST = (description: string) =>
   [
     'project:',
@@ -887,6 +923,40 @@ describe('buildConfigRelease', () => {
     expect(performance.now() - started).toBeLessThan(10_000);
     expect(release.reason).toBeNull();
     expect(release.files!.length).toBe(3_002);
+  }, 60_000);
+
+  // Strix review 2 of #13028: a charged unit must not hide work a repository string controls,
+  // and no build may stall the event loop.
+  test('a multi-MiB import specifier at hundreds of paths never stalls the event loop', async () => {
+    const hostile = `import '../${'a'.repeat(2 * 1024 * 1024)}'\nexport const x = 1\n`;
+    const entries: Record<string, string> = {
+      'kortix.yaml': ['project:', '  name: builder-test', 'default_agent: kortix', 'tools:', '  fan: tools/fan.ts', 'agents:', '  kortix:', '    prompt: Main.', ''].join('\n'),
+      'tools/fan.ts': Array.from({ length: 300 }, (_, at) => `import './h/m${at}'`).join('\n') + '\nexport default {}\n',
+    };
+    for (let at = 0; at < 300; at += 1) entries[`tools/h/m${at}.ts`] = hostile;
+    const sha = commitEntries(entries, 'long specifiers');
+    const { result, stallMs } = await longestStall(() => buildConfigRelease(project, sha, 'agent:kortix', { store }));
+    expect(stallMs).toBeLessThan(500);
+    // 300 copies of a 2 MiB module are over the tar bound: too large, never a stall.
+    expect(result.release_id).toBeNull();
+    expect(result.reason).toContain('exceed');
+  }, 60_000);
+
+  test('deep and long tool paths never stall the event loop', async () => {
+    const deep = Array.from({ length: 400 }, () => 'd').join('/');
+    const long = 'x'.repeat(3_000);
+    const entries: Record<string, string> = {
+      'kortix.yaml': ['project:', '  name: builder-test', 'default_agent: kortix', 'tools:', `  deep: ${deep}/t0.ts`, `  long: ${long}/t.ts`, 'agents:', '  kortix:', '    prompt: Main.', ''].join('\n'),
+    };
+    for (let at = 0; at < 500; at += 1) entries[`${deep}/t${at}.ts`] = `export const v = ${at}\n`;
+    for (let at = 0; at < 2_000; at += 1) entries[`${long}/f${at}.txt`] = `${at}\n`;
+    entries[`${long}/t.ts`] = 'export default {}\n';
+    const sha = commitEntries(entries, 'deep and long paths');
+    const { result, stallMs } = await longestStall(() => buildConfigRelease(project, sha, 'repo-agent:kortix', { store }));
+    expect(stallMs).toBeLessThan(500);
+    // Either it lists every file beside the tools, or it is too large: never a stall.
+    if (result.release_id) expect(result.files!.length).toBeGreaterThan(2_500);
+    else expect(result.reason).toContain('exceed');
   }, 60_000);
 
   test('a tool module over the parse bound ships but is not parsed for imports', async () => {

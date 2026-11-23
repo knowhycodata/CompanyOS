@@ -306,6 +306,13 @@ async function gitStdin(repo: string, env: Record<string, string>, args: string[
  * `ConfigArchiveTooLargeError` past any of them: the caller then answers
  * "too large", and the session keeps the config it runs (or, for a
  * `repo-agent` release, the whole-tree release).
+ *
+ * `work` is charged in characters a loop actually touches (a prefix compare,
+ * a candidate path, a directory prefix), never in events: a string the
+ * repository chose cannot make one charged unit expensive. The build also
+ * gives the event loop back every `WORK_PER_YIELD` units (`pace`), so even a
+ * build at its bounds never stalls other requests, and it stops after
+ * `MAX_LIST_MILLIS` of wall time.
  */
 export class ListBudget {
   /** Bytes read from blobs. Every read blob ships, so the tar bound applies. */
@@ -316,12 +323,23 @@ export class ListBudget {
   downloadBytes = MAX_CONFIG_TAR_BYTES;
   /** Git round trips: one download, one size check or one batch read each. */
   gitCalls = MAX_LIST_GIT_CALLS;
-  /** Steps: a path a folder walk visits, a reference or an import specifier resolved, a queued module. */
-  steps = MAX_LIST_STEPS;
+  /** Characters of string work: compares, joins, lookups. */
+  work = MAX_LIST_WORK;
+  private readonly startedAt = performance.now();
+  private sinceYield = 0;
 
-  spend(axis: 'readBytes' | 'parseBytes' | 'downloadBytes' | 'gitCalls' | 'steps', amount: number): void {
+  spend(axis: 'readBytes' | 'parseBytes' | 'downloadBytes' | 'gitCalls' | 'work', amount: number): void {
     this[axis] -= amount;
+    if (axis === 'work') this.sinceYield += amount;
     if (this[axis] < 0) throw new ConfigArchiveTooLargeError(MAX_CONFIG_TAR_BYTES);
+  }
+
+  /** Give the event loop back once enough work ran since the last time, and stop past the wall-time bound. */
+  async pace(): Promise<void> {
+    if (this.sinceYield < WORK_PER_YIELD) return;
+    this.sinceYield = 0;
+    await new Promise<void>((resolveYield) => setImmediate(resolveYield));
+    if (performance.now() - this.startedAt > MAX_LIST_MILLIS) throw new ConfigArchiveTooLargeError(MAX_CONFIG_TAR_BYTES);
   }
 
   /** `ensureStoreObjects` for `oids`, charged to this build. */
@@ -332,12 +350,19 @@ export class ListBudget {
   }
 }
 
+/** Characters of string work one build does at most. */
+const MAX_LIST_WORK = 200_000_000;
+/** Work between two returns to the event loop. */
+const WORK_PER_YIELD = 200_000;
+/** Wall time one build runs at most. */
+const MAX_LIST_MILLIS = 20_000;
+/** An import specifier longer than this resolves to nothing: no tool imports a path this long. */
+const MAX_SPECIFIER_CHARS = 1_024;
+
 /** Code one build parses for imports at most. */
 const MAX_PARSED_CODE_BYTES = 32 * 1024 * 1024;
 /** Git round trips one build makes at most. */
 const MAX_LIST_GIT_CALLS = 512;
-/** Steps one build takes at most (see `ListBudget.steps`). */
-const MAX_LIST_STEPS = 1_000_000;
 
 /** A blob larger than this is never read to be parsed: the one-blob `execFile` read this replaced had the same 10 MiB bound. */
 const MAX_PARSED_BLOB_BYTES = 10 * 1024 * 1024;
@@ -564,9 +589,9 @@ async function importClosure(
   let queue = [...modules];
   // One round per import depth: one download and one read for the modules the round parses.
   while (queue.length > 0) {
-    budget.spend('steps', queue.length);
     const round: ConfigReleaseFile[] = [];
     for (const path of queue) {
+      budget.spend('work', path.length);
       const file = tree.get(path);
       if (!file || found.has(path)) continue;
       found.set(path, file);
@@ -574,12 +599,21 @@ async function importClosure(
       if (file[1] !== '120000' && !path.endsWith('.json')) round.push(file);
     }
     queue = [];
-    const unparsed = [...new Set(round.filter(([path, , blob]) => !parsedImports.has(importKey(blob, path))).map(([, , blob]) => blob))];
-    await budget.download(mirror, unparsed);
-    const sources = await readBlobs(mirror, unparsed, MAX_PARSED_BLOB_BYTES, budget);
+    await budget.pace();
+    // Memo hits are copied before the awaits below: another build may evict them meanwhile.
+    const known = new Map<string, string[]>();
+    const unparsed = new Set<string>();
     for (const [path, , blob] of round) {
       const key = importKey(blob, path);
-      let imports = parsedImports.get(key);
+      const hit = parsedImports.get(key);
+      if (hit) known.set(key, hit);
+      else unparsed.add(blob);
+    }
+    await budget.download(mirror, [...unparsed]);
+    const sources = await readBlobs(mirror, [...unparsed], MAX_PARSED_BLOB_BYTES, budget);
+    for (const [path, , blob] of round) {
+      const key = importKey(blob, path);
+      let imports = known.get(key);
       if (!imports) {
         const source = sources.get(blob);
         imports = [];
@@ -591,11 +625,16 @@ async function importClosure(
             // A syntax error: the box reports it when it imports the module.
           }
           bumpBounded(parsedImports, key, imports, MAX_PARSED_IMPORTS);
+          known.set(key, imports);
         }
       }
-      budget.spend('steps', imports.length);
       for (const specifier of imports) {
+        budget.spend('work', 1);
         if (!specifier.startsWith('./') && !specifier.startsWith('../')) continue;
+        if (specifier.length > MAX_SPECIFIER_CHARS) continue;
+        // A join, a normalize and IMPORT_SUFFIXES.length * 2 + 1 candidate strings and lookups.
+        budget.spend('work', (path.length + specifier.length) * (IMPORT_SUFFIXES.length * 2 + 3));
+        await budget.pace();
         const base = posix.normalize(posix.join(posix.dirname(path), specifier));
         // `./x.js` names `x.ts` in TypeScript, and Bun resolves it so.
         const candidates = [...IMPORT_SUFFIXES.map((suffix) => base + suffix), base.replace(/js$/, 'ts'), ...IMPORT_SUFFIXES.slice(1).map((suffix) => `${base}/index${suffix}`)];
@@ -751,43 +790,49 @@ const MAX_FOLDER_ROUNDS = 64;
  * (`relativeReferences`), at most `MAX_PARSED_BLOB_BYTES` per parsed module
  * and `MAX_SCANNED_TEXT_BYTES` per scanned text file, and one `ListBudget`
  * for the whole build (bytes read, parsed and downloaded, git round trips,
- * steps). Past `MAX_WALKED_FOLDERS`, `MAX_TOOL_FOLDERS`, `MAX_FOLDER_ROUNDS`
- * or any budget axis it throws `ConfigArchiveTooLargeError`.
+ * characters of string work, wall time). Every loop over repository content
+ * gives the event loop back (`ListBudget.pace`). Past `MAX_WALKED_FOLDERS`,
+ * `MAX_TOOL_FOLDERS`, `MAX_FOLDER_ROUNDS` or any budget axis it throws
+ * `ConfigArchiveTooLargeError`.
  */
 export async function agentReleaseFiles(mirror: string, rootTree: string, input: AgentFileListInput, budget = new ListBudget()): Promise<ConfigReleaseFile[]> {
   const tree = await treeFiles(mirror, rootTree);
   // `listConfigFiles` sorts by path: every file under a folder is one range of `paths`.
   const paths = [...tree.keys()];
-  const filesUnder = function* (folder: string): Generator<ConfigReleaseFile> {
+  /** Every file under `folder`, in path order. Each visit compares `folder.length` characters and pays for them. */
+  const filesUnder = async (folder: string, visit: (file: ConfigReleaseFile) => void): Promise<void> => {
     if (!folder) return;
     let low = 0;
     let high = paths.length;
     while (low < high) {
       const middle = (low + high) >>> 1;
+      budget.spend('work', folder.length);
       if (paths[middle]! < folder) low = middle + 1;
       else high = middle;
     }
-    for (let at = low; at < paths.length && paths[at]!.startsWith(folder); at += 1) yield tree.get(paths[at]!)!;
+    for (let at = low; at < paths.length; at += 1) {
+      budget.spend('work', folder.length);
+      if (!paths[at]!.startsWith(folder)) break;
+      visit(tree.get(paths[at]!)!);
+      await budget.pace();
+    }
   };
   const out = new Map<string, ConfigReleaseFile>();
   const take = (file: ConfigReleaseFile | undefined) => {
     if (file) out.set(file[0], file);
   };
-  // A walk costs the folder's size: each folder is walked once, and every path it visits is a step.
+  // Each folder is walked once.
   const walked = new Set<string>();
-  const underFolder = (folder: string) => {
+  const underFolder = async (folder: string): Promise<void> => {
     if (!folder || walked.has(folder)) return;
     walked.add(folder);
     if (walked.size > MAX_WALKED_FOLDERS) throw new ConfigArchiveTooLargeError(MAX_CONFIG_TAR_BYTES);
-    for (const file of filesUnder(folder)) {
-      budget.spend('steps', 1);
-      take(file);
-    }
+    await filesUnder(folder, take);
   };
-  const folderOrFile = (path: string) => {
-    budget.spend('steps', 1);
+  const folderOrFile = async (path: string): Promise<void> => {
+    budget.spend('work', path.length);
     if (tree.has(path)) take(tree.get(path));
-    else underFolder(`${path}/`);
+    else await underFolder(`${path}/`);
   };
 
   for (const path of input.rootFiles) take(tree.get(path));
@@ -796,42 +841,54 @@ export async function agentReleaseFiles(mirror: string, rootTree: string, input:
     const clean = posix.normalize(folder.trim()).replace(/^(\.\/)+/, '').replace(/\/+$/, '');
     return !clean || clean === '.' || clean.startsWith('../') || clean === '..' || clean.startsWith('/') ? [] : [`${clean}/`];
   });
-  for (const prefix of skillPrefixes) underFolder(prefix);
+  for (const prefix of skillPrefixes) await underFolder(prefix);
 
   for (const source of input.packageSources) {
     const clean = resolveRelative('', source);
     if (!clean) continue;
     if (tree.has(clean) && /\.[cm]?[jt]sx?$/.test(clean)) {
       const folder = folderOf(clean);
-      if (folder) underFolder(folder);
+      if (folder) await underFolder(folder);
       else take(tree.get(clean));
     } else {
-      folderOrFile(clean);
+      await folderOrFile(clean);
     }
   }
 
   // The links of every skill text file. The blobs ship anyway; a blob is read once per process.
   const texts = [...out.values()].filter(([path, mode]) => mode !== '120000' && SKILL_TEXT_FILE.test(path) && skillPrefixes.some((prefix) => path.startsWith(prefix)));
-  const unread = [...new Set(texts.filter(([, , blob]) => !textReferences.has(blob)).map(([, , blob]) => blob))];
+  budget.spend('work', texts.length * skillPrefixes.length);
+  // Memo hits are copied before the awaits below: another build may evict them meanwhile.
+  const links = new Map<string, string[]>();
+  for (const [, , blob] of texts) {
+    const hit = textReferences.get(blob);
+    if (hit) links.set(blob, hit);
+  }
+  const unread = [...new Set(texts.map(([, , blob]) => blob).filter((blob) => !links.has(blob)))];
   if (unread.length > 0) {
     await budget.download(mirror, unread);
     const read = await readBlobs(mirror, unread, MAX_SCANNED_TEXT_BYTES, budget);
     // A blob over the bound links nothing; one that did not arrive is asked again next time.
     for (const blob of unread) {
       const bytes = read.get(blob);
-      if (bytes) bumpBounded(textReferences, blob, relativeReferences(bytes.toString('utf8')), MAX_PARSED_IMPORTS);
+      if (!bytes) continue;
+      budget.spend('work', bytes.length);
+      const references = relativeReferences(bytes.toString('utf8'));
+      bumpBounded(textReferences, blob, references, MAX_PARSED_IMPORTS);
+      links.set(blob, references);
+      await budget.pace();
     }
   }
   const applied = new Set<string>();
   for (const [path, , blob] of texts) {
-    const references = textReferences.get(blob) ?? [];
-    budget.spend('steps', references.length);
-    for (const reference of references) {
+    for (const reference of links.get(blob) ?? []) {
+      budget.spend('work', path.length + reference.length);
       const target = resolveRelative(path, reference);
       if (target && !applied.has(target)) {
         applied.add(target);
-        folderOrFile(target);
+        await folderOrFile(target);
       }
+      await budget.pace();
     }
   }
 
@@ -845,24 +902,31 @@ export async function agentReleaseFiles(mirror: string, rootTree: string, input:
       const code: string[] = [];
       for (const [path] of added) {
         const folder = folderOf(path);
+        budget.spend('work', path.length);
         if (!folder || folders.has(folder)) continue;
         folders.add(folder);
         if (folders.size > MAX_TOOL_FOLDERS) throw new ConfigArchiveTooLargeError(MAX_CONFIG_TAR_BYTES);
-        for (const [candidate] of filesUnder(folder)) {
-          budget.spend('steps', 1);
+        await filesUnder(folder, ([candidate]) => {
           if (CODE_FILE.test(candidate) && !tools.has(candidate)) code.push(candidate);
-        }
+        });
       }
       added = await importClosure(mirror, tree, code, tools, budget);
     }
-    for (const folder of folders) underFolder(folder);
-    const dirs = new Set<string>();
+    for (const folder of folders) await underFolder(folder);
+    // Every folder from a tool file up to the root, built prefix by prefix and paid by its length.
+    const dirs = new Set<string>(['']);
     for (const path of tools.keys()) {
-      const parts = path.split('/').slice(0, -1);
-      budget.spend('steps', parts.length + 1);
-      for (let depth = parts.length; depth >= 0; depth -= 1) dirs.add(parts.slice(0, depth).join('/'));
+      for (let slash = path.indexOf('/'); slash >= 0; slash = path.indexOf('/', slash + 1)) {
+        budget.spend('work', slash);
+        dirs.add(path.slice(0, slash));
+      }
+      await budget.pace();
     }
-    for (const dir of dirs) for (const name of RESOLUTION_FILES) take(tree.get(dir ? `${dir}/${name}` : name));
+    for (const dir of dirs) {
+      budget.spend('work', (dir.length + 16) * RESOLUTION_FILES.length);
+      for (const name of RESOLUTION_FILES) take(tree.get(dir ? `${dir}/${name}` : name));
+      await budget.pace();
+    }
   }
   for (const file of tools.values()) take(file);
 

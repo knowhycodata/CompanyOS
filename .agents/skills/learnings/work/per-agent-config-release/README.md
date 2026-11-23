@@ -118,22 +118,28 @@ Two scopes:
 Imports and skill links are parsed once per blob per API process
 (`git cat-file --batch`, memo by blob ID).
 
-Bounds (two Strix reviews, of #13024 and #13028, found the first versions
-unbounded). The work grows with repository structure an author controls, so
-one `ListBudget` per build counts every axis: bytes read (128 MiB), bytes
-parsed (32 MiB), bytes downloaded (128 MiB), git round trips (512) and steps
-(1,000,000: a visited path, a resolved reference or specifier, a queued
-module). Also: the link scan is a linear `indexOf` pass, never a backtracking
-regex; a text file over 256 KiB is not scanned; a module over 10 MiB ships
-but is not parsed and is remembered by blob ID; each folder is walked once
-(4,000 at most); the `folders` walk takes at most 2,000 tool folders and 64
-folder hops; imports are memoized by blob and loader, not by path. Past a
-bound the release is "too large": an `agent:` session keeps its running
-config, a `repo-agent:` session keeps the whole-tree release. File-list
-builds run one at a time per project in each API process. On the internal
-project, with every memo cleared before each of the 42 agents, the worst
-agent used 3% of the git round trips, 2% of the bytes read and 1% of the
-bytes parsed.
+Bounds (three Strix reviews, of #13024 and two of #13028, found the earlier
+versions unbounded). The work grows with repository structure and string
+lengths an author controls, so one `ListBudget` per build counts every axis:
+bytes read (128 MiB), parsed (32 MiB) and downloaded (128 MiB), git round
+trips (512), characters of string work (200,000,000: every prefix compare,
+candidate path and directory prefix is paid by its length, never as one
+event) and wall time (20 s). Every loop over repository content returns to
+the event loop every 200,000 work units, so a build at its bounds slows only
+itself. Also: the link scan is a linear `indexOf` pass; a text file over
+256 KiB is not scanned; a module over 10 MiB ships but is not parsed and is
+remembered by blob ID; an import specifier over 1,024 characters resolves to
+nothing; each folder is walked once (4,000 at most); the `folders` walk takes
+at most 2,000 tool folders and 64 hops; imports are memoized by blob and
+loader, and memo hits are copied before any await, so an eviction by another
+build cannot drop an import. Past a bound the release is "too large": an
+`agent:` session keeps its running config, a `repo-agent:` session keeps the
+whole-tree release. File-list builds run one at a time per project in each
+API process. On the internal project, with every memo cleared before each of
+the 42 agents, the worst agent used 3% of the git round trips, 2% of the
+bytes read and 1% of the work. Hostile fixtures (multi-MiB specifiers at 300
+paths, 400-deep and 3,000-character paths) stall the event loop at most 11 ms
+in the tests.
 
 `include:` is new manifest schema. Proposal: a top-level `release.include`
 (project-wide globs) and `agents.<name>.include` (that agent only). The exact
