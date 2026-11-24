@@ -539,19 +539,23 @@ async function agentRelease(
   const tooLarge = { ...withGovernance, reason: `the files of the agent exceed the ${archiveLimit ?? MAX_CONFIG_ARCHIVE_BYTES}-byte config archive limit` };
   let files: ConfigReleaseFile[];
   try {
-    const resolved = await resolveReleaseTreeSource(mirror, project, commit);
-    if (!('source' in resolved)) return { ...withGovernance, reason: resolved.reason };
-    const ignored = new Set(resolved.source.exportIgnored);
-    const listed = await oneBuildPerProject(project.projectId, () =>
-      agentReleaseFiles(mirror, resolved.source.rootTree, {
+    // The tree resolution (the whole listing and the export-ignore pass) runs inside the
+    // per-project queue too: concurrent requests must not multiply any of this work.
+    const built = await oneBuildPerProject(project.projectId, async () => {
+      const resolved = await resolveReleaseTreeSource(mirror, project, commit);
+      if (!('source' in resolved)) return { ok: false as const, reason: resolved.reason };
+      const ignored = new Set(resolved.source.exportIgnored);
+      const listed = await agentReleaseFiles(mirror, resolved.source.rootTree, {
         toolModules: grantedToolModules(compiled),
         skillFolders: grantedSkillFolders(compiled),
         packageSources: localPackageSources(compiled),
         rootFiles: repository ? [...AGENT_ROOT_FILES, project.manifestPath] : AGENT_ROOT_FILES,
         scope: repository ? 'folders' : 'exact',
-      }),
-    );
-    files = listed.filter(([path]) => !ignored.has(path));
+      });
+      return { ok: true as const, files: listed.filter(([path]) => !ignored.has(path)) };
+    });
+    if (!built.ok) return { ...withGovernance, reason: built.reason };
+    files = built.files;
   } catch (error) {
     // The modules it parses did not fit the default download bound, or the
     // list passed a bound of `agentReleaseFiles`.
