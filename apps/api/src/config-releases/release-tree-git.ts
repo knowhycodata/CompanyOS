@@ -67,6 +67,8 @@ const GIT_TIMEOUT_MS = 30_000;
 const MAX_FAULT_ROUNDS = 2;
 /** The stderr a fault-in request carries at most. */
 const MAX_FAULT_STDERR_CHARS = 64 * 1024;
+/** An object ID in git's stderr: only such a failure can be a missing object. */
+const OBJECT_ID = /\b[0-9a-f]{40}\b/;
 
 export interface GitResult {
   stdout: string;
@@ -82,7 +84,8 @@ export interface GitResult {
 export async function runGit(args: string[], cwd: string, env?: Record<string, string>): Promise<GitResult> {
   for (let round = 0; ; round += 1) {
     const result = await execGit(args, cwd, env);
-    if (result.exitCode === 0 || round >= MAX_FAULT_ROUNDS) return result;
+    // A failure that names no object (a path that does not exist) is an answer, not a missing object.
+    if (result.exitCode === 0 || round >= MAX_FAULT_ROUNDS || !OBJECT_ID.test(result.stderr)) return result;
     if (!(await treeObjects().faultIn(cwd, result.stderr.slice(0, MAX_FAULT_STDERR_CHARS)))) return result;
   }
 }

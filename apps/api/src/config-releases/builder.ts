@@ -35,13 +35,12 @@ import {
 import { buildMyKortixConfig } from '../projects/lib/my-kortix-agent';
 import type { GitBackedProject } from '../projects/git/types';
 import { __clearOverLimitMemoForTests, isObjectFetchTooLarge, noteOverLimit, recentOverLimit } from '../shared/over-limit-memo';
-import { resolveProjectAccountId } from '../shared/project-account-lookup';
 import { bumpBounded } from '../shared/ttl-memo';
-import { configArchiveKey, getConfigArchiveStore, type ConfigArchiveStore } from './store';
-import type { ConfigReleaseFile, ConfigReleaseVariant } from './release-tree';
+import { configArchiveKey, configArchiveProjectPrefix, getConfigArchiveStore, type ConfigArchiveStore } from './store';
+import type { AgentFileListInput, ConfigReleaseFile, ConfigReleaseVariant } from './release-tree';
 import { ConfigArchiveTooLargeError, HEX40, MAX_CONFIG_ARCHIVE_BYTES, variantAgent } from './release-tree';
 import { configureReleaseTreeGit, type ReleaseTreeObjects } from './release-tree-git';
-import { TreeJobBusyError, TreeJobs, TreeJobTimeoutError, type TreeJobSubject } from './tree-jobs';
+import { TreeJobBusyError, TreeJobs, TreeJobTimeoutError } from './tree-jobs';
 import type { TreeOp, TreeOpArgs, TreeOpResult } from './tree-protocol';
 
 export {
@@ -74,16 +73,6 @@ configureReleaseTreeGit({ env: childProcessEnv(), objects: projectObjects, scrat
 
 /** Every read of repository content for a release runs in a tree thread. */
 export const treeJobs = new TreeJobs({ env: childProcessEnv(), objects: projectObjects });
-
-/**
- * Whose tree jobs a build of `project` runs: the project and the account that
- * owns it, which the threads are shared by (`tree-jobs.ts`). A project with no
- * known account counts as its own.
- */
-export async function treeJobSubject(project: Pick<GitBackedProject, 'projectId'>): Promise<TreeJobSubject> {
-  const accountId = await resolveProjectAccountId(project.projectId).catch(() => null);
-  return { projectId: project.projectId, accountId: accountId ?? project.projectId };
-}
 
 /** A tree job that did not run now: not built, not cached, asked again at the next convergence. */
 function treeJobDeferred(error: unknown): error is TreeJobBusyError | TreeJobTimeoutError {
@@ -367,8 +356,7 @@ async function projectRelease(
   archiveLimit?: number,
 ): Promise<ConfigRelease> {
   const etag = withGovernance.compiled_governance_etag;
-  const subject = await treeJobSubject(project);
-  const tree = <K extends TreeOp>(op: K, args: TreeOpArgs<K>) => treeJobs.run(subject, op, args);
+  const tree = <K extends TreeOp>(op: K, args: TreeOpArgs<K>) => treeJobs.run(project.projectId, op, args);
   const at = { mirror, manifestPath: project.manifestPath, commit };
   let resolved: TreeOpResult<'resolveSource'>;
   try {
@@ -539,34 +527,26 @@ async function agentRelease(
   const repository = variant.startsWith('repo-agent:');
   const governanceOnly = { ...withGovernance, release_id: configReleaseId(null, etag), reason: repository ? null : REPOSITORY_ACCESS_WITHHELD };
   if (variant === 'none') return governanceOnly;
-  const compiled = JSON.parse(withGovernance.compiled_governance ?? '{}') as Partial<CompiledAgentSet>;
   const tooLarge = { ...withGovernance, reason: `the files of the agent exceed the ${archiveLimit ?? MAX_CONFIG_ARCHIVE_BYTES}-byte config archive limit` };
-  const subject = await treeJobSubject(project);
-  const tree = <K extends TreeOp>(op: K, args: TreeOpArgs<K>) => treeJobs.run(subject, op, args);
   let files: ConfigReleaseFile[];
   let treeId: string;
   let archive: Buffer | null = null;
   try {
-    const listed = await tree('agentFiles', {
+    // One job: the thread lists the files, writes their tree, and builds the
+    // archive on an archive-size cache miss only. No file list goes to it.
+    const built = await treeJobs.run(project.projectId, 'agentTree', {
       mirror,
       manifestPath: project.manifestPath,
       commit,
-      input: {
-        toolModules: grantedToolModules(compiled),
-        skillFolders: grantedSkillFolders(compiled),
-        packageSources: localPackageSources(compiled),
-        rootFiles: repository ? [...AGENT_ROOT_FILES, project.manifestPath] : AGENT_ROOT_FILES,
-        scope: repository ? 'folders' : 'exact',
-      },
+      input: agentFileInput(withGovernance.compiled_governance, variant, project.manifestPath),
+      knownTrees: knownArchiveTrees(project.projectId),
+      limit: archiveLimit,
     });
-    if (!('files' in listed)) return { ...withGovernance, reason: listed.reason };
-    files = listed.files;
-    if (files.length === 0) return governanceOnly;
-    // The tree ID first: the archive is built on an archive-size cache miss only.
-    treeId = (await tree('fileTree', { mirror, files, archive: false })).treeId;
-    if (!archiveBytes.has(configArchiveKey(project.projectId, treeId))) {
-      archive = (await tree('fileTree', { mirror, files, archive: true, limit: archiveLimit })).archive;
-    }
+    if (!('files' in built)) return { ...withGovernance, reason: built.reason };
+    if (!built.treeId) return governanceOnly;
+    files = built.files;
+    treeId = built.treeId;
+    archive = built.archive;
   } catch (error) {
     // The modules it parses did not fit the default download bound, the list
     // passed a bound of `agentReleaseFiles`, or the archive is over the cap.
@@ -585,6 +565,53 @@ async function agentRelease(
     config_tree_id: treeId,
     files,
     archive: { url: configArchiveRoute(project.projectId, treeId, commit, variant), bytes: archiveBytes.get(key)! },
+  };
+}
+
+/** What `agentReleaseFiles` starts from for a one-agent variant: what its compiled set names. */
+function agentFileInput(compiledGovernance: string | null, variant: ConfigReleaseVariant, manifestPath: string): AgentFileListInput {
+  const compiled = JSON.parse(compiledGovernance ?? '{}') as Partial<CompiledAgentSet>;
+  const repository = variant.startsWith('repo-agent:');
+  return {
+    toolModules: grantedToolModules(compiled),
+    skillFolders: grantedSkillFolders(compiled),
+    packageSources: localPackageSources(compiled),
+    rootFiles: repository ? [...AGENT_ROOT_FILES, manifestPath] : AGENT_ROOT_FILES,
+    scope: repository ? 'folders' : 'exact',
+  };
+}
+
+/** The trees of `projectId` whose archive this process already stored: their size is cached. */
+function knownArchiveTrees(projectId: string): string[] {
+  const prefix = configArchiveProjectPrefix(projectId);
+  const trees: string[] = [];
+  for (const key of archiveBytes.keys()) {
+    if (key.startsWith(prefix)) trees.push(key.slice(prefix.length, -'.tar.gz'.length));
+  }
+  return trees;
+}
+
+/**
+ * The archive builder of the one-agent release of `variant` at `commit`, when
+ * that release's tree is `treeId`; else null. For the archive route: the tree
+ * exists in no mirror, so the thread lists the agent's files again and builds
+ * it. Throws `TreeJobBusyError` when the release could not be built now.
+ */
+export async function agentArchiveBuilder(
+  project: GitBackedProject,
+  mirror: string,
+  commit: string,
+  variant: ConfigReleaseVariant,
+  treeId: string,
+): Promise<(() => Promise<Buffer>) | null> {
+  const release = await buildConfigRelease(project, commit, variant).catch(() => null);
+  if (release?.deferred) throw new TreeJobBusyError(project.projectId);
+  if (!release || release.config_tree_id !== treeId) return null;
+  const input = agentFileInput(release.compiled_governance, variant, project.manifestPath);
+  return async () => {
+    const built = await treeJobs.run(project.projectId, 'agentTree', { mirror, manifestPath: project.manifestPath, commit, input, knownTrees: [] });
+    if (!('files' in built) || built.treeId !== treeId || !built.archive) throw new Error(`the release of ${variant} at ${commit} no longer makes tree ${treeId}`);
+    return built.archive;
   };
 }
 

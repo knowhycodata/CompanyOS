@@ -4,17 +4,16 @@
  * receives its result, so no repository can stall the API, whatever it holds.
  *
  * - `threads` threads per API process run one job each.
- * - Jobs are counted per account, the owner of the project: an account
- *   cannot buy more of the threads by creating projects. One job per account
- *   runs at a time, and a free thread goes to the waiting account served
- *   least recently, so an account that is not building waits behind none
- *   that is.
+ * - Jobs are counted per project (here a workspace is one project and one
+ *   account). One job per project runs at a time, and a free thread goes to
+ *   the waiting project served least recently: a project that is not building
+ *   waits behind at most one job of each project that is.
  * - A job may run `jobMillis` of its own time: the time its thread waits for
  *   a download the API process runs for it does not count, the download has
  *   its own bounds. Past that, or past `wallMillis` in all, the thread is
  *   stopped and replaced. The job fails with `TreeJobTimeoutError`, and the
  *   same job of that project fails at once for `timeoutMemoMillis`.
- * - At most `maxWaitingPerAccount` jobs of one account, and `maxWaiting` in
+ * - At most `maxWaitingPerProject` jobs of one project, and `maxWaiting` in
  *   all, wait for a thread, each for at most `maxWaitMillis`. Past any of
  *   them: `TreeJobBusyError`. Nothing is cached for it: the caller asks again.
  */
@@ -35,7 +34,7 @@ import {
   type TreeOpResult,
 } from './tree-protocol';
 
-/** A job could not start: too many jobs of its account, or in all, wait, or it waited too long. */
+/** A job could not start: too many jobs of its project, or in all, wait, or it waited too long. */
 export class TreeJobBusyError extends Error {
   constructor(readonly projectId: string) {
     super('another release of this project is being built; it is tried again at the next convergence');
@@ -62,15 +61,9 @@ export interface TreeJobsOptions {
   jobMillis?: number;
   wallMillis?: number;
   maxWaitMillis?: number;
-  maxWaitingPerAccount?: number;
+  maxWaitingPerProject?: number;
   maxWaiting?: number;
   timeoutMemoMillis?: number;
-}
-
-/** Whose job it is: the project it reads, and the account that owns it. */
-export interface TreeJobSubject {
-  projectId: string;
-  accountId: string;
 }
 
 const DEFAULTS = {
@@ -78,15 +71,15 @@ const DEFAULTS = {
   jobMillis: 60_000,
   wallMillis: 300_000,
   maxWaitMillis: 30_000,
-  maxWaitingPerAccount: 8,
+  maxWaitingPerProject: 8,
   maxWaiting: 64,
   timeoutMemoMillis: 600_000,
 };
 /** Projects, and jobs per project, the timeout memo holds at most. */
 const MAX_MEMO_PROJECTS = 1_000;
 const MAX_MEMO_JOBS_PER_PROJECT = 100;
-/** Accounts whose last service the fair share remembers. A forgotten one counts as never served. */
-const MAX_SERVED_ACCOUNTS = 1_000;
+/** Projects whose last service the fair share remembers. A forgotten one counts as never served. */
+const MAX_SERVED_PROJECTS = 1_000;
 /** A job's identity reads at most this many entries of a list and characters of a string. */
 const IDENTITY_LIST_ENTRIES = 16;
 const IDENTITY_STRING_CHARS = 512;
@@ -114,7 +107,8 @@ function identity(value: unknown, depth = 0): unknown {
   return Object.fromEntries(entries.map(([name, field]) => [name, identity(field, depth + 1)]));
 }
 
-interface Job extends TreeJobSubject {
+interface Job {
+  projectId: string;
   op: TreeOp;
   args: unknown;
   resolve: (value: unknown) => void;
@@ -144,12 +138,11 @@ interface Slot {
   stopped: boolean;
 }
 
-/** The bytes of a result, as `Buffer`s again. */
-function revive(op: TreeOp, value: unknown): unknown {
-  if (op === 'archive') return asBuffer(value as Uint8Array);
-  if ((op === 'readComposed' || op === 'fileTree') && value && typeof value === 'object') {
-    const archive = (value as { archive: Uint8Array | null }).archive;
-    return { ...value, archive: archive ? asBuffer(archive) : null };
+/** The bytes of a result (the result itself, or its `archive`), as `Buffer`s again. */
+function revive(value: unknown): unknown {
+  if (value instanceof Uint8Array) return asBuffer(value);
+  if (value && typeof value === 'object' && 'archive' in value && value.archive instanceof Uint8Array) {
+    return { ...value, archive: asBuffer(value.archive) };
   }
   return value;
 }
@@ -158,8 +151,8 @@ export class TreeJobs {
   private readonly options: Required<Omit<TreeJobsOptions, 'entry'>> & { entry: URL };
   private readonly slots: Slot[] = [];
   private readonly waiting: Job[] = [];
-  private readonly runningAccounts = new Set<string>();
-  /** When each account last got a thread, as a sequence number: the fair share. */
+  private readonly runningProjects = new Set<string>();
+  /** When each project last got a thread, as a sequence number: the fair share. */
   private readonly served = new Map<string, number>();
   private lastServed = 0;
   /** Per project: the digest of each job that ran past its time, and when that stops counting. */
@@ -170,16 +163,15 @@ export class TreeJobs {
     this.options = { ...DEFAULTS, entry: new URL('./tree-thread.ts', import.meta.url), ...options };
   }
 
-  /** Run `op` for `subject` in a tree thread. */
-  run<K extends TreeOp>(subject: TreeJobSubject, op: K, args: TreeOpArgs<K>): Promise<TreeOpResult<K>> {
-    const { projectId, accountId } = subject;
+  /** Run `op` for `projectId` in a tree thread. */
+  run<K extends TreeOp>(projectId: string, op: K, args: TreeOpArgs<K>): Promise<TreeOpResult<K>> {
     if (this.timedOutRecently(projectId, op, args)) return Promise.reject(new TreeJobTimeoutError(projectId));
-    const ofAccount = this.waiting.filter((job) => job.accountId === accountId).length;
-    if (ofAccount >= this.options.maxWaitingPerAccount || this.waiting.length >= this.options.maxWaiting) {
+    const ofProject = this.waiting.filter((job) => job.projectId === projectId).length;
+    if (ofProject >= this.options.maxWaitingPerProject || this.waiting.length >= this.options.maxWaiting) {
       return Promise.reject(new TreeJobBusyError(projectId));
     }
     return new Promise<TreeOpResult<K>>((resolve, reject) => {
-      const job: Job = { projectId, accountId, op, args, resolve: resolve as (value: unknown) => void, reject };
+      const job: Job = { projectId, op, args, resolve: resolve as (value: unknown) => void, reject };
       job.waitTimer = setTimeout(() => {
         const at = this.waiting.indexOf(job);
         if (at < 0) return;
@@ -196,14 +188,14 @@ export class TreeJobs {
     for (const slot of [...this.slots]) this.stop(slot, new Error('tree threads closed'));
   }
 
-  /** The waiting job to run next: of an account with no running job, the one served least recently; first come first within it. */
+  /** The waiting job to run next: of a project with no running job, the one served least recently; first come first within it. */
   private next(): number {
     let best = -1;
     let bestServed = Infinity;
     for (let at = 0; at < this.waiting.length; at += 1) {
-      const { accountId } = this.waiting[at]!;
-      if (this.runningAccounts.has(accountId)) continue;
-      const served = this.served.get(accountId) ?? -1;
+      const { projectId } = this.waiting[at]!;
+      if (this.runningProjects.has(projectId)) continue;
+      const served = this.served.get(projectId) ?? -1;
       if (served < bestServed) {
         best = at;
         bestServed = served;
@@ -266,10 +258,10 @@ export class TreeJobs {
       requestErrors: new Map(),
     };
     slot.job = running;
-    this.runningAccounts.add(job.accountId);
-    this.served.delete(job.accountId);
-    this.served.set(job.accountId, (this.lastServed += 1));
-    if (this.served.size > MAX_SERVED_ACCOUNTS) this.served.delete(this.served.keys().next().value!);
+    this.runningProjects.add(job.projectId);
+    this.served.delete(job.projectId);
+    this.served.set(job.projectId, (this.lastServed += 1));
+    if (this.served.size > MAX_SERVED_PROJECTS) this.served.delete(this.served.keys().next().value!);
     slot.thread.ref();
     this.resumeClock(slot, running);
     this.post(slot, { type: 'job', id: running.id, op: job.op, args: job.args });
@@ -295,7 +287,7 @@ export class TreeJobs {
     if (!job || job.id !== message.id) return;
     this.finish(slot, job);
     if (message.ok) {
-      job.resolve(revive(job.op, message.value));
+      job.resolve(revive(message.value));
       return;
     }
     const original = message.error.requestId === undefined ? undefined : job.requestErrors.get(message.error.requestId);
@@ -322,7 +314,7 @@ export class TreeJobs {
     clearTimeout(job.workTimer);
     clearTimeout(job.wallTimer);
     slot.job = null;
-    this.runningAccounts.delete(job.accountId);
+    this.runningProjects.delete(job.projectId);
     slot.thread.unref();
     this.pump();
   }

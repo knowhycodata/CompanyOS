@@ -292,6 +292,34 @@ describe('agentReleaseFiles bounds', () => {
     expect(result.files!.map(([path]) => path)).toEqual(['tools/t.ts']);
   }, 120_000);
 
+  // Strix review 10 of #13028: an agent's file list can be most of the tree (here a local pi
+  // package of 100,000 files), and the list must not be copied into the tree thread on the
+  // event loop: the thread makes it, and it crosses back once.
+  test('an agent whose file list is a 100,000-file package never stalls the event loop', async () => {
+    const entries: Record<string, string> = {
+      'kortix.yaml': [
+        'project:',
+        '  name: builder-test',
+        'default_agent: kortix',
+        'extensions:',
+        '  big:',
+        '    pi: bulk',
+        'agents:',
+        '  kortix:',
+        '    prompt: Main.',
+        '    extensions: [big]',
+        '',
+      ].join('\n'),
+      'bulk/index.ts': 'export default () => {}\n',
+    };
+    for (let at = 0; at < 100_000; at += 1) entries[`bulk/d${at % 97}/f${at}.txt`] = 'x\n';
+    const sha = commit(entries, 'a large local package');
+    const { result, stallMs } = await longestStall(() => buildConfigRelease(project, sha, 'repo-agent:kortix', { store }));
+    expect(stallMs).toBeLessThan(100);
+    expect(result.reason).toBeNull();
+    expect(result.files!.length).toBe(100_002);
+  }, 120_000);
+
   // Strix review 5 of #13028: every pass over repository data pays by its length and yields.
   test('unique deep paths under an export-ignore rule never stall the event loop', async () => {
     const entries: Record<string, string> = {

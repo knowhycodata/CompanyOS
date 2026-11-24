@@ -19,9 +19,9 @@ function start(options: Partial<TreeJobsOptions> = {}, objects: Partial<ReleaseT
     ...options,
   });
   const pool = jobs;
-  // The test thread runs its own ops, not `treeOps`. A job's account is its project unless named.
-  return (projectId: string, op: string, args: object = {}, accountId = projectId) =>
-    (pool.run as unknown as (subject: object, op: string, args: object) => Promise<unknown>).call(pool, { projectId, accountId }, op, args);
+  // The test thread runs its own ops, not `treeOps`.
+  return (projectId: string, op: string, args: object = {}) =>
+    (pool.run as unknown as (projectId: string, op: string, args: object) => Promise<unknown>).call(pool, projectId, op, args);
 }
 
 afterEach(async () => {
@@ -70,29 +70,24 @@ describe('tree threads', () => {
     );
   });
 
-  test('one job per account runs at a time, whatever its projects; past the waiting bound a job answers busy; another account runs beside it', async () => {
-    const run = start({ threads: 2, maxWaitingPerAccount: 2 });
+  test('one job per project runs at a time; past the waiting bound a job answers busy; another project runs beside it', async () => {
+    const run = start({ threads: 2, maxWaitingPerProject: 2 });
     const order: string[] = [];
     const done = (name: string) => () => void order.push(name);
-    // Three projects of one account share one account's share.
-    const a = [
-      run('a1', 'sleep', { ms: 200 }, 'acct-a').then(done('a1')),
-      run('a2', 'sleep', { ms: 1 }, 'acct-a').then(done('a2')),
-      run('a3', 'sleep', { ms: 2 }, 'acct-a').then(done('a3')),
-    ];
-    await expect(run('a4', 'sleep', { ms: 3 }, 'acct-a')).rejects.toBeInstanceOf(TreeJobBusyError);
-    const b = run('b', 'sleep', { ms: 1 }, 'acct-b').then(done('b'));
+    const a = [run('a', 'sleep', { ms: 200 }).then(done('a1')), run('a', 'sleep', { ms: 1 }).then(done('a2')), run('a', 'sleep', { ms: 2 }).then(done('a3'))];
+    await expect(run('a', 'sleep', { ms: 3 })).rejects.toBeInstanceOf(TreeJobBusyError);
+    const b = run('b', 'sleep', { ms: 1 }).then(done('b'));
     await Promise.all([...a, b]);
     expect(order).toEqual(['b', 'a1', 'a2', 'a3']);
   });
 
-  test('a free thread goes to the account served least recently, not to the job that came first', async () => {
+  test('a free thread goes to the project served least recently, not to the job that came first', async () => {
     const run = start({ threads: 1 });
     const order: string[] = [];
     const done = (name: string) => () => void order.push(name);
-    const first = run('a1', 'sleep', { ms: 100 }, 'acct-a').then(done('a1'));
-    const later = run('a2', 'sleep', { ms: 1 }, 'acct-a').then(done('a2'));
-    const other = run('b', 'sleep', { ms: 1 }, 'acct-b').then(done('b'));
+    const first = run('a', 'sleep', { ms: 100 }).then(done('a1'));
+    const later = run('a', 'sleep', { ms: 1 }).then(done('a2'));
+    const other = run('b', 'sleep', { ms: 1 }).then(done('b'));
     await Promise.all([first, later, other]);
     expect(order).toEqual(['a1', 'b', 'a2']);
   });

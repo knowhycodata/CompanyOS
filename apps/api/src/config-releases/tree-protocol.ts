@@ -66,16 +66,24 @@ export const treeOps = {
     if (!('source' in resolved)) throw new Error(resolved.reason);
     return readComposedRelease(args.mirror, resolved.source, { archive: args.archive, limit: args.limit });
   },
-  /** One agent's files at the commit (`agentReleaseFiles`), without the paths the whole-tree release leaves out. */
-  agentFiles: async (args: CommitArgs & { input: AgentFileListInput }): Promise<{ files: ConfigReleaseFile[] } | { reason: string }> => {
+  /**
+   * One agent's release tree at the commit: its files (`agentReleaseFiles`,
+   * without the paths the whole-tree release leaves out), the tree they make
+   * (null when there is no file), and its `tar.gz` unless the tree is one of
+   * `knownTrees`. The list is made here and crosses to the API process once.
+   */
+  agentTree: async (
+    args: CommitArgs & { input: AgentFileListInput; knownTrees: readonly string[]; limit?: number },
+  ): Promise<{ files: ConfigReleaseFile[]; treeId: string | null; archive: Buffer | null } | { reason: string }> => {
     const resolved = await sourceOf(args);
     if (!('source' in resolved)) return { reason: resolved.reason };
     const ignored = new Set(resolved.source.exportIgnored);
-    const listed = await agentReleaseFiles(args.mirror, resolved.source.rootTree, args.input);
-    return { files: listed.filter(([path]) => !ignored.has(path)) };
+    const files = (await agentReleaseFiles(args.mirror, resolved.source.rootTree, args.input)).filter(([path]) => !ignored.has(path));
+    if (files.length === 0) return { files, treeId: null, archive: null };
+    const known = new Set(args.knownTrees);
+    const read = await readFileTree(args.mirror, files, { archive: (treeId) => !known.has(treeId), limit: args.limit });
+    return { files, treeId: read.treeId, archive: read.archive };
   },
-  fileTree: (args: { mirror: string; files: readonly ConfigReleaseFile[]; archive: boolean; limit?: number }) =>
-    readFileTree(args.mirror, args.files, { archive: args.archive, limit: args.limit }),
 };
 
 export type TreeOps = typeof treeOps;
