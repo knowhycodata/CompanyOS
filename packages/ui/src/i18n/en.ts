@@ -2301,6 +2301,31 @@ const catalog = {
       "unmuted": "Notifications unmuted"
     }
   },
+  "sessionStart": {
+    "intro": "Describe the outcome. Add context. Let’s work from there.",
+    "startersLabel": "Choose a starting point",
+    "editHint": "Every starting point is editable. Nothing sends until you’re ready.",
+    "build": {
+      "title": "Build something",
+      "description": "From an idea to a working first version",
+      "prompt": "I want to build something. Help me define the goal, who it is for, and the smallest useful first version."
+    },
+    "research": {
+      "title": "Explore a question",
+      "description": "Find sources, compare options, reach a decision",
+      "prompt": "Help me research a question. Ask what I need to decide, then find sources and compare the options."
+    },
+    "review": {
+      "title": "Review my work",
+      "description": "Find gaps, risks, and concrete improvements",
+      "prompt": "Help me review my work. Ask me to share the material, then identify gaps, risks, and concrete improvements."
+    },
+    "plan": {
+      "title": "Make a plan",
+      "description": "Turn an open-ended goal into clear next steps",
+      "prompt": "Help me turn a goal into a plan. Ask about the outcome and constraints, then propose clear next steps."
+    }
+  },
   "firstChat": {
     "title": "Your first chat with Kortix",
     "greeting": "Welcome, {name}. I'm Kortix.",

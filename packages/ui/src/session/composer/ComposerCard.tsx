@@ -328,11 +328,7 @@ export function ComposerCard({
       onDragLeave={handleDragLeave}
       onDrop={handleDropFiles}
       className={cn(
-        // One shadow, from the ladder. `shadow-card` is defined nowhere in
-        // `globals.css` and `shadow-xl` was dead — twMerge dropped it for the
-        // arbitrary `shadow-[…oklch…]` that followed, which was the only
-        // raw colour left in the composer.
-        'bg-background border-border relative isolate z-10 w-full rounded-xl border',
+        'bg-popover border-border focus-within:border-ring relative isolate z-10 w-full rounded-lg border',
         // `inline` draws its own even inset (below); the full composer keeps its top band,
         // and so does `inline` while tiles sit above the text.
         collapsed || (inline && attachedFiles.length === 0 && pastes.length === 0) ? 'pt-0' : 'pt-3',
@@ -369,7 +365,7 @@ export function ComposerCard({
       <div
         className={cn(
           'relative z-[1] flex w-full flex-col overflow-visible',
-          'transition-opacity duration-(--duration-normal) ease-[cubic-bezier(0.23,1,0.32,1)]',
+          'transition-opacity duration-normal ease-default',
           'motion-reduce:transition-none',
           isDragOver && 'opacity-30',
         )}

@@ -6,6 +6,7 @@ import { useLayoutEffect, useState, type ReactNode } from 'react';
 import { HashIcon, XIcon } from '@phosphor-icons/react';
 
 import { SessionWelcome } from '../../session/thread/session-welcome';
+import { SessionStarters } from './session-starters';
 import { agentsInSpace, listSpaces } from '@kortix/sdk';
 import { useProjectConfig, useProjectName } from '@kortix/sdk/react';
 
@@ -43,9 +44,8 @@ import {
  * had pinned the group to the page midline (composer's lower edge on the
  * half-way line, heading stacking up, the lower half empty ballast); Marko
  * saw it on dev and asked why it was "not dead center anymore" (2026-09-04).
- * With nothing under the composer any more the column is short, and a short
- * block reads as centred only when it IS centred — anchored to the midline
- * it sits visibly high. When the container is shorter than the column the
+ * The heading, composer, and editable starters share this column. When the
+ * container is shorter than the column the
  * auto margins resolve to zero and the scroller scrolls from the top, so
  * nothing is ever unreachable.
  *
@@ -57,6 +57,7 @@ export function ProjectHomeWelcomeBody({
   composer,
   sentTurn,
   onPickSuggestion,
+  suggestionsDisabled = false,
 }: {
   projectId: string;
   /** The composer input rendered in the hero position, directly under the heading. */
@@ -75,8 +76,9 @@ export function ProjectHomeWelcomeBody({
    * remount destroys.
    */
   sentTurn?: ReactNode;
-  /** When provided, starter-prompt chips render directly below the composer. */
+  /** When provided, editable starting points render below the composer. */
   onPickSuggestion?: (text: string) => void;
+  suggestionsDisabled?: boolean;
 }) {
   // One source for the project name — see `useProjectName`'s doc comment.
   const name = useProjectName(projectId) ?? '';
@@ -93,6 +95,7 @@ export function ProjectHomeWelcomeBody({
   const spaceLabel = space ? space.label || space.name : null;
   const spaceAgents = space ? agentsInSpace(space.name, config?.agents ?? []) : [];
   const tSpaces = useTranslations('spaces');
+  const tStart = useTranslations('sessionStart');
   // One word, not two. The name sits inside the sentence in `text-foreground`
   // while the rest is muted, so the fallback has to read as a NAME in that
   // slot — "this project" is a description wearing a name's highlight, and it
@@ -125,9 +128,9 @@ export function ProjectHomeWelcomeBody({
         so it cannot bias the centre; it is breathing room for a short
         container, where the auto margins have gone to zero. `shrink-0` so a
         short container scrolls the column rather than compressing it.
-        `gap-10` separates the ask group from whatever a host puts beneath it.
+        `gap-6` separates the composer from its optional starting points.
       */}
-      <div className="m-auto flex w-full max-w-3xl shrink-0 flex-col gap-10 py-8 sm:px-4">
+      <div className="m-auto flex w-full max-w-3xl shrink-0 flex-col gap-6 py-8 sm:px-4">
         <div className="flex w-full flex-col gap-6">
           {/*
               `w-full` with no `max-w`: the line runs the full column and breaks
@@ -187,6 +190,11 @@ export function ProjectHomeWelcomeBody({
             {spaceBefore(greeting.after) ? ' ' : ''}
             {greeting.after}
           </h1>
+          {!sentTurn && !space?.description ? (
+            <p className="text-muted-foreground -mt-3 px-4 text-sm text-pretty">
+              {tStart('intro')}
+            </p>
+          ) : null}
           {space?.description && !sentTurn ? (
             <p className="text-muted-foreground w-full px-4 text-sm text-pretty">
               {space.description}
@@ -208,9 +216,9 @@ export function ProjectHomeWelcomeBody({
 
         </div>
 
-        {/* Nothing under the composer, on purpose (Marko, 2026-09-02: "just
-            have the chat input there & that's it"). A space's room and tabs
-            live on its own page (`/spaces/<slug>`). */}
+        {onPickSuggestion && !sentTurn ? (
+          <SessionStarters onPick={onPickSuggestion} disabled={suggestionsDisabled} />
+        ) : null}
       </div>
     </div>
   );

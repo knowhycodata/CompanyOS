@@ -3871,6 +3871,31 @@
       }
     }
   },
+  "sessionStart": {
+    "intro": "Opišite željeni rezultat. Dodajte kontekst. Počnimo odatle.",
+    "startersLabel": "Izaberite polaznu tačku",
+    "editHint": "Svaku polaznu tačku možete izmeniti. Ništa se ne šalje dok ne budete spremni.",
+    "build": {
+      "title": "Napravite nešto",
+      "description": "Od ideje do prve funkcionalne verzije",
+      "prompt": "Želim da napravim nešto. Pomozite mi da definišem cilj, kome je namenjeno i najmanju korisnu prvu verziju."
+    },
+    "research": {
+      "title": "Istražite pitanje",
+      "description": "Pronađite izvore, uporedite opcije i odlučite",
+      "prompt": "Pomozite mi da istražim pitanje. Pitajte šta treba da odlučim, zatim pronađite izvore i uporedite opcije."
+    },
+    "review": {
+      "title": "Pregledajte moj rad",
+      "description": "Pronađite nedostatke, rizike i konkretna poboljšanja",
+      "prompt": "Pomozite mi da pregledam svoj rad. Zatražite materijal, pa utvrdite nedostatke, rizike i konkretna poboljšanja."
+    },
+    "plan": {
+      "title": "Napravite plan",
+      "description": "Pretvorite otvoren cilj u jasne naredne korake",
+      "prompt": "Pomozite mi da pretvorim cilj u plan. Pitajte za ishod i ograničenja, pa predložite jasne naredne korake."
+    }
+  },
   "firstChat": {
     "title": "Твоје прво ћаскање са Kortix-ом",
     "greeting": "Добро дошли, {name}. Ја сам Kortix.",

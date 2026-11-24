@@ -3871,6 +3871,31 @@
       }
     }
   },
+  "sessionStart": {
+    "intro": "Descrivi il risultato. Aggiungi contesto. Partiamo da lì.",
+    "startersLabel": "Scegli un punto di partenza",
+    "editHint": "Ogni punto di partenza è modificabile. Nulla viene inviato finché non sei pronto.",
+    "build": {
+      "title": "Costruire qualcosa",
+      "description": "Da un’idea a una prima versione funzionante",
+      "prompt": "Voglio costruire qualcosa. Aiutami a definire l’obiettivo, il pubblico e la prima versione utile più semplice."
+    },
+    "research": {
+      "title": "Esplorare una domanda",
+      "description": "Trovare fonti, confrontare opzioni e decidere",
+      "prompt": "Aiutami a studiare una domanda. Chiedimi cosa devo decidere, poi trova fonti e confronta le opzioni."
+    },
+    "review": {
+      "title": "Rivedere il mio lavoro",
+      "description": "Trovare lacune, rischi e miglioramenti concreti",
+      "prompt": "Aiutami a rivedere il mio lavoro. Chiedimi il materiale, poi individua lacune, rischi e miglioramenti concreti."
+    },
+    "plan": {
+      "title": "Fare un piano",
+      "description": "Trasformare un obiettivo aperto in passi chiari",
+      "prompt": "Aiutami a trasformare un obiettivo in un piano. Chiedimi il risultato e i vincoli, poi proponi passi chiari."
+    }
+  },
   "firstChat": {
     "title": "La tua prima chat con Kortix",
     "greeting": "Ti diamo il benvenuto, {name}. Sono Kortix.",

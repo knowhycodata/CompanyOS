@@ -157,6 +157,7 @@ function ProjectHomeView({
     files?: AttachedFile[];
     options?: SessionPromptOverrides;
     restoreDraft?: boolean;
+    mode?: 'replace' | 'merge';
   } | null>(null);
 
   // The sandbox TEMPLATE catalog, not live sandbox health (that is
@@ -396,7 +397,7 @@ function ProjectHomeView({
   );
 
   const applySuggestion = (s: string) => {
-    setPrefill({ text: s, id: Date.now() });
+    setPrefill({ text: s, id: Date.now(), mode: 'merge' });
   };
 
   // The home composer has no session yet, so its unsent draft is keyed by the
@@ -523,6 +524,7 @@ function ProjectHomeView({
         <ProjectHomeWelcomeBody
           projectId={projectId}
           onPickSuggestion={applySuggestion}
+          suggestionsDisabled={creating}
           composer={composer}
         />
       )}

@@ -194,7 +194,7 @@ export function ComposerToolbar({
   return (
     // Collapsed (`inline` composer, one row): the toolbar dissolves (`contents`) and its two halves
     // become the row's first and last columns, either side of the editor.
-    <div className={cn('kortix-composer-toolbar overflow-visible', collapsed ? 'contents' : 'flex items-center justify-between gap-1')}>
+    <div className={cn('kortix-composer-toolbar overflow-visible', collapsed ? 'contents' : 'border-border flex items-center justify-between gap-1 border-t pt-2')}>
       <div className={cn('flex min-w-0 items-center gap-1 overflow-visible', collapsed && 'col-start-1 row-start-1')}>
         {leading}
 
