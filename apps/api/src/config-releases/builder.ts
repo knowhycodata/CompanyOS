@@ -451,26 +451,60 @@ function localPackageSources(compiled: Partial<CompiledAgentSet>): string[] {
   });
 }
 
-// replica-local: the tail of each project's file-list builds in this process; an entry is deleted when its build is the last.
-const projectBuildTails = new Map<string, Promise<unknown>>();
+// replica-local: each project's running file-list build and the builds waiting for it, in this process.
+const projectBuildQueues = new Map<string, { running: boolean; waiting: Array<() => void> }>();
+/** Builds of one project that may wait behind the running one in this process. */
+const MAX_WAITING_BUILDS_PER_PROJECT = 4;
+/** How long a build waits for its turn before it answers busy. */
+const MAX_BUILD_WAIT_MS = 30_000;
+
+/** A file-list build of this project could not start: too many wait, or it waited too long. */
+export class ProjectBuildBusyError extends Error {
+  constructor(readonly projectId: string) {
+    super('another release of this project is being built; it is tried again at the next convergence');
+    this.name = 'ProjectBuildBusyError';
+  }
+}
 
 /**
  * Run one project's file-list builds one at a time in this process: requests
- * for many commits of one project cannot multiply a build's peak memory.
- * Builds of other projects run beside it.
+ * for many commits of one project cannot multiply a build's peak memory or
+ * CPU. At most `MAX_WAITING_BUILDS_PER_PROJECT` wait, each for at most
+ * `MAX_BUILD_WAIT_MS`; past either, `ProjectBuildBusyError`. Builds of other
+ * projects run beside it.
  */
-async function oneBuildPerProject<T>(projectId: string, build: () => Promise<T>): Promise<T> {
-  const previous = projectBuildTails.get(projectId) ?? Promise.resolve();
-  const run = previous.then(build, build);
-  const tail = run.then(
-    () => undefined,
-    () => undefined,
-  );
-  projectBuildTails.set(projectId, tail);
+export async function oneBuildPerProject<T>(projectId: string, build: () => Promise<T>): Promise<T> {
+  let queue = projectBuildQueues.get(projectId);
+  if (!queue) {
+    queue = { running: false, waiting: [] };
+    projectBuildQueues.set(projectId, queue);
+  }
+  const state = queue;
+  if (state.running) {
+    if (state.waiting.length >= MAX_WAITING_BUILDS_PER_PROJECT) throw new ProjectBuildBusyError(projectId);
+    await new Promise<void>((resolveTurn, rejectTurn) => {
+      const turn = () => {
+        clearTimeout(timer);
+        resolveTurn();
+      };
+      const timer = setTimeout(() => {
+        const at = state.waiting.indexOf(turn);
+        if (at >= 0) state.waiting.splice(at, 1);
+        rejectTurn(new ProjectBuildBusyError(projectId));
+      }, MAX_BUILD_WAIT_MS);
+      state.waiting.push(turn);
+    });
+  }
+  state.running = true;
   try {
-    return await run;
+    return await build();
   } finally {
-    if (projectBuildTails.get(projectId) === tail) projectBuildTails.delete(projectId);
+    const next = state.waiting.shift();
+    if (next) next();
+    else {
+      state.running = false;
+      projectBuildQueues.delete(projectId);
+    }
   }
 }
 
@@ -522,6 +556,8 @@ async function agentRelease(
     // The modules it parses did not fit the default download bound, or the
     // list passed a bound of `agentReleaseFiles`.
     if (isObjectFetchTooLarge(error) || error instanceof ConfigArchiveTooLargeError) return tooLarge;
+    // No release ID: nothing caches it, and the next convergence asks again.
+    if (error instanceof ProjectBuildBusyError) return { ...withGovernance, reason: error.message };
     throw error;
   }
   if (files.length === 0) return governanceOnly;

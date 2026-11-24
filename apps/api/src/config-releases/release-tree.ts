@@ -325,10 +325,12 @@ export class ListBudget {
   gitCalls = MAX_LIST_GIT_CALLS;
   /** Characters of string work: compares, joins, lookups. */
   work = MAX_LIST_WORK;
+  /** Folder hops of a `folders` walk: a file a new folder brought in importing yet another folder. */
+  folderRounds = MAX_FOLDER_ROUNDS;
   private readonly startedAt = performance.now();
   private sinceYield = 0;
 
-  spend(axis: 'readBytes' | 'parseBytes' | 'downloadBytes' | 'gitCalls' | 'work', amount: number): void {
+  spend(axis: 'readBytes' | 'parseBytes' | 'downloadBytes' | 'gitCalls' | 'work' | 'folderRounds', amount: number): void {
     this[axis] -= amount;
     if (axis === 'work') this.sinceYield += amount;
     if (this[axis] < 0) throw new ConfigArchiveTooLargeError(MAX_CONFIG_TAR_BYTES);
@@ -364,8 +366,12 @@ const MAX_PARSED_CODE_BYTES = 32 * 1024 * 1024;
 /** Git round trips one build makes at most. */
 const MAX_LIST_GIT_CALLS = 512;
 
-/** A blob larger than this is never read to be parsed: the one-blob `execFile` read this replaced had the same 10 MiB bound. */
-const MAX_PARSED_BLOB_BYTES = 10 * 1024 * 1024;
+/**
+ * A module larger than this ships but is never read to be parsed: Bun's import
+ * scan runs on the event loop at ~9.5 ms per MiB (measured 2026-11-24), so one
+ * parse blocks it for at most ~19 ms.
+ */
+const MAX_PARSED_BLOB_BYTES = 2 * 1024 * 1024;
 /** The bytes one `git cat-file --batch` call returns at most. */
 const MAX_BLOB_READ_CHUNK_BYTES = 32 * 1024 * 1024;
 
@@ -619,6 +625,8 @@ async function importClosure(
         imports = [];
         if (source) {
           budget.spend('parseBytes', source.length);
+          // A parse is synchronous work: it counts toward the next return to the event loop.
+          budget.spend('work', source.length);
           try {
             imports = new Bun.Transpiler({ loader: loaderOf(path) }).scanImports(source.toString('utf8')).map((entry) => entry.path);
           } catch {
@@ -626,6 +634,7 @@ async function importClosure(
           }
           bumpBounded(parsedImports, key, imports, MAX_PARSED_IMPORTS);
           known.set(key, imports);
+          await budget.pace();
         }
       }
       for (const specifier of imports) {
@@ -823,11 +832,11 @@ export async function agentReleaseFiles(mirror: string, rootTree: string, input:
   };
   // Each folder is walked once.
   const walked = new Set<string>();
-  const underFolder = async (folder: string): Promise<void> => {
+  const underFolder = async (folder: string, visit: (file: ConfigReleaseFile) => void = take): Promise<void> => {
     if (!folder || walked.has(folder)) return;
     walked.add(folder);
     if (walked.size > MAX_WALKED_FOLDERS) throw new ConfigArchiveTooLargeError(MAX_CONFIG_TAR_BYTES);
-    await filesUnder(folder, take);
+    await filesUnder(folder, visit);
   };
   const folderOrFile = async (path: string): Promise<void> => {
     budget.spend('work', path.length);
@@ -841,7 +850,15 @@ export async function agentReleaseFiles(mirror: string, rootTree: string, input:
     const clean = posix.normalize(folder.trim()).replace(/^(\.\/)+/, '').replace(/\/+$/, '');
     return !clean || clean === '.' || clean.startsWith('../') || clean === '..' || clean.startsWith('/') ? [] : [`${clean}/`];
   });
-  for (const prefix of skillPrefixes) await underFolder(prefix);
+  // The skill text files are collected as their folders are walked: no file is compared with every skill folder.
+  const texts: ConfigReleaseFile[] = [];
+  for (const prefix of skillPrefixes) {
+    await underFolder(prefix, (file) => {
+      take(file);
+      budget.spend('work', file[0].length);
+      if (file[1] !== '120000' && SKILL_TEXT_FILE.test(file[0])) texts.push(file);
+    });
+  }
 
   for (const source of input.packageSources) {
     const clean = resolveRelative('', source);
@@ -856,8 +873,6 @@ export async function agentReleaseFiles(mirror: string, rootTree: string, input:
   }
 
   // The links of every skill text file. The blobs ship anyway; a blob is read once per process.
-  const texts = [...out.values()].filter(([path, mode]) => mode !== '120000' && SKILL_TEXT_FILE.test(path) && skillPrefixes.some((prefix) => path.startsWith(prefix)));
-  budget.spend('work', texts.length * skillPrefixes.length);
   // Memo hits are copied before the awaits below: another build may evict them meanwhile.
   const links = new Map<string, string[]>();
   for (const [, , blob] of texts) {
@@ -897,8 +912,8 @@ export async function agentReleaseFiles(mirror: string, rootTree: string, input:
   if (input.scope === 'folders') {
     // A worklist: each folder is taken once, and only the code files it adds are parsed.
     const folders = new Set<string>();
-    for (let round = 0; added.length > 0; round += 1) {
-      if (round >= MAX_FOLDER_ROUNDS) throw new ConfigArchiveTooLargeError(MAX_CONFIG_TAR_BYTES);
+    while (added.length > 0) {
+      budget.spend('folderRounds', 1);
       const code: string[] = [];
       for (const [path] of added) {
         const folder = folderOf(path);
