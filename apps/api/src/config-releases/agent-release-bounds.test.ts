@@ -16,7 +16,7 @@ import { join } from 'node:path';
 import type { GitBackedProject } from '../projects/git/types';
 import { __clearConfigReleaseCachesForTests, buildConfigRelease, oneBuildPerProject, ProjectBuildBusyError } from './builder';
 import { refreshMirror } from '../projects/git/mirror';
-import { __clearReleaseTreeMemosForTests, agentReleaseFiles, commitRootTree, ConfigArchiveTooLargeError, ListBudget } from './release-tree';
+import { __clearReleaseTreeMemosForTests, agentReleaseFiles, commitRootTree, ConfigArchiveTooLargeError, ListBudget, listConfigFiles } from './release-tree';
 import { MemoryConfigArchiveStore } from './__tests__/fakes';
 
 let root = '';
@@ -318,6 +318,27 @@ describe('agentReleaseFiles bounds', () => {
     expect(stallMs).toBeLessThan(300);
     if (result.release_id) expect(result.files!.length).toBe(20_001);
     else expect(result.reason).toContain('exceed');
+  }, 120_000);
+
+  // Strix review 6 of #13028: git's byte order and JavaScript's UTF-16 order differ for some
+  // non-ASCII paths, so the listing must be re-sorted, paced.
+  test('a listing git and JavaScript order differently is sorted without a stall, and lookups still find every file', async () => {
+    const entries: Record<string, string> = {
+      'kortix.yaml': ['project:', '  name: builder-test', 'default_agent: kortix', 'skills:', '  notes: skills/notes', 'agents:', '  kortix:', '    prompt: Main.', '    skills: all', ''].join('\n'),
+      // Manifest paths are ASCII; the lookup still binary-searches the re-sorted non-ASCII listing.
+      'skills/notes/SKILL.md': '---\nname: notes\ndescription: Notes.\n---\nNotes.\n',
+    };
+    // U+FFFD sorts before an emoji in UTF-8 bytes (git), after it in UTF-16 units (JavaScript).
+    for (let at = 0; at < 20_000; at += 1) entries[`bulk/${at % 2 ? '\uFFFD' : '\u{1F600}'}${'n'.repeat(200)}${at}.txt`] = 'x\n';
+    const sha = commit(entries, 'non-ASCII order');
+    const mirror = await refreshMirror(project, true);
+    const rootTree = await commitRootTree(mirror, sha);
+    const { result: listed, stallMs } = await longestStall(() => listConfigFiles(mirror, rootTree!));
+    expect(stallMs).toBeLessThan(300);
+    for (let at = 1; at < listed.length; at += 1) expect(listed[at - 1]![0] < listed[at]![0]).toBe(true);
+    const release = await buildConfigRelease(project, sha, 'agent:kortix', { store });
+    expect(release.reason).toBeNull();
+    expect(release.files!.map(([path]) => path)).toEqual(['skills/notes/SKILL.md']);
   }, 120_000);
 
   test('one project runs one file-list build at a time; a fifth waiting build answers busy', async () => {

@@ -153,8 +153,41 @@ export async function listConfigFiles(
     await pace(files[at]![0].length);
     sorted = files[at - 1]![0] < files[at]![0];
   }
-  if (!sorted) files.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
-  return files;
+  // Git orders by bytes and JavaScript by UTF-16 units: they differ only for some non-ASCII paths.
+  return sorted ? files : pacedSort(files, pace);
+}
+
+/**
+ * `files` sorted by path, as a bottom-up merge sort that pays for every
+ * comparison by the shorter path's length and gives the event loop back as
+ * the work adds up: a crafted listing cannot buy one long synchronous sort.
+ */
+async function pacedSort(files: ConfigReleaseFile[], pace: (units: number) => Promise<void>): Promise<ConfigReleaseFile[]> {
+  let from = files.slice();
+  let to: ConfigReleaseFile[] = new Array(from.length);
+  for (let width = 1; width < from.length; width *= 2) {
+    for (let low = 0; low < from.length; low += 2 * width) {
+      const middle = Math.min(low + width, from.length);
+      const high = Math.min(low + 2 * width, from.length);
+      let left = low;
+      let right = middle;
+      for (let out = low; out < high; out += 1) {
+        if (left < middle && right < high) {
+          const a = from[left]![0];
+          const b = from[right]![0];
+          await pace(Math.min(a.length, b.length) + 1);
+          if (b < a) to[out] = from[right++]!;
+          else to[out] = from[left++]!;
+        } else if (left < middle) {
+          to[out] = from[left++]!;
+        } else {
+          to[out] = from[right++]!;
+        }
+      }
+    }
+    [from, to] = [to, from];
+  }
+  return from;
 }
 
 /**
