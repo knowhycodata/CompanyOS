@@ -562,6 +562,8 @@
       "backToApp": "アプリに戻る",
       "close": "閉じる",
       "docs": "ドキュメント",
+      "search": "設定を検索",
+      "searchNoResults": "一致する項目はありません",
       "groups": {
         "workspace": "ワークスペース",
         "personal": "個人",
@@ -815,12 +817,36 @@
       },
       "wallpapers": {
         "dither": "ディザー",
-        "brandmark": "ブランドマーク",
-        "nebula": "ピクセルビーム",
-        "silk": "シルク",
-        "grain": "グレイン",
-        "neuro": "ニューロ",
+        "ember": "エンバー",
+        "prism": "プリズム",
+        "tide": "タイド",
+        "aurora": "オーロラ",
+        "dusk": "ダスク",
+        "eclipse": "エクリプス",
+        "lagoon": "ラグーン",
+        "cumulus": "キュムラス",
+        "moss": "モス",
+        "iris": "アイリス",
+        "custom": "カスタム",
         "blank": "なし"
+      },
+      "custom": {
+        "editColors": "カラーを編集",
+        "shuffle": "ランダム",
+        "palette": "パレット",
+        "paletteLabel": "パレット {count}",
+        "colors": "カラー",
+        "colorLabel": "カラー {count}",
+        "customColor": "カスタムカラー",
+        "addColor": "カラーを追加",
+        "removeColor": "カラーを削除",
+        "resetColors": "リセット",
+        "finish": "仕上げ",
+        "finishes": {
+          "dither": "ディザ",
+          "grain": "グレイン"
+        },
+        "opacity": "不透明度"
       }
     },
     "sessions": {
@@ -1267,10 +1293,6 @@
       "permission": "機能フラグを変更するには、ワークスペースの設定権限が必要です。",
       "updateFailed": "{key} を更新できませんでした",
       "flags": {
-        "secrets_egress": {
-          "name": "ネットワーク強制シークレット",
-          "description": "ワークスペースのシークレットを受け取れるツールと送信先を制御します。"
-        },
         "reminders": {
           "name": "ループ",
           "description": "エージェントやユーザーがセッションのチェックインを1回または繰り返しで予定できます。実行のたびにそのセッションに再度呼びかけます。トリガー一覧へのループ、セッションのループ表示、`kortix loop` が追加されます。"
@@ -1287,25 +1309,17 @@
           "name": "目標",
           "description": "エージェントに目標を与えると、独立したチェックが結果を確認するまでエージェントが責任を持ちます。計画し、作業し、待機し、人にフォローアップし、状態をファイルの Goals フォルダーに保存します。ボリュームとループを有効にする必要があります。"
         },
-        "workspace_volume": {
-          "name": "ステートレスサンドボックス",
-          "description": "各セッションは /workspace だけを専用のボリュームに保持します。1 時間停止したサンドボックスは削除され、次に開くと同じファイルと会話で新しいサンドボックスが起動します。以前のサンドボックスで動いていたプログラムは実行されていません。Kortix がワークスペースごとに有効にします。"
-        },
         "email_channel": {
           "name": "メールチャネル",
           "description": "エージェントに Resend のメール受信箱を用意します。届いたメールでセッションを開始・継続し、エージェントはその受信箱で読み、返信し、送信します。自分の Resend API キーとドメインを使います。"
         },
         "chat": {
-          "name": "チャンネル",
-          "description": "Slack のように Kortix と使うチャンネル。すべてのメッセージはスレッドになり、Kortix の最新の返信がその下に表示され、Kortix もスレッドを開始でき、チャンネルを他の人と共有できます。サイドバーのセッション一覧を置き換えます。"
+          "name": "Slack スタイルのスペース",
+          "description": "Slack スタイルのチャンネルとダイレクトメッセージを使い、各メッセージからスレッドを開始します。サイドバーをチャット形式に切り替えます。セッション、ファイル、タブをまとめるスペースとは別の機能です。"
         },
         "session_groups": {
           "name": "スペース",
           "description": "セッションを、それぞれファイルとタブを持つスペースにまとめます。新しいスペースは自分だけのものです。メンバーまたはワークスペース全体と共有できます。スペースのページ、または入力欄の下のスペース選択から、そのスペースでセッションを開始できます。スペース内のすべてのセッションは、スペースの目的を把握し、その Files フォルダーをマウントします。"
-        },
-        "chrome": {
-          "name": "Chrome で Kortix",
-          "description": "セッションが接続済みの Chrome ブラウザを操作できるようにします。いつでも操作を引き継ぐか停止できます。"
         },
         "agent_teams": {
           "name": "エージェントチーム",
@@ -1325,11 +1339,11 @@
         },
         "chat_front": {
           "name": "Spaces-Router",
-          "description": "Spaces をオンにすると、スレッドで話すエージェントはルーターになります。短い作業（回答、短い文章、スレッドのファイルの確認）は自分で行い、長い作業はスペースのエージェントに任せます。人のように短いメッセージで返信します。エージェントは完全な結果をスレッド内のファイルに保存し、ルーターはそれを書き直さずにそのファイルへリンクします。メッセージの下の「作業を表示」で、その裏の作業を開けます。kortix.yaml で My Kortix をオンにする必要があります。"
+          "description": "Slack スタイルのスペースをオンにすると、スレッドで話すエージェントはルーターになります。短い作業（回答、短い文章、スレッドのファイルの確認）は自分で行い、長い作業はスペースのエージェントに任せます。人のように短いメッセージで返信します。エージェントは完全な結果をスレッド内のファイルに保存し、ルーターはそれを書き直さずにそのファイルへリンクします。メッセージの下の「作業を表示」で、その裏の作業を開けます。kortix.yaml で My Kortix をオンにする必要があります。"
         },
         "spaces_proactive": {
           "name": "Spaces-Proactive",
-          "description": "スペースがオンのとき、スペースは自分自身を見守れます。詳細でプロアクティブをオンにすると、エージェントがそこで起きたこと（完了したスレッド、未回答の質問、参加した人）を読み、共有する価値のある結果、あなたが下すべき判断、期限切れの項目など、重要なときだけチャットに書き込みます。作業を行うスレッドを始めることもできます。9:00 のデイリーブリーフも選べます。"
+          "description": "Slack スタイルのスペースがオンのとき、スペースは自分自身を見守れます。詳細でプロアクティブをオンにすると、エージェントがそこで起きたこと（完了したスレッド、未回答の質問、参加した人）を読み、共有する価値のある結果、あなたが下すべき判断、期限切れの項目など、重要なときだけチャットに書き込みます。作業を行うスレッドを始めることもできます。9:00 のデイリーブリーフも選べます。"
         },
         "program_agents": {
           "name": "プログラムエージェント",
@@ -1346,15 +1360,19 @@
         "calendar": {
           "name": "カレンダー",
           "description": "人とエージェントの共有カレンダー：日付・参加者・コメント付きの項目を、スケジュール済みのトリガーとループと並べて表示します。@ でメンションすると通知されます。エージェントは `kortix calendar` を使います。"
+        },
+        "review_swipe": {
+          "name": "レビューカード",
+          "description": "レビューページの「対応待ち」をカードの山で表示します。1 枚に 1 件。右にスワイプで承認またはマージ、左にスワイプで変更点を添えてエージェントに差し戻します。"
         }
       },
       "channelsSwitch": {
-        "onTitle": "{project} でスペースをオンにしますか？",
-        "onBody": "このワークスペースの全員に、セッション一覧の代わりにスペースが表示されます。既存のセッションはすべて #general に移動します。いつでもオフにでき、何も削除されません。",
+        "onTitle": "{project} で Slack スタイルのスペースをオンにしますか？",
+        "onBody": "このワークスペースの全員に、セッション一覧の代わりに Slack スタイルのスペースが表示されます。既存のセッションはすべて #general に移動します。いつでもオフにでき、何も削除されません。",
         "drive": "ドライブもオンにして、スペースでファイルを使えるようにする。",
         "turnOn": "オンにする",
         "cancel": "キャンセル",
-        "offTitle": "スペースをオフにしますか？",
+        "offTitle": "Slack スタイルのスペースをオフにしますか？",
         "offBody": "スペース、メモリ、ファイル、リンクは保存されたままです。全員にセッション一覧が戻ります。",
         "turnOff": "オフにする"
       },
@@ -2234,6 +2252,10 @@
     "panel": {
       "outputNew": "新規",
       "outputUpdated": "更新済み",
+      "backgroundTasks": "バックグラウンドタスク",
+      "finished": "完了",
+      "finishedCount": "{count} 件完了",
+      "running": "実行中",
       "resizePane": "ペインのサイズを変更"
     }
   },
@@ -2436,7 +2458,8 @@
     "collapseQueue": "待機中のメッセージを折りたたむ",
     "expandQueue": "待機中のメッセージを展開",
     "myKortixRoutes": "各タスクを適したエージェントへ",
-    "chatInputReset": "Reset"
+    "chatInputReset": "Reset",
+    "queuedDisconnected": "このセッションは Kortix への接続を失いました。続けるには新しいセッションを開始してください。"
   },
   "billing": {
     "plan": {
@@ -3064,7 +3087,7 @@
     "unified": {
       "welcome": "{name}へようこそ",
       "email": "メールアドレス",
-      "emailPlaceholder": "メールアドレスを入力",
+      "emailPlaceholder": "メールアドレスを入力…",
       "password": "パスワード",
       "showPassword": "パスワードを表示",
       "hidePassword": "パスワードを非表示",
@@ -3130,7 +3153,7 @@
         "title": "パスワードをリセット",
         "description": "リセット用のリンクをメールで送信します。",
         "email": "メールアドレス",
-        "emailPlaceholder": "メールアドレスを入力",
+        "emailPlaceholder": "メールアドレスを入力…",
         "sending": "リンクを送信中…",
         "submit": "リセットリンクを送信"
       },
@@ -3170,6 +3193,13 @@
       "errorTitle": "サインインできませんでした",
       "errorBody": "ブラウザのタブでKortixにサインインしてから、このパネルを開き直してください。",
       "signIn": "サインイン"
+    },
+    "story": {
+      "label": "Kortix CompanyOS について",
+      "outcome": "成果を任せるだけ。AIエージェントが24時間動きます。",
+      "repo": "エージェント、スキル、メモリを、自社のリポジトリひとつに。",
+      "approve": "作業はエージェントが。公開の判断はあなたが。",
+      "worksWith": "チームが使っているツールとそのまま連携"
     }
   },
   "onboarding": {
@@ -3410,7 +3440,18 @@
         "completed": "完了",
         "failed": "完了しませんでした",
         "stopped": "停止"
-      }
+      },
+      "card": {
+        "session": "セッション",
+        "copyId": "セッション ID をコピー",
+        "openNewTab": "新しいタブで開く",
+        "model": "モデル",
+        "runsAs": "実行エージェント",
+        "inline": "このセッション内で実行されたため、開ける専用のセッションはありません。"
+      },
+      "notStarted": "開始されませんでした",
+      "notStartedSentence": "Kortix はこの同僚を開始できませんでした。何も実行されていません。",
+      "policyBlocked": "このプロジェクトのポリシーでブロックされています。プロジェクト管理者に許可を依頼してください。"
     }
   },
   "agentRunLimit": {
@@ -10429,6 +10470,7 @@
       "authEmailRateLimit": "メールを送信できませんでした。約1時間後にもう一度お試しください。",
       "authRequestRateLimit": "リクエストが多すぎます。数分後にもう一度お試しください。",
       "text03217276a5f1": "残高 {value0} クレジット",
+      "text041fb4e77d8e": "ウェブサイトのログイン",
       "text0b6a47661327": "不明なオーナー",
       "text1a9030082a20": "スキルを作成",
       "text25ab55af92b1": "添付ファイルのアップロードを開始しました",
@@ -10793,6 +10835,7 @@
       "text0b2e0f1bf47e": "行ったすべての呼び出しと、許可した人",
       "text0b2ecc210632": "唯一のライブチャネル。質問が生まれたスレッドで尋ねれば、答え、グラフ、クエリが同じスレッドに戻ります。",
       "text0b348466332c": "まだ変更はありません",
+      "text93d50ea93ca0": "セッションのブラウザーが登録されたサイトでのみ入力します。環境変数には入りません。",
       "textf83916135509": "使用中",
       "texta251c18205f1": "キャッシュ済み",
       "text64cd989efc14": "空き容量",
@@ -18306,7 +18349,6 @@
       "texte59a1d133be1": "変更は次回のサインイン時に適用されます。発行済みのトークンは、有効期限が切れるまで引き続き使用できます。",
       "texte59eaa3acaf1": "壁",
       "texte5a4af9b350f": "SCIM接続を作成、有効化、テストしました",
-      "texte5a718af362a": "最初の2つ",
       "texte5ab168f1943": "商談前ブリーフ",
       "texte5b104783abd": "agentは通常のコンピューターと同じように、必要なツールを使えます。",
       "texte5bd74e98514": "その他 — ソースのみ",
@@ -21486,6 +21528,17 @@
       "grant": "{count, plural, other {# 件のシークレット}}（{names}）はエージェント {agent} のシークレットに含まれていません。カスタマイズ → エージェント → {agent} → シークレット を開いて{count, plural, other {それら}}を有効にしてください。",
       "allowlist": "{count, plural, other {# 件のシークレット}}（{names}）はこのセッションのシークレットの範囲外です。{count, plural, other {それら}}を使用するには新しいセッションを開始してください。"
     },
+    "secretIntakeLogin": {
+      "delivery": "{sites} 用のウェブサイトのログインです。このセッションのブラウザーがこれらのサイトでのみ入力します。エージェントに見えるのは名前だけです。",
+      "username": "ユーザー名またはメールアドレス",
+      "password": "パスワード",
+      "missing": "ユーザー名とパスワードを入力してください。",
+      "savedTitle": "ログインを保存しました",
+      "savedDescription": "エージェントはサインインできます。エージェントに見えるのはログインの名前だけです。",
+      "modalTitle": "ウェブサイトのログインを追加",
+      "modalDescription": "パスワードを入力する前にサイトを確認してください。",
+      "pageDescription": "パスワードを入力する前にサイトを確認してください。ログインは暗号化して保存されます。"
+    },
     "sessionEmbed": {
       "sectionTitle": "埋め込み",
       "sectionDescription": "同一サイトのページでのみ利用できます。閲覧者は事前にサインインし、このセッションへのアクセス権を持っている必要があります。クロスサイトの iframe 内でのサインインには対応していません。",
@@ -21532,6 +21585,37 @@
     "reviewPane": {
       "emptyTitle": "項目を選択してください",
       "emptyDescription": "詳細はここに表示されます。J と K でリストを移動できます。"
+    },
+    "reviewDeck": {
+      "label": "レビューカード",
+      "remaining": "{count, plural, other {残り # 枚}}",
+      "merge": "マージ",
+      "close": "閉じる",
+      "approve": "承認",
+      "deny": "拒否",
+      "dismiss": "却下",
+      "yes": "はい",
+      "no": "いいえ",
+      "skip": "スキップ",
+      "open": "開く",
+      "undo": "元に戻す",
+      "staged": "{verdict}: {title}",
+      "needsChoice": "開いて回答を選んでください",
+      "noVerdict": "この項目は決定できません。開いて詳細を確認してください。",
+      "emptyTitle": "すべて完了しました",
+      "emptyDescription": "現在対応が必要なものはありません。",
+      "highRisk": "高リスク",
+      "files": "{count, plural, other {# ファイル}}",
+      "conflicts": "{count, plural, other {# 件の競合}}",
+      "items": "{count, plural, other {# 件}}",
+      "showCards": "カードで表示",
+      "showList": "リストで表示",
+      "sendBack": "差し戻す",
+      "whatShouldChange": "何を変更すべきですか？",
+      "sendToAgent": "エージェントに送信",
+      "cancel": "キャンセル",
+      "reviews": "レビュー",
+      "questions": "質問"
     }
   },
   "commandPalette": {
@@ -22345,6 +22429,8 @@
     "redirectsTo": "戻り先",
     "workspaceLabel": "ワークスペース",
     "workspaceHint": "{client} がアクセスできるのはこのワークスペースだけです。",
+    "workspaceAll": "すべてのワークスペース",
+    "workspaceAllHint": "{client} は、あなたが開けるすべてのワークスペースで、今後も含めてあなたとして操作し、新しいワークスペースを作成できます。自分で使うアプリの場合にのみ選択してください。",
     "scopes": {
       "profile": "プロフィールを表示",
       "email": "メールアドレスを表示",
@@ -22474,8 +22560,7 @@
       "install": {
         "title": "拡張機能を追加",
         "description": "Chrome Web Store から追加します。",
-        "done": "Kortix が Chrome に追加されました。",
-        "descriptionUnlisted": "Chrome に読み込みます。"
+        "done": "Kortix が Chrome に追加されました。"
       },
       "connect": {
         "title": "サインイン",
@@ -22529,7 +22614,6 @@
       "control": "ページ上のバーからいつでも引き継ぎまたは停止できます。",
       "own": "あなたのブラウザを使えるのは、あなた自身のセッションだけです。"
     },
-    "howToInstall": "インストール方法",
     "copyLink": "リンクをコピー",
     "linkCopied": "リンクをコピーしました",
     "copyFailed": "リンクをコピーできませんでした。もう一度お試しください。",
@@ -25093,6 +25177,32 @@
     "stopNote": "リンクは機能しなくなります。"
   },
   "artifacts": {
+    "folderIcon": "フォルダーのアイコンを選択",
+    "docCreateFailed": "ドキュメントを作成できませんでした。もう一度お試しください。",
+    "newFolder": "新しいフォルダー",
+    "editFolder": "フォルダーを編集",
+    "folderName": "フォルダー名",
+    "folderCreateIn": "作成先",
+    "folderSaved": "フォルダーを保存しました",
+    "folderCreated": "フォルダーを作成しました",
+    "folderSaveFailed": "フォルダーを保存できませんでした。もう一度お試しください。",
+    "saveFolder": "フォルダーを保存",
+    "createFolder": "フォルダーを作成",
+    "folderActions": "{name}の操作",
+    "deleteFolder": "フォルダーを削除",
+    "deleteFolderTitle": "「{name}」を削除しますか？",
+    "deleteFolderHint": "サブフォルダとアーティファクトは 1 つ上の階層に移動します。ファイルとリンクは引き続き利用できます。",
+    "folderDeleted": "フォルダーを削除しました",
+    "folderDeleteFailed": "フォルダーを削除できませんでした。もう一度お試しください。",
+    "folderNavigation": "アーティファクトのフォルダー",
+    "folderPathMore": "フォルダのパスを表示",
+    "folderUnavailable": "フォルダーを利用できません",
+    "folderLoadFailed": "フォルダーを読み込めませんでした",
+    "moveToFolder": "フォルダーに移動",
+    "movedToFolder": "{name} に移動しました",
+    "emptyUnfiled": "フォルダー未分類のアーティファクトはありません",
+    "emptyFolder": "このフォルダにアーティファクトはありません",
+    "folderRoot": "フォルダーなし",
     "title": "アーティファクト",
     "type": {
       "doc": "ドキュメント",
@@ -26235,6 +26345,25 @@
     "turnNote": "音声通話で話され、音声が答えました。",
     "close": "閉じる"
   },
+  "dictation": {
+    "start": "メッセージを音声入力",
+    "price": "1分あたり{credits}クレジット",
+    "recording": "音声入力",
+    "discard": "録音を破棄",
+    "finish": "テキストを追加",
+    "transcribing": "文字起こし中…",
+    "nothingHeard": "音声が聞き取れませんでした。マイクに近づいてもう一度お試しください。",
+    "retry": "再試行",
+    "failed": "録音を文字起こしできませんでした。もう一度お試しください。",
+    "busy": "現在、録音を文字起こしできません。しばらくしてからもう一度お試しください。",
+    "unavailable": "このサーバーでは音声入力を利用できません。",
+    "limitReached": "{minutes}分で録音を停止しました",
+    "micDenied": "マイクを使用できませんでした。ブラウザの設定でこのサイトのマイクを許可してください。",
+    "micDeniedDesktop": "マイクを使用できませんでした。システムのプライバシー設定で Kortix を許可してください。",
+    "micMissing": "マイクが見つかりませんでした。マイクを接続してもう一度お試しください。",
+    "micBusy": "マイクを使用できませんでした。別のアプリが使用しています。",
+    "micUnsupported": "このブラウザではマイクを使用できません。"
+  },
   "agentMounts": {
     "lead": "このエージェントのセッションが「ファイル」からマウントするフォルダーです。変更は直ちに適用され、すべての新しいセッションに反映されます。",
     "mount": "Mount folder",
@@ -26380,6 +26509,7 @@
       },
       "workingFor": "作業中 · {elapsed}",
       "runsAs": "{agent} として実行",
+      "stateCount": "{count} {state}",
       "teamRole": "このセッション限りの役割",
       "attention": {
         "question": "質問があります",
@@ -27317,27 +27447,32 @@
   },
   "workspaceSetup": {
     "title": "セットアップを完了する",
-    "description": "{total} 件中 {done} 件完了。各行は設定が済むと完了になります。",
-    "descriptionIdle": "このワークスペースのエージェントに必要な設定です。",
+    "subtitle": "エージェントが作業を始める前に、これらが必要です。",
+    "progress": "{total} 件中 {done} 件完了",
+    "liveNote": "接続すると自動で更新されます。",
+    "later": "あとで",
     "tryAgain": "再試行",
     "loadFailed": "セットアップの手順を読み込めませんでした。",
     "emptyTitle": "設定する項目はありません",
     "emptyDescription": "このワークスペースではサインイン、シークレット、Slack の設定は不要です。",
-    "openWorkspace": "ワークスペースを開く",
     "completeTitle": "セットアップが完了しました",
     "completeDescription": "ターミナルでセットアップを開始した場合、そちらで自動的に続行されます。",
     "slackName": "Slack",
-    "kindConnector": "コネクタ",
-    "kindSecret": "シークレット",
-    "kindSlack": "チャンネル",
+    "sectionOpen": "対応が必要",
+    "doneSummary": "{count} 件は設定済み",
     "done": "完了",
     "connect": "{name} を接続",
+    "connectShort": "接続",
     "reconnect": "{name} を再接続",
+    "reconnectShort": "再接続",
     "setSecret": "{name} を設定",
+    "setShort": "値を設定",
     "addSlack": "Kortix を Slack に追加",
     "connectSlack": "Slack を接続",
     "bannerTitle": "{left, plural, other {セットアップの手順があと # 件あります}}",
-    "bannerDismiss": "閉じる"
+    "bannerNamed": "{action}してセットアップを完了",
+    "bannerStart": "セットアップを開始",
+    "bannerContinue": "セットアップを続ける"
   },
   "sessionSpaces": {
     "title": "スペース",
