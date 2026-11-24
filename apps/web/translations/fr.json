@@ -1293,10 +1293,6 @@
       "permission": "Vous avez besoin de l’autorisation de paramètres de l’espace de travail pour modifier un indicateur de fonctionnalité.",
       "updateFailed": "Impossible de mettre à jour {key}",
       "flags": {
-        "secrets_egress": {
-          "name": "Secrets protégés par le réseau",
-          "description": "Contrôlez les outils et destinations autorisés à recevoir les secrets de l’espace de travail."
-        },
         "reminders": {
           "name": "Boucles",
           "description": "Permet aux agents et aux personnes de planifier des points de contrôle sur une session, une fois ou de façon récurrente. Chaque déclenchement relance cette session. Ajoute les boucles à la liste des Déclencheurs, l’indicateur de boucles de la session et `kortix loop`."
@@ -1318,16 +1314,12 @@
           "description": "Donnez à l'agent une boîte e-mail sur Resend : les e-mails reçus démarrent et poursuivent des sessions, et l'agent lit, répond et envoie depuis la boîte. Utilisez votre propre clé API Resend et votre domaine."
         },
         "chat": {
-          "name": "Canaux",
-          "description": "Des canaux avec Kortix, comme dans Slack : chaque message est un fil, la dernière réponse de Kortix s'affiche dessous, Kortix peut lancer des fils et vous partagez les canaux avec d'autres personnes. Remplace la liste des sessions dans la barre latérale."
+          "name": "Espaces de style Slack",
+          "description": "Utilisez des canaux et messages directs de style Slack, où chaque message démarre un fil. Passe la barre latérale en mode chat. Indépendant des Espaces qui regroupent sessions, fichiers et onglets."
         },
         "session_groups": {
           "name": "Espaces",
           "description": "Regroupez les sessions dans des espaces, chacun avec ses fichiers et ses onglets. Un nouvel espace est privé ; partagez-le avec des personnes ou avec tout le workspace. Lancez une session dans un espace depuis sa page ou depuis le sélecteur d'espace sous le compositeur. Chaque session d'un espace sait à quoi il sert et monte son dossier Files."
-        },
-        "chrome": {
-          "name": "Kortix dans Chrome",
-          "description": "Autorisez une session à utiliser votre navigateur Chrome connecté. Vous pouvez reprendre le contrôle ou l’arrêter à tout moment."
         },
         "agent_teams": {
           "name": "Équipes d’agents",
@@ -1347,11 +1339,11 @@
         },
         "chat_front": {
           "name": "Spaces-Router",
-          "description": "Avec Spaces activé, l’agent avec qui vous discutez dans un fil est un routeur : il fait lui-même le travail rapide (une réponse, un texte court, un coup d’œil aux fichiers du fil) et confie le travail plus long aux agents de l’espace. Il répond comme une personne, en messages courts. Un agent enregistre son résultat complet dans un fichier du fil, et le routeur met un lien vers ce fichier au lieu de le recopier. « Voir le travail » sous un message ouvre le travail derrière. Nécessite My Kortix activé dans kortix.yaml."
+          "description": "Avec les Espaces de style Slack activés, l’agent avec qui vous discutez dans un fil est un routeur : il fait lui-même le travail rapide (une réponse, un texte court, un coup d’œil aux fichiers du fil) et confie le travail plus long aux agents de l’espace. Il répond comme une personne, en messages courts. Un agent enregistre son résultat complet dans un fichier du fil, et le routeur met un lien vers ce fichier au lieu de le recopier. « Voir le travail » sous un message ouvre le travail derrière. Nécessite My Kortix activé dans kortix.yaml."
         },
         "spaces_proactive": {
           "name": "Spaces-Proactive",
-          "description": "Avec les Espaces activés, un espace peut se surveiller lui-même : activez Proactif dans ses détails, et un agent lit ce qui s’y passe (fils terminés, questions restées ouvertes, personnes qui arrivent) et n’écrit dans le chat que lorsque c’est utile : un résultat à partager, une décision à prendre ou un retard. Il peut aussi lancer un fil qui fait le travail. Point quotidien facultatif à 9 h."
+          "description": "Avec les Espaces de style Slack activés, un espace peut se surveiller lui-même : activez Proactif dans ses détails, et un agent lit ce qui s’y passe (fils terminés, questions restées ouvertes, personnes qui arrivent) et n’écrit dans le chat que lorsque c’est utile : un résultat à partager, une décision à prendre ou un retard. Il peut aussi lancer un fil qui fait le travail. Point quotidien facultatif à 9 h."
         },
         "program_agents": {
           "name": "Agents programme",
@@ -1375,12 +1367,12 @@
         }
       },
       "channelsSwitch": {
-        "onTitle": "Activer les Espaces pour {project} ?",
-        "onBody": "Tout le monde dans cet espace de travail obtient les Espaces à la place de la liste des sessions. Toutes les sessions existantes passent dans #general. Vous pouvez le désactiver à tout moment ; rien n’est supprimé.",
+        "onTitle": "Activer les Espaces de style Slack pour {project} ?",
+        "onBody": "Tout le monde dans cet espace de travail obtient les Espaces de style Slack à la place de la liste des sessions. Toutes les sessions existantes passent dans #general. Vous pouvez le désactiver à tout moment ; rien n’est supprimé.",
         "drive": "Activer aussi Drive, pour que les espaces aient des Fichiers.",
         "turnOn": "Activer",
         "cancel": "Annuler",
-        "offTitle": "Désactiver les Espaces ?",
+        "offTitle": "Désactiver les Espaces de style Slack ?",
         "offBody": "Les espaces, la mémoire, les fichiers et les liens restent enregistrés. La liste des sessions revient pour tout le monde.",
         "turnOff": "Désactiver"
       },
@@ -3095,7 +3087,7 @@
     "unified": {
       "welcome": "Bienvenue sur {name}",
       "email": "E-mail",
-      "emailPlaceholder": "Votre adresse e-mail",
+      "emailPlaceholder": "Saisissez votre adresse e-mail…",
       "password": "Mot de passe",
       "showPassword": "Afficher le mot de passe",
       "hidePassword": "Masquer le mot de passe",
@@ -3161,7 +3153,7 @@
         "title": "Réinitialiser votre mot de passe",
         "description": "Nous vous enverrons un lien de réinitialisation.",
         "email": "E-mail",
-        "emailPlaceholder": "Votre adresse e-mail",
+        "emailPlaceholder": "Saisissez votre adresse e-mail…",
         "sending": "Envoi du lien…",
         "submit": "Envoyer le lien de réinitialisation"
       },
@@ -3201,6 +3193,13 @@
       "errorTitle": "Connexion impossible",
       "errorBody": "Connectez-vous à Kortix dans un onglet du navigateur, puis rouvrez ce panneau.",
       "signIn": "Se connecter"
+    },
+    "story": {
+      "label": "À propos de Kortix CompanyOS",
+      "outcome": "Fixez un objectif. Des agents IA s’en chargent 24 h/24.",
+      "repo": "Vos agents, skills et votre mémoire dans un dépôt qui vous appartient.",
+      "approve": "Les agents font le travail. Vous validez ce qui est publié.",
+      "worksWith": "Compatible avec les outils que votre équipe utilise déjà"
     }
   },
   "onboarding": {
@@ -18348,7 +18347,6 @@
       "texte59a1d133be1": "Les modifications s’appliqueront à la prochaine connexion. Les jetons déjà émis continueront de fonctionner jusqu’à leur expiration.",
       "texte59eaa3acaf1": "le mur",
       "texte5a4af9b350f": "J’ai créé, activé et testé la connexion SCIM",
-      "texte5a718af362a": "Les deux premières",
       "texte5ab168f1943": "Le brief pré-appel",
       "texte5b104783abd": "Votre agent peut utiliser les outils dont il a besoin, comme sur un ordinateur classique.",
       "texte5bd74e98514": "autre — source uniquement",
@@ -25166,6 +25164,32 @@
     "stopNote": "Le lien cessera de fonctionner."
   },
   "artifacts": {
+    "folderIcon": "Choisir l’icône du dossier",
+    "docCreateFailed": "Impossible de créer le document. Réessayez.",
+    "newFolder": "Nouveau dossier",
+    "editFolder": "Modifier le dossier",
+    "folderName": "Nom du dossier",
+    "folderCreateIn": "Dans",
+    "folderSaved": "Dossier enregistré",
+    "folderCreated": "Dossier créé",
+    "folderSaveFailed": "Impossible d’enregistrer le dossier. Réessayez.",
+    "saveFolder": "Enregistrer le dossier",
+    "createFolder": "Créer un dossier",
+    "folderActions": "Actions pour {name}",
+    "deleteFolder": "Supprimer le dossier",
+    "deleteFolderTitle": "Supprimer « {name} » ?",
+    "deleteFolderHint": "Ses sous-dossiers et artefacts remontent d’un niveau. Les fichiers et les liens restent disponibles.",
+    "folderDeleted": "Dossier supprimé",
+    "folderDeleteFailed": "Impossible de supprimer le dossier. Réessayez.",
+    "folderNavigation": "Dossiers d’artefacts",
+    "folderPathMore": "Afficher le chemin des dossiers",
+    "folderUnavailable": "Dossier indisponible",
+    "folderLoadFailed": "Impossible de charger les dossiers",
+    "moveToFolder": "Déplacer vers un dossier",
+    "movedToFolder": "Déplacé vers {name}",
+    "emptyUnfiled": "Aucun artefact sans dossier",
+    "emptyFolder": "Aucun artefact dans ce dossier",
+    "folderRoot": "Aucun dossier",
     "title": "Artefacts",
     "type": {
       "doc": "Document",
@@ -26307,6 +26331,25 @@
     "openChat": "Ouvrir le chat",
     "turnNote": "Dit pendant un appel vocal, et la voix a répondu.",
     "close": "Fermer"
+  },
+  "dictation": {
+    "start": "Dicter un message",
+    "price": "{credits, plural, one {# crédit} other {# crédits}} par minute",
+    "recording": "Dictée",
+    "discard": "Supprimer l'enregistrement",
+    "finish": "Ajouter les mots",
+    "transcribing": "Transcription…",
+    "nothingHeard": "Aucune parole détectée. Réessayez plus près du micro.",
+    "retry": "Réessayer",
+    "failed": "Impossible de transcrire l'enregistrement. Réessayez.",
+    "busy": "Impossible de transcrire l'enregistrement pour le moment. Réessayez dans un instant.",
+    "unavailable": "La dictée n'est pas disponible sur ce serveur.",
+    "limitReached": "Enregistrement arrêté à {minutes} minutes",
+    "micDenied": "Impossible d'utiliser le micro. Autorisez-le pour ce site dans les réglages du navigateur.",
+    "micDeniedDesktop": "Impossible d'utiliser le micro. Autorisez Kortix dans les réglages de confidentialité du système.",
+    "micMissing": "Aucun micro trouvé. Branchez-en un et réessayez.",
+    "micBusy": "Impossible d'utiliser le micro. Une autre app l'utilise.",
+    "micUnsupported": "Impossible d'utiliser le micro dans ce navigateur."
   },
   "agentMounts": {
     "lead": "Dossiers de Fichiers montés par les sessions de cet agent. Une modification s’applique aussitôt à chaque nouvelle session.",

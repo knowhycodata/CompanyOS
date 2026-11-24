@@ -11,7 +11,7 @@ import {
   InfoIcon as InfoCircleSolid,
 } from '@phosphor-icons/react';
 import { m, useReducedMotion } from 'motion/react';
-import { useEffect, useRef } from 'react';
+import { createContext, useContext, useEffect, useRef } from 'react';
 
 import { inputFocusClasses, inputSurfaceClasses } from '../../primitives/input';
 import { KortixLogo } from '../../primitives/kortix-logo';
@@ -28,6 +28,15 @@ import { cn } from '../lib/utils';
 import { UiLink as Link } from '../../providers/ui-provider';
 
 export const AUTH_EASE = [0.23, 1, 0.32, 1] as const;
+
+/**
+ * What the enclosing AuthFrame tells the steps inside it: whether the column
+ * is centered, and the mark a header shows by default. Every step header and
+ * quiet-link row in a centered frame lines up without per-step props.
+ */
+export const AuthFrameContext = createContext<{ centered: boolean; mark?: React.ReactNode }>({
+  centered: false,
+});
 
 /** Gentle entrance: header first, body ~60ms behind. Opacity-only under reduced motion. */
 export function Rise({
@@ -87,8 +96,9 @@ export function AuthMobileLogo() {
 export function StepHeader({
   title,
   description,
-  mark,
+  mark: markProp,
   markOnMobile = false,
+  align: alignProp,
 }: {
   /** A string, or a string led by a status mark (a decided approval). */
   title: React.ReactNode;
@@ -102,17 +112,35 @@ export function StepHeader({
    *  where no corner logo stands in for it on mobile. */
   markOnMobile?: boolean;
   description?: React.ReactNode;
+  /** `center` centers the mark, title and description on one axis. */
+  align?: 'start' | 'center';
 }) {
+  const frame = useContext(AuthFrameContext);
+  const align = alignProp ?? (frame.centered ? 'center' : 'start');
+  const mark = markProp ?? frame.mark;
   return (
-    <div className="mb-8">
+    <div className={cn('mb-8', align === 'center' && 'text-center')}>
       {mark ? (
-        <div className={markOnMobile ? undefined : 'hidden md:block'}>{mark}</div>
+        <div
+          className={cn(
+            markOnMobile ? 'block' : 'hidden md:block',
+            align === 'center' && (markOnMobile ? 'flex justify-center' : 'md:flex md:justify-center'),
+          )}
+        >
+          {mark}
+        </div>
       ) : (
-        <KortixLogo variant="icon" size={22} className="text-foreground hidden md:block" />
+        <KortixLogo
+          variant="icon"
+          size={22}
+          className={cn('text-foreground hidden md:block', align === 'center' && 'md:mx-auto')}
+        />
       )}
       <h1
         className={cn(
-          'text-foreground text-2xl font-semibold tracking-tight text-balance md:mt-6',
+          'text-foreground text-2xl tracking-tight text-balance md:mt-6',
+          // The sign-in frame sets its headings in medium; other screens keep semibold.
+          frame.centered ? 'font-medium' : 'font-semibold',
           mark && markOnMobile && 'mt-6',
         )}
       >
@@ -155,11 +183,16 @@ export function QuietLinks({
   links,
   disabled = false,
   className,
+  align: alignProp,
 }: {
   links: Array<QuietLink | null | false | undefined>;
   disabled?: boolean;
   className?: string;
+  /** `center` centers the row and drops the lead middot instead of clipping it. */
+  align?: 'start' | 'center';
 }) {
+  const frame = useContext(AuthFrameContext);
+  const align = alignProp ?? (frame.centered ? 'center' : 'start');
   const shown = links.filter(Boolean) as QuietLink[];
   if (shown.length === 0) return null;
   // Every entry leads with its middot, and the row is pulled left by one
@@ -167,7 +200,14 @@ export function QuietLinks({
   // clean, with no dot in front of it.
   return (
     <div className={cn('text-muted-foreground mt-5 overflow-x-clip text-sm', className)}>
-      <p className="-ml-4 flex flex-wrap items-center gap-x-2">
+      <p
+        className={cn(
+          'flex flex-wrap items-center gap-x-2',
+          align === 'center'
+            ? 'justify-center [&>span:first-child>span:first-child]:hidden'
+            : '-ml-4',
+        )}
+      >
         {shown.map((link) => (
           <span key={link.key} className="flex items-center gap-x-2 whitespace-nowrap">
             <span aria-hidden className="w-2 text-center select-none">

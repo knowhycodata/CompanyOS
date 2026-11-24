@@ -595,7 +595,33 @@ After the merge, running sessions on that base pick up the new config, and Korti
 
 - An agent that declares `kortix_permissions` merges only when the grant includes `project.gitops.merge`. An agent without `kortix_permissions` cannot merge.
 - A session cannot merge a change request it opened unless its grant in `kortix.yaml` includes `project.gitops.merge`. Without it, the merge returns `403` `CR_SELF_MERGE_REFUSED`.
-- A merge that changes `agents`, `default_agent` or `triggers` also needs the permission the direct edit needs: `project.agent.write`, or `project.trigger.create`, `.update` or `.delete`. The merging agent cannot grant any permission it does not hold.
+- A merge also needs the permission that edits each `kortix.yaml` section it changes (table below), compared between the base branch and what the merge lands. The merging agent cannot grant any permission it does not hold. The same rule holds for a person: a custom role with `project.gitops.merge` but without `project.connector.write` cannot merge a change to a connector.
+
+| Section the change request changes | The merge also needs |
+| --- | --- |
+| `agents`, `default_agent`, `builtin_agents`, `tools`, `extensions`, `evals` | `project.agent.write` |
+| `connectors`, `policies`, `policy`, `approvals`, an agent's `policy_sets` | `project.connector.write` |
+| `triggers` | `project.trigger.create`, `.update` or `.delete`; `trigger_session_readers`: `.update` |
+| `apps` | `project.app.write` |
+| `skills` | `project.skill.write` |
+| `commands` | `project.command.write` |
+| `sandbox` | `project.sandbox.write` |
+| `env` | `project.secret.write` |
+| `project`, `spaces`, `imports`, any other key | `project.settings.write` |
+
+The Manager, Admin and Owner roles hold all of them. An agent session that pushes the default branch directly needs all of them too.
+
+#### Secrets in a change request
+
+The merge reads every commit the change request adds to its base: a merge commit by what its resolution adds, and a file git calls binary as text. A line that holds a provider-shaped key stops the merge: a private key, or an Anthropic, OpenAI-style, GitHub, AWS access key, Slack, Google API or Stripe live key. The answer is `409` `CR_SECRET_DETECTED`. Its `findings` name the `file`, `line`, `commit` and `rule` of each key, never the value.
+
+1. Store the value as a secret: `kortix secrets request <NAME>`, or `kortix secrets set <NAME>=-` with the value on stdin.
+2. Read it from the environment in the code.
+3. Remove the key from every commit of the branch, then force-push it. A commit that deletes the key is not enough: the merge carries the earlier commit.
+
+A change the check cannot read in full has more than 500 commits or 20 merge commits, a patch over 32 MB or an octopus merge, or takes more than 10 seconds to check. A long-lived branch merged into `main` is often one. A person merges it without an override, and the change request records the reason, who and when in `metadata.secret_scan_skipped`. An agent session, a service account, a key bound to a workspace or an OAuth token gets `409` `CR_SECRET_SCAN_INCOMPLETE`: split the change or ask a person to merge it.
+
+A person who checked a finding, such as a test fixture, merges anyway with `kortix cr merge <cr> --allow-secrets` (REST: `{"allow_secrets": true}`). The change request records who did it and the findings in `metadata.secret_override`. Only a person's browser sign-in or a personal key bound to no workspace may override: an agent session, a service account, a key bound to a workspace or an OAuth token gets `403` `CR_SECRET_OVERRIDE_REFUSED`.
 
 A grant that names `project.cr.open` or `project.cr.merge` counts as `project.gitops.push` or `project.gitops.merge`. Write the `gitops` name in new grants.
 
@@ -606,7 +632,7 @@ A grant that names `project.cr.open` or `project.cr.merge` counts as `project.gi
 | List, show, diff, merge preview | Read access to the workspace. |
 | Open | `project.gitops.push` |
 | Edit, close, reopen | Write access to the workspace. An agent also needs `project.gitops.push`. |
-| Merge | `project.gitops.merge`, plus the manifest permissions above for an agent. |
+| Merge | `project.gitops.merge`, plus the manifest permissions above, for a person and for an agent. |
 | Request changes | `project.review.act` |
 
 #### `kortix cr` commands
@@ -620,7 +646,7 @@ A grant that names `project.cr.open` or `project.cr.merge` counts as `project.gi
 | `kortix cr diff <cr>` | Prints the unified diff. |
 | `kortix cr open --head <branch> --title <t> [--base <branch>] [--description <t>]` | Opens a change request. Aliases: `--from`, `--into`, `--body`. |
 | `kortix cr merge-preview <cr>` | Shows whether it can merge, and the conflicts. |
-| `kortix cr merge <cr> [--message <t>]` | Merges it. |
+| `kortix cr merge <cr> [--message <t>] [--allow-secrets]` | Merges it. `--allow-secrets` merges past the secret check; only a person may. |
 | `kortix cr request-changes <cr> --message <t>` | Sends the note to the agent that opened it. |
 | `kortix cr close <cr>` | Closes it without a merge. |
 | `kortix cr reopen <cr>` | Reopens a closed one. |
@@ -640,7 +666,11 @@ Each command takes `--workspace <id>` and `--host <name>`. `ls`, `show`, `diff`,
 | (conflict) | `409` | The merge conflicts. The body lists the files. |
 | (not open) | `409` | The change request is merged or closed. |
 | `CR_SELF_MERGE_REFUSED` | `403` | A session tried to merge its own change request without a merge grant. |
-| `CR_GOVERNANCE_UNVERIFIED` | `503` | Kortix could not read the manifest to check an agent's merge. Nothing merged. Retry. |
+| `CR_SECRET_DETECTED` | `409` | A commit of the change request adds a key. `findings` lists file, line, commit and rule. See [Secrets in a change request](#secrets-in-a-change-request). |
+| `CR_SECRET_SCAN_INCOMPLETE` | `409` | The secret check could not read the change in full and the caller is not a person. `unscanned` says why. Split it, or a person merges it. |
+| `CR_SECRET_OVERRIDE_REFUSED` | `403` | An agent session, a service account, a workspace-bound key or an OAuth token sent `allow_secrets`. Only a person may. |
+| `CR_HEAD_MOVED` | `409` | The head or the base branch moved after the merge checked it. Nothing merged. Retry. |
+| `CR_GOVERNANCE_UNVERIFIED` | `503` | Kortix could not read the change request to check the merge. Nothing merged. Retry. |
 | (manifest unreadable) | `502` | Kortix could not read the manifest from the head branch. |
 
 ### The Review page
@@ -2776,6 +2806,9 @@ These are the codes clients branch on most. The linked section explains each fix
 | `repository_push_rejected` | `409` | The git host refused a push because of branch protection or repository rules. | [Git](/docs/developers#who-can-clone-and-push) |
 | `CR_HEAD_NOT_AHEAD` | `422` | The change request branch has no commits ahead of its base. | [Git](/docs/developers#change-requests) |
 | `CR_SELF_MERGE_REFUSED` | `403` | A session tried to merge its own change request without a `project.gitops.merge` grant. | [Git](/docs/developers#change-requests) |
+| `CR_SECRET_DETECTED` | `409` | A commit of the change request adds a key. The merge is blocked. `findings` names file, line, commit and rule, never the value. | [Git](/docs/developers#secrets-in-a-change-request) |
+| `CR_SECRET_SCAN_INCOMPLETE` | `409` | The secret check could not read the change request in full, and only a person merges it. | [Git](/docs/developers#secrets-in-a-change-request) |
+| `CR_SECRET_OVERRIDE_REFUSED` | `403` | An agent session asked to merge past the secret check. Only a person may. | [Git](/docs/developers#secrets-in-a-change-request) |
 | `MANIFEST_INVALID` | `422` | The change request makes `kortix.yaml` invalid. The merge is blocked. `issues` lists the errors. | [kortix.yaml reference](/docs/developers#kortixyaml-reference) |
 | `PERSONAL_SECRET_REQUIRES_PRIVATE_SESSION` | `409` | You tried to share a session that holds a secret shared only with you. | [Security](/docs/guide#security) |
 | `project_secret_write_limit` | `429` | The workspace wrote secrets more than 100 times in one hour. | [Security](/docs/guide#security) |
@@ -4917,6 +4950,14 @@ Each run creates a new session, and the session appears in the web app with the 
 - 0.15.0 removed the other subpaths, such as `@kortix/sdk/turns` and `@kortix/sdk/projects-client`. Import the same names from the root. The list is in [Removed in 0.15.0](/docs/developers#removed-in-0150).
 - A runtime does not serve every session control. Check a control with `runtimeSupports` before you show it: see [Gate on runtime capabilities](/docs/developers#gate-on-runtime-capabilities).
 - Changes per release are in the [CHANGELOG](https://github.com/kortix-ai/CompanyOS/blob/dev/packages/sdk/CHANGELOG.md). Runnable examples are in [packages/sdk/examples](https://github.com/kortix-ai/CompanyOS/tree/dev/packages/sdk/examples) on GitHub. The npm package does not include them.
+
+### Artifact gallery folders
+
+Import `listArtifactFolders`, `createArtifactFolder`, `updateArtifactFolder`, and `deleteArtifactFolder` from `@kortix/sdk`. React consumers use `useArtifactFolders` and `useArtifactFolderMutations` from `@kortix/sdk/react`.
+
+Folders organize the gallery. Pass `folder_id` when creating, sharing, or updating an Artifact. Use `null` to move it to the root. `listArtifacts(projectId, { folder_id: 'root' })` lists unfiled Artifacts. Omit `folder_id` to list across folders. Folders nest: pass `parent_folder_id` to `createArtifactFolder` to create one inside another, or to `updateArtifactFolder` to move it (`null` moves it to the root). A missing parent returns `404`; a move into the folder itself or one of its subfolders returns `409`. Deleting a folder moves its subfolders and Artifacts up one level. File paths, links, and sharing do not change.
+
+Folder names are workspace-visible. Creating requires artifact write permission. Editing or deleting requires artifact write permission plus folder ownership or artifact management permission. Moving an Artifact requires its existing management permission. Folder membership grants no access.
 
 ## SDK authentication
 
@@ -8712,6 +8753,7 @@ Capture belongs to the account. `kortix.capture.account(accountId)` binds one ac
 | `audit(options?)` | The workspace's audit timeline. |
 | `skills.create(input)` · `skills.remove(…)` | Write a skill to the default branch · remove one. A whole-folder removal includes user edits; shared dependencies stay. |
 | `attachments.upload(…)` · `.delete(…)` · `.createController(options?)` | Prompt attachments, and a controller that tracks uploads for a composer. |
+| `dictation.info()` · `dictation.transcribe(audio, { surface?, signal? })` | Speech-to-text for a composer. `info()` returns `{ available, credits_per_minute, max_seconds, max_bytes }`. `transcribe` takes a recorded clip (a `Blob`, or a `{ uri, name, type }` device file on React Native; WebM, Ogg, MP4/M4A, MP3, WAV or FLAC, up to 10 minutes and 25 MB) and returns `{ text, seconds, credits }`. It is charged 1 credit per minute from the workspace credits, billed per second, on every plan, speech or not. A clip with no speech returns `text: ''`. The audio and the text are not stored. A refusal throws `ApiError` with `code`: `insufficient_credits` or `budget_exceeded` (402), `rate_limit_exceeded` (429), `dictation_unavailable`, `dictation_busy` or `dictation_failed` (503). Needs permission to start sessions. |
 | `onboardingComplete(…)` | Marks workspace onboarding done. |
 | `updateFeatureFlag(key, enabled)` | Sets one flag for the workspace (`PATCH /projects/{projectId}/features`). `key` is one of `FEATURE_FLAG_KEYS`. `enabled: null` clears the override. Needs `project.settings.write`. |
 | `claudeSubscription.get()` · `.startLogin(target?)` · `.completeLogin(input)` · `.setToken(token, target?)` | The caller's Claude Pro or Max accounts. The API never returns a token. |

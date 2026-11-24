@@ -459,6 +459,23 @@ the prompt inbox. The API copies those bytes into the sandbox after startup. Upl
 sandbox. Reads return a `Blob` and require access to the session. Retries of the same `File`
 reuse the successful upload; an explicit `attachmentId` supports caller-managed retries.
 
+### Dictation (speech-to-text)
+
+`kortix.project(id).dictation.transcribe(audio, { surface })` turns one recorded clip into
+text for a composer. `audio` is a `Blob` (WebM, Ogg, MP4/M4A, MP3, WAV or FLAC) or, on
+React Native, a device file `{ uri, name, type }`. It returns `{ text, seconds, credits }`.
+The workspace pays 1 credit per minute of audio, billed per second, on every plan, speech
+or not; a clip with no speech returns `text: ''`. `dictation.info()` returns
+`{ available, credits_per_minute, max_seconds, max_bytes }`: hide the microphone when
+`available` is false (a self-hosted server without managed models). Neither the audio nor
+the text is stored. A refusal throws `ApiError` with `code` `insufficient_credits` or
+`budget_exceeded` (402), `rate_limit_exceeded` (429), or `dictation_unavailable`,
+`dictation_busy` or `dictation_failed` (503).
+
+```ts
+const { text } = await kortix.project(projectId).dictation.transcribe(clip, { surface: 'web' });
+```
+
 ### Session labels and metadata
 
 Every session carries `labels: string[]` and a free-form `metadata` object. Set both
@@ -1934,3 +1951,19 @@ CLI: `kortix sessions model get [session-id]`, `set [session-id] <model>`,
 and `switch [session-id] <model> --prompt "Continue verification" --idempotency-key verification-model-1`.
 The new verbs default to `KORTIX_SESSION_ID`. The existing `sessions model <session-id> <model>` remains supported.
 Never send a peer message to yourself to continue a model switch.
+
+### Artifact gallery folders
+
+`listArtifactFolders`, `createArtifactFolder`, `updateArtifactFolder`, and
+`deleteArtifactFolder` organize a workspace's artifact gallery. Folder names
+are workspace-visible. Only the creator or a caller with artifact management
+permission can edit or delete a folder. Folder membership grants no access.
+
+Pass `folder_id` when publishing, sharing, or updating an artifact. Pass `null`
+to move it to the root. `listArtifacts(projectId, { folder_id: 'root' })` lists
+unfiled artifacts; omit the filter to search all folders. Folders nest: pass
+`parent_folder_id` to create a folder inside another or to move it (`null`:
+the root); a move into its own subtree returns `409`. Deleting a folder moves
+its subfolders and artifacts up one level. Artifact IDs, Files paths, and links stay
+unchanged. React consumers use `useArtifactFolders` and
+`useArtifactFolderMutations` from `@kortix/sdk/react`.
