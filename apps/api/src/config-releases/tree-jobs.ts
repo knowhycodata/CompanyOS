@@ -160,7 +160,18 @@ export class TreeJobs {
     for (;;) {
       const at = this.waiting.findIndex((job) => !this.runningProjects.has(job.projectId));
       if (at < 0) return;
-      const slot = this.slots.find((candidate) => !candidate.job) ?? (this.slots.length < this.options.threads ? this.startThread() : null);
+      let slot = this.slots.find((candidate) => !candidate.job) ?? null;
+      if (!slot && this.slots.length < this.options.threads) {
+        try {
+          slot = this.startThread();
+        } catch (error) {
+          // No thread can start (a broken install): the job fails now, not at its wait bound.
+          const [job] = this.waiting.splice(at, 1);
+          clearTimeout(job!.waitTimer);
+          job!.reject(error instanceof Error ? error : new Error(String(error)));
+          continue;
+        }
+      }
       if (!slot) return;
       const [job] = this.waiting.splice(at, 1);
       this.start(slot, job!);
