@@ -131,7 +131,14 @@ export async function listConfigFiles(
     throw new Error(`git ls-tree ${treeId} failed: ${result.stderr.trim()}`);
   }
   const files: ConfigReleaseFile[] = [];
-  for (const record of result.stdout.split('\0')) {
+  const out = result.stdout;
+  // One record at a time, giving the event loop back every RECORDS_PER_YIELD: a commit may list 100,000+ files.
+  for (let start = 0, count = 0; start < out.length; count += 1) {
+    let end = out.indexOf('\0', start);
+    if (end < 0) end = out.length;
+    const record = out.slice(start, end);
+    start = end + 1;
+    if (count % RECORDS_PER_YIELD === RECORDS_PER_YIELD - 1) await yieldToEventLoop();
     if (!record) continue;
     const tab = record.indexOf('\t');
     const [mode, type, blob] = record.slice(0, tab).split(' ');
@@ -141,6 +148,14 @@ export async function listConfigFiles(
   }
   files.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
   return files;
+}
+
+/** Records or paths a loop over a whole tree handles between two returns to the event loop. */
+const RECORDS_PER_YIELD = 4_096;
+
+/** Let other requests run. */
+function yieldToEventLoop(): Promise<void> {
+  return new Promise<void>((resolveYield) => setImmediate(resolveYield));
 }
 
 const ARCHIVE_IDENTITY = {
@@ -368,10 +383,11 @@ const MAX_LIST_GIT_CALLS = 512;
 
 /**
  * A module larger than this ships but is never read to be parsed: Bun's import
- * scan runs on the event loop at ~9.5 ms per MiB (measured 2026-11-24), so one
- * parse blocks it for at most ~19 ms.
+ * scan runs on the event loop, ~9.5 ms per MiB of plain code (measured
+ * 2026-11-24) and up to ~70 ms per MiB of code built to be slow (Strix), so
+ * one parse blocks it for at most ~35 ms.
  */
-const MAX_PARSED_BLOB_BYTES = 2 * 1024 * 1024;
+const MAX_PARSED_BLOB_BYTES = 512 * 1024;
 /** The bytes one `git cat-file --batch` call returns at most. */
 const MAX_BLOB_READ_CHUNK_BYTES = 32 * 1024 * 1024;
 
@@ -484,8 +500,20 @@ async function exportIgnoredPaths(
   if (!named) return [];
 
   const candidates = files.map(([path]) => path).filter((path) => !exempt(path));
-  const ancestors = (path: string) => path.split('/').slice(0, -1).map((_, i, parts) => parts.slice(0, i + 1).join('/'));
-  const queried = [...new Set(candidates.flatMap((path) => [...ancestors(path), path]))];
+  // Every candidate and each folder above it, each folder added once: walk up from the
+  // deepest folder and stop at the first one already present.
+  const queriedSet = new Set<string>();
+  for (let at = 0; at < candidates.length; at += 1) {
+    const path = candidates[at]!;
+    queriedSet.add(path);
+    for (let slash = path.lastIndexOf('/'); slash > 0; slash = path.lastIndexOf('/', slash - 1)) {
+      const dir = path.slice(0, slash);
+      if (queriedSet.has(dir)) break;
+      queriedSet.add(dir);
+    }
+    if (at % RECORDS_PER_YIELD === RECORDS_PER_YIELD - 1) await yieldToEventLoop();
+  }
+  const queried = [...queriedSet];
   const repo = await mkdtemp(join(tmpdir(), 'kortix-config-attributes-'));
   try {
     const init = await runGitCapture(['init', '--quiet', '--bare', repo], tmpdir());
@@ -502,7 +530,31 @@ async function exportIgnoredPaths(
     const out = (await gitWithInput(repo, env, ['check-attr', '--cached', '-z', '--stdin', 'export-ignore'], queried)).split('\0');
     const ignored = new Set<string>();
     for (let i = 0; i + 2 < out.length; i += 3) if (out[i + 2] === 'set') ignored.add(out[i]!);
-    return candidates.filter((path) => ignored.has(path) || ancestors(path).some((dir) => ignored.has(dir)));
+    // Is a folder ignored, or under an ignored folder? Each folder is decided once.
+    const ignoredDir = new Map<string, boolean>([['', false]]);
+    const dirIgnored = (dir: string): boolean => {
+      const chain: string[] = [];
+      let at = dir;
+      while (!ignoredDir.has(at)) {
+        chain.push(at);
+        const slash = at.lastIndexOf('/');
+        at = slash < 0 ? '' : at.slice(0, slash);
+      }
+      let value = ignoredDir.get(at)!;
+      for (let i = chain.length - 1; i >= 0; i -= 1) {
+        value = value || ignored.has(chain[i]!);
+        ignoredDir.set(chain[i]!, value);
+      }
+      return value;
+    };
+    const left: string[] = [];
+    for (let at = 0; at < candidates.length; at += 1) {
+      const path = candidates[at]!;
+      const slash = path.lastIndexOf('/');
+      if (ignored.has(path) || dirIgnored(slash < 0 ? '' : path.slice(0, slash))) left.push(path);
+      if (at % RECORDS_PER_YIELD === RECORDS_PER_YIELD - 1) await yieldToEventLoop();
+    }
+    return left;
   } finally {
     await rm(repo, { recursive: true, force: true });
   }
@@ -598,6 +650,7 @@ async function importClosure(
     const round: ConfigReleaseFile[] = [];
     for (const path of queue) {
       budget.spend('work', path.length);
+      await budget.pace();
       const file = tree.get(path);
       if (!file || found.has(path)) continue;
       found.set(path, file);
@@ -605,11 +658,12 @@ async function importClosure(
       if (file[1] !== '120000' && !path.endsWith('.json')) round.push(file);
     }
     queue = [];
-    await budget.pace();
     // Memo hits are copied before the awaits below: another build may evict them meanwhile.
     const known = new Map<string, string[]>();
     const unparsed = new Set<string>();
     for (const [path, , blob] of round) {
+      budget.spend('work', path.length + blob.length);
+      await budget.pace();
       const key = importKey(blob, path);
       const hit = parsedImports.get(key);
       if (hit) known.set(key, hit);
@@ -850,15 +904,17 @@ export async function agentReleaseFiles(mirror: string, rootTree: string, input:
     const clean = posix.normalize(folder.trim()).replace(/^(\.\/)+/, '').replace(/\/+$/, '');
     return !clean || clean === '.' || clean.startsWith('../') || clean === '..' || clean.startsWith('/') ? [] : [`${clean}/`];
   });
-  // The skill text files are collected as their folders are walked: no file is compared with every skill folder.
-  const texts: ConfigReleaseFile[] = [];
+  // The skill text files are collected as their folders are walked: no file is compared with every
+  // skill folder, and a file under two nested skill folders counts once.
+  const textsByPath = new Map<string, ConfigReleaseFile>();
   for (const prefix of skillPrefixes) {
     await underFolder(prefix, (file) => {
       take(file);
       budget.spend('work', file[0].length);
-      if (file[1] !== '120000' && SKILL_TEXT_FILE.test(file[0])) texts.push(file);
+      if (file[1] !== '120000' && SKILL_TEXT_FILE.test(file[0])) textsByPath.set(file[0], file);
     });
   }
+  const texts = [...textsByPath.values()];
 
   for (const source of input.packageSources) {
     const clean = resolveRelative('', source);
@@ -876,6 +932,8 @@ export async function agentReleaseFiles(mirror: string, rootTree: string, input:
   // Memo hits are copied before the awaits below: another build may evict them meanwhile.
   const links = new Map<string, string[]>();
   for (const [, , blob] of texts) {
+    budget.spend('work', blob.length);
+    await budget.pace();
     const hit = textReferences.get(blob);
     if (hit) links.set(blob, hit);
   }

@@ -22,8 +22,10 @@ if [ -z "$pr" ]; then
 fi
 
 repo="${STRIX_CHECK_REPO:-kortix-ai/CompanyOS}"
+# Only the Strix app's own comment counts: anyone can post a comment that looks like it.
+strix_login="${STRIX_BOT_LOGIN:-strix-security[bot]}"
 body="$(gh api "repos/${repo}/issues/${pr}/comments" --paginate \
-  --jq '[.[] | select(.body | contains("<!-- strix-pr-review"))] | last | .body // ""')"
+  --jq "[.[] | select(.user.login == \"${strix_login}\" and .user.type == \"Bot\" and (.body | contains(\"<!-- strix-pr-review\")))] | last | .body // \"\"")"
 
 if [ -z "$body" ]; then
   echo "#${pr}: no Strix review yet. Wait for it, then check again." >&2

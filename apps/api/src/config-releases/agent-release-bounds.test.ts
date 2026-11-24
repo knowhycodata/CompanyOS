@@ -260,21 +260,36 @@ describe('agentReleaseFiles bounds', () => {
   test('parsing many large modules gives the event loop back between modules', async () => {
     const big = (at: number) => {
       const lines = [`import './m${at + 1}'`];
-      for (let line = 0; line < 30_000; line += 1) lines.push(`export const v${line} = { k: 'value', n: ${line}, f: () => ${line} + 1 }`);
+      for (let line = 0; line < 6_000; line += 1) lines.push(`export const v${line} = { k: 'value', n: ${line}, f: () => ${line} + 1 }`);
       return `${lines.join('\n')}\n`;
     };
     const entries: Record<string, string> = {
       'kortix.yaml': ['project:', '  name: builder-test', 'default_agent: kortix', 'tools:', '  big: tools/m0.ts', 'agents:', '  kortix:', '    prompt: Main.', ''].join('\n'),
-      'tools/fan.ts': Array.from({ length: 12 }, (_, at) => `import './m${at}'`).join('\n') + '\n',
     };
-    for (let at = 0; at < 12; at += 1) entries[`tools/m${at}.ts`] = big(at);
-    entries['tools/m12.ts'] = 'export const end = 1\n';
-    expect(entries['tools/m0.ts']!.length).toBeGreaterThan(1.5 * 1024 * 1024);
+    for (let at = 0; at < 40; at += 1) entries[`tools/m${at}.ts`] = big(at);
+    entries['tools/m40.ts'] = 'export const end = 1\n';
+    expect(entries['tools/m0.ts']!.length).toBeGreaterThan(300 * 1024);
+    expect(entries['tools/m0.ts']!.length).toBeLessThan(512 * 1024);
     const sha = commit(entries, 'large modules');
     const { result, stallMs } = await longestStall(() => buildConfigRelease(project, sha, 'agent:kortix', { store }));
     expect(stallMs).toBeLessThan(150);
     expect(result.reason).toBeNull();
-    expect(result.files!.length).toBe(13);
+    expect(result.files!.length).toBe(41);
+  }, 120_000);
+
+  // Strix review 4 of #13028: listing and export-ignore over a whole large tree.
+  test('a 100,000-file commit with an export-ignore rule never stalls the event loop', async () => {
+    const entries: Record<string, string> = {
+      'kortix.yaml': ['project:', '  name: builder-test', 'default_agent: kortix', 'tools:', '  t: tools/t.ts', 'agents:', '  kortix:', '    prompt: Main.', ''].join('\n'),
+      '.gitattributes': 'bulk/ignored/** export-ignore\n',
+      'tools/t.ts': 'export default {}\n',
+    };
+    for (let at = 0; at < 100_000; at += 1) entries[`bulk/${at % 2 ? 'ignored' : 'kept'}/d${at % 97}/f${at}.txt`] = 'x\n';
+    const sha = commit(entries, 'a large tree');
+    const { result, stallMs } = await longestStall(() => buildConfigRelease(project, sha, 'agent:kortix', { store }));
+    expect(stallMs).toBeLessThan(300);
+    expect(result.reason).toBeNull();
+    expect(result.files!.map(([path]) => path)).toEqual(['tools/t.ts']);
   }, 120_000);
 
   test('one project runs one file-list build at a time; a fifth waiting build answers busy', async () => {

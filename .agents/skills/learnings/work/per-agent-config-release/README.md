@@ -118,7 +118,7 @@ Two scopes:
 Imports and skill links are parsed once per blob per API process
 (`git cat-file --batch`, memo by blob ID).
 
-Bounds (four Strix reviews, of #13024 and three of #13028, found the earlier
+Bounds (five Strix reviews, of #13024 and four of #13028, found the earlier
 versions unbounded). The work grows with repository structure and string
 lengths an author controls, so one `ListBudget` per build counts every axis:
 bytes read (128 MiB), parsed (32 MiB) and downloaded (128 MiB), git round
@@ -127,9 +127,11 @@ candidate path and directory prefix is paid by its length, never as one
 event) and wall time (20 s). Every loop over repository content returns to
 the event loop every 200,000 work units, so a build at its bounds slows only
 itself. Also: the link scan is a linear `indexOf` pass; a text file over
-256 KiB is not scanned; a module over 2 MiB ships but is not parsed (Bun's
-import scan blocks ~9.5 ms per MiB) and is remembered by blob ID, and each
-parse counts toward the next yield; skill text files are collected while
+256 KiB is not scanned; a module over 512 KiB ships but is not parsed (Bun's
+import scan blocks ~9.5 ms per MiB of plain code, up to ~70 ms per MiB of
+hostile code) and is remembered by blob ID, and each parse counts toward the
+next yield; the tree listing and the `export-ignore` expansion yield every
+4,096 records and add each folder once; skill text files are collected while
 their folders are walked; an import specifier over 1,024 characters resolves to
 nothing; each folder is walked once (4,000 at most); the `folders` walk takes
 at most 2,000 tool folders and 64 hops; imports are memoized by blob and
