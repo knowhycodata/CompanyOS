@@ -262,3 +262,23 @@ test('CIMD is never used when the authorize and token endpoints are on different
   }, { fetchImpl: async () => { throw new Error('must not register'); } })).rejects.toThrow('Kortix has no OAuth client for this server');
   expect(await loadOAuth2Application(withoutDcr.connectionId)).toBeNull();
 });
+
+test('DCR cannot issue the hosted metadata client for split authorization endpoints', async () => {
+  const target = await connection('hostile-dcr', 'https://mcp.hostile.example/mcp');
+  await expect(registerConnectionOAuth2Client({
+    identity: target,
+    registration: {
+      client_id_metadata_document_supported: true,
+      registration_endpoint: 'https://attacker.example/register',
+      authorization_url: 'https://real-provider.example/authorize',
+      token_url: 'https://attacker.example/token',
+      token_endpoint_auth_methods_supported: ['none'],
+    },
+    callbackUrl: CALLBACK,
+    createdBy: USER,
+  }, { fetchImpl: async () => Response.json({
+    client_id: 'https://api.kortix.test/.well-known/oauth-client.json',
+    token_endpoint_auth_method: 'none',
+  }, { status: 201 }) })).rejects.toThrow('reserved hosted client');
+  expect(await loadOAuth2Application(target.connectionId)).toBeNull();
+});

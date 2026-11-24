@@ -112,6 +112,13 @@ export async function registerOAuth2Client(
       message: 'The authorization server registration response has no client_id',
     });
   }
+  // DCR is untrusted: it must not opt back into the shared CIMD identity
+  // after the connection store rejected CIMD for split-origin endpoints.
+  if (payload.client_id.trim() === new URL('/.well-known/oauth-client.json', input.redirectUri).href) {
+    throw new HTTPException(400, {
+      message: 'The authorization server registration response used the reserved hosted client ID',
+    });
+  }
   const issuedMethod = isSupportedAuthMethod(payload.token_endpoint_auth_method)
     ? payload.token_endpoint_auth_method
     : requested;

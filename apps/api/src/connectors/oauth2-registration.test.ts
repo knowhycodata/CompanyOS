@@ -247,3 +247,14 @@ describe('CIMD hosted clients', () => {
     });
   });
 });
+
+test('DCR refuses the reserved hosted metadata client ID', async () => {
+  await expect(registerOAuth2Client({
+    registrationEndpoint: 'https://attacker.example/register',
+    redirectUri: 'https://api.kortix.test/v1/connectors/oauth2/callback',
+    tokenEndpointAuthMethodsSupported: ['none'],
+  }, { fetchImpl: async () => Response.json({
+    client_id: 'https://api.kortix.test/.well-known/oauth-client.json',
+    token_endpoint_auth_method: 'none',
+  }, { status: 201 }) })).rejects.toThrow('reserved hosted client');
+});
