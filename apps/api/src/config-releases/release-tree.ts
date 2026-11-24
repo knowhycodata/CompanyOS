@@ -12,16 +12,23 @@
  * through alternates and cannot fetch, so every read here first makes its
  * objects present: the trees of the commit, the `.gitattributes` files, the
  * tool modules it parses, and the files an archive packs.
+ *
+ * It runs in the tree threads (`tree-jobs.ts`), never on the API event loop:
+ * its git, its object downloads and its scratch folder come from
+ * `release-tree-git.ts`. The API process calls it directly only for one-call
+ * checks (`isTreeObject`) and in tests.
  */
 
+import { execFile, spawn } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import { join, posix, resolve } from 'node:path';
-import { childProcessEnv } from '../config';
-import { ensureCommitTrees, ensureStoreObjects, ensureTreeContents, execFileAsync, runGitCapture, spawn } from '../projects/git/mirror';
+import { promisify } from 'node:util';
 import type { GitBackedProject } from '../projects/git/types';
 import { isObjectFetchTooLarge } from '../shared/over-limit-memo';
 import { bumpBounded } from '../shared/ttl-memo';
+import { gitEnv, runGit, scratchDir, treeObjects } from './release-tree-git';
+
+const execFileAsync = promisify(execFile);
 
 /**
  * The release archive cap. A release is the repository's whole tree at the
@@ -97,14 +104,31 @@ async function ensureArchiveObjects(limit: number, fetch: (maxBytes: number) => 
 }
 
 /**
+ * Make `oids` present in the store at `mirror`, and return the bytes received.
+ * Only the ones it lacks are asked for: in a tree thread each request goes to
+ * the API process (`release-tree-git.ts`), and most builds need none.
+ */
+async function ensureObjects(mirror: string, oids: readonly string[], options?: { maxBytes?: number; overLimitKey?: string }): Promise<number> {
+  const wanted = [...new Set(oids)].filter((oid) => HEX40.test(oid));
+  if (wanted.length === 0) return 0;
+  const checked = (await gitStdin(mirror, {}, ['cat-file', '--batch-check=%(objectname)'], `${wanted.join('\n')}\n`)).toString('utf8');
+  const missing: string[] = [];
+  for (const line of checked.split('\n')) {
+    const [oid, state] = line.split(' ');
+    if (oid && state === 'missing') missing.push(oid);
+  }
+  return missing.length === 0 ? 0 : treeObjects().ensureObjects(mirror, missing, options);
+}
+
+/**
  * The root tree ID of `commit`, or null. Every tree of the commit is present
  * in the mirror afterwards, and no file: what `ls-tree -r` and `read-tree`
  * read. The ID comes from the commit object, because `rev-parse
  * <commit>^{tree}` fails while the tree has not arrived.
  */
 export async function commitRootTree(mirror: string, commit: string): Promise<string | null> {
-  await ensureCommitTrees(mirror, [commit]);
-  const result = await runGitCapture(['log', '--no-walk', '--format=%T', commit, '--'], mirror);
+  await treeObjects().ensureCommitTrees(mirror, [commit]);
+  const result = await runGit(['log', '--no-walk', '--format=%T', commit, '--'], mirror);
   const tree = result.stdout.trim();
   if (result.exitCode !== 0 || !HEX40.test(tree)) return null;
   return (await isTreeObject(mirror, tree)) ? tree : null;
@@ -113,7 +137,7 @@ export async function commitRootTree(mirror: string, commit: string): Promise<st
 /** Is `treeId` a tree object in the mirror? */
 export async function isTreeObject(mirror: string, treeId: string): Promise<boolean> {
   if (!HEX40.test(treeId)) return false;
-  const result = await runGitCapture(['cat-file', '-t', treeId], mirror);
+  const result = await runGit(['cat-file', '-t', treeId], mirror);
   return result.exitCode === 0 && result.stdout.trim() === 'tree';
 }
 
@@ -126,7 +150,7 @@ export async function listConfigFiles(
   treeId: string,
   env?: Record<string, string>,
 ): Promise<ConfigReleaseFile[]> {
-  const result = await runGitCapture(['ls-tree', '-r', '-z', treeId], mirror, null, env);
+  const result = await runGit(['ls-tree', '-r', '-z', treeId], mirror, env);
   if (result.exitCode !== 0) {
     throw new Error(`git ls-tree ${treeId} failed: ${result.stderr.trim()}`);
   }
@@ -224,15 +248,15 @@ const ARCHIVE_IDENTITY = {
  *   writes.
  */
 async function withScratchRepo<T>(mirror: string, fn: (repo: string, env: Record<string, string>) => Promise<T>): Promise<T> {
-  const repo = await mkdtemp(join(tmpdir(), 'kortix-config-archive-'));
+  const repo = await mkdtemp(join(scratchDir(), 'kortix-config-archive-'));
   try {
-    const init = await runGitCapture(['init', '--quiet', '--bare', repo], tmpdir());
+    const init = await runGit(['init', '--quiet', '--bare', repo], scratchDir());
     if (init.exitCode !== 0) throw new Error(`git init scratch repo failed: ${init.stderr.trim()}`);
     await mkdir(join(repo, 'info'), { recursive: true });
     await writeFile(join(repo, 'info', 'attributes'), '* -export-ignore -export-subst\n');
     // The mirror is bare, so this is `<mirror>/objects`; asking git also
     // covers a non-bare repository.
-    const objects = await runGitCapture(['rev-parse', '--git-path', 'objects'], mirror);
+    const objects = await runGit(['rev-parse', '--git-path', 'objects'], mirror);
     if (objects.exitCode !== 0) throw new Error(`git rev-parse --git-path objects failed: ${objects.stderr.trim()}`);
     const env = { GIT_ALTERNATE_OBJECT_DIRECTORIES: resolve(mirror, objects.stdout.trim()), ...ARCHIVE_IDENTITY };
     return await fn(repo, env);
@@ -254,7 +278,10 @@ export async function buildConfigArchive(
   limit = MAX_CONFIG_ARCHIVE_BYTES,
 ): Promise<Buffer> {
   if (!HEX40.test(treeId)) throw new Error(`invalid config tree id: ${treeId}`);
-  await ensureArchiveObjects(limit, (maxBytes) => ensureTreeContents(mirror, treeId, { maxBytes }));
+  // The tree itself, then its files. A fetch of this tree once over the bound is not tried again.
+  await ensureObjects(mirror, [treeId]);
+  const blobs = (await listConfigFiles(mirror, treeId)).map(([, , blob]) => blob);
+  await ensureArchiveObjects(limit, (maxBytes) => ensureObjects(mirror, blobs, { maxBytes, overLimitKey: `tree:${treeId}` }));
   return withScratchRepo(mirror, (repo, env) => archiveTree(repo, env, treeId, limit));
 }
 
@@ -264,7 +291,7 @@ async function archiveTree(
   treeId: string,
   limit: number,
 ): Promise<Buffer> {
-  const wrapped = await runGitCapture(['commit-tree', treeId, '-m', 'config'], repo, null, env);
+  const wrapped = await runGit(['commit-tree', treeId, '-m', 'config'], repo, env);
   const commit = wrapped.stdout.trim();
   if (wrapped.exitCode !== 0 || !HEX40.test(commit)) {
     throw new Error(`git commit-tree ${treeId} failed: ${wrapped.stderr.trim()}`);
@@ -283,7 +310,7 @@ async function archiveTree(
  * OpenCode config file (`LEFTOVER_OPENCODE_CONFIGS`), which would make the
  * release look like one a harness reads.
  */
-interface ReleaseTreeSource {
+export interface ReleaseTreeSource {
   /** The commit's root tree ID in the mirror. */
   rootTree: string;
   /** Files left out of the release. */
@@ -327,7 +354,7 @@ async function gitStdin(repo: string, env: Record<string, string>, args: string[
   const child = spawn('git', args, {
     cwd: repo,
     // It may read the mirror (alternates), which must never fetch on its own.
-    env: childProcessEnv({ GIT_TERMINAL_PROMPT: '0', ...env, GIT_NO_LAZY_FETCH: '1' }),
+    env: gitEnv(env),
     stdio: ['pipe', 'pipe', 'pipe'],
   });
   const stdout: Buffer[] = [];
@@ -371,15 +398,16 @@ async function gitStdin(repo: string, env: Record<string, string>, args: string[
  *
  * `work` is charged in characters a loop actually touches (a prefix compare,
  * a candidate path, a directory prefix), never in events: a string the
- * repository chose cannot make one charged unit expensive. The build also
- * gives the event loop back every `WORK_PER_YIELD` units (`pace`), so even a
- * build at its bounds never stalls other requests, and it stops after
- * `MAX_LIST_MILLIS` of wall time.
+ * repository chose cannot make one charged unit expensive. The build stops
+ * after `MAX_LIST_MILLIS` of wall time, well inside the tree thread's own
+ * limit (`tree-jobs.ts`). It gives its event loop back every
+ * `WORK_PER_YIELD` units (`pace`): a call made in the API process itself (a
+ * test, a measurement) never stalls it either.
  */
 export class ListBudget {
   /** Bytes read from blobs. Every read blob ships, so the tar bound applies. */
   readBytes = MAX_CONFIG_TAR_BYTES;
-  /** Bytes of code parsed for imports, synchronously on the API event loop. */
+  /** Bytes of code parsed for imports. */
   parseBytes = MAX_PARSED_CODE_BYTES;
   /** Bytes downloaded into a partial mirror. */
   downloadBytes = MAX_CONFIG_TAR_BYTES;
@@ -412,11 +440,11 @@ export class ListBudget {
     if (performance.now() - this.startedAt > MAX_LIST_MILLIS) throw new ConfigArchiveTooLargeError(MAX_CONFIG_TAR_BYTES);
   }
 
-  /** `ensureStoreObjects` for `oids`, charged to this build. */
+  /** `ensureObjects` for `oids`, charged to this build. */
   async download(mirror: string, oids: readonly string[]): Promise<void> {
     if (oids.length === 0) return;
     this.spend('gitCalls', 1);
-    this.spend('downloadBytes', await ensureStoreObjects(mirror, oids, { maxBytes: Math.max(1, this.downloadBytes) }));
+    this.spend('downloadBytes', await ensureObjects(mirror, oids, { maxBytes: Math.max(1, this.downloadBytes) }));
   }
 }
 
@@ -436,9 +464,9 @@ const MAX_LIST_GIT_CALLS = 512;
 
 /**
  * A module larger than this ships but is never read to be parsed: Bun's import
- * scan runs on the event loop, ~9.5 ms per MiB of plain code (measured
- * 2026-11-24) and up to ~70 ms per MiB of code built to be slow (Strix), so
- * one parse blocks it for at most ~35 ms.
+ * scan takes ~9.5 ms per MiB of plain code (measured 2026-11-24) and up to
+ * ~70 ms per MiB of code built to be slow (Strix), so one parse takes at most
+ * ~35 ms.
  */
 const MAX_PARSED_BLOB_BYTES = 512 * 1024;
 /** The bytes one `git cat-file --batch` call returns at most. */
@@ -503,12 +531,12 @@ async function readBlobs(mirror: string, blobs: readonly string[], maxBlobBytes:
 /** `tree` without `paths`, through a throwaway index in `repo`. */
 async function pruneTree(repo: string, env: Record<string, string>, tree: string, paths: string[]): Promise<string> {
   const indexEnv = { ...env, GIT_INDEX_FILE: join(repo, 'release.index') };
-  const read = await runGitCapture(['read-tree', tree], repo, null, indexEnv);
+  const read = await runGit(['read-tree', tree], repo, indexEnv);
   if (read.exitCode !== 0) throw new Error(`git read-tree ${tree} failed: ${read.stderr.trim()}`);
   // Mode 0 removes the entry. `--index-info` needs no work tree; `--force-remove` does.
   await gitWithInput(repo, indexEnv, ['update-index', '-z', '--index-info'], paths.map((path) => `0 ${'0'.repeat(40)}\t${path}`));
   // The tree ID needs the entries, not the files: the mirror may not hold them yet.
-  const written = await runGitCapture(['write-tree', '--missing-ok'], repo, null, indexEnv);
+  const written = await runGit(['write-tree', '--missing-ok'], repo, indexEnv);
   const pruned = written.stdout.trim();
   if (written.exitCode !== 0 || !HEX40.test(pruned)) throw new Error(`git write-tree failed: ${written.stderr.trim()}`);
   return pruned;
@@ -572,17 +600,17 @@ async function exportIgnoredPaths(
     }
   }
   const queried = [...queriedSet];
-  const repo = await mkdtemp(join(tmpdir(), 'kortix-config-attributes-'));
+  const repo = await mkdtemp(join(scratchDir(), 'kortix-config-attributes-'));
   try {
-    const init = await runGitCapture(['init', '--quiet', '--bare', repo], tmpdir());
+    const init = await runGit(['init', '--quiet', '--bare', repo], scratchDir());
     if (init.exitCode !== 0) throw new Error(`git init scratch repo failed: ${init.stderr.trim()}`);
-    const objects = await runGitCapture(['rev-parse', '--git-path', 'objects'], mirror);
+    const objects = await runGit(['rev-parse', '--git-path', 'objects'], mirror);
     if (objects.exitCode !== 0) throw new Error(`git rev-parse --git-path objects failed: ${objects.stderr.trim()}`);
     const env = {
       GIT_ALTERNATE_OBJECT_DIRECTORIES: resolve(mirror, objects.stdout.trim()),
       GIT_INDEX_FILE: join(repo, 'attributes.index'),
     };
-    const read = await runGitCapture(['read-tree', rootTree], repo, null, env);
+    const read = await runGit(['read-tree', rootTree], repo, env);
     if (read.exitCode !== 0) throw new Error(`git read-tree ${rootTree} failed: ${read.stderr.trim()}`);
     // `-z` output: path NUL attribute NUL value NUL, per queried path.
     const out = (await gitWithInput(repo, env, ['check-attr', '--cached', '-z', '--stdin', 'export-ignore'], queried)).split('\0');
@@ -639,7 +667,7 @@ export async function readComposedRelease(
     if (!wanted) return { treeId, files, archive: null };
     const limit = options.limit ?? MAX_CONFIG_ARCHIVE_BYTES;
     // Exactly the files that ship: an `export-ignore` path is never downloaded.
-    await ensureArchiveObjects(limit, (maxBytes) => ensureStoreObjects(mirror, files.map(([, , blob]) => blob), { maxBytes }));
+    await ensureArchiveObjects(limit, (maxBytes) => ensureObjects(mirror, files.map(([, , blob]) => blob), { maxBytes }));
     return { treeId, files, archive: await archiveTree(repo, env, treeId, limit) };
   });
 }
@@ -654,13 +682,13 @@ export async function readFileTree(
     const indexEnv = { ...env, GIT_INDEX_FILE: join(repo, 'release.index') };
     await gitWithInput(repo, indexEnv, ['update-index', '-z', '--add', '--index-info'], files.map(([path, mode, blob]) => `${mode} ${blob}\t${path}`));
     // The tree ID needs the entries, not the files: the mirror may not hold them yet.
-    const written = await runGitCapture(['write-tree', '--missing-ok'], repo, null, indexEnv);
+    const written = await runGit(['write-tree', '--missing-ok'], repo, indexEnv);
     const treeId = written.stdout.trim();
     if (written.exitCode !== 0 || !HEX40.test(treeId)) throw new Error(`git write-tree failed: ${written.stderr.trim()}`);
     const wanted = typeof options.archive === 'function' ? options.archive(treeId) : options.archive;
     if (!wanted) return { treeId, archive: null };
     const limit = options.limit ?? MAX_CONFIG_ARCHIVE_BYTES;
-    await ensureArchiveObjects(limit, (maxBytes) => ensureStoreObjects(mirror, files.map(([, , blob]) => blob), { maxBytes }));
+    await ensureArchiveObjects(limit, (maxBytes) => ensureObjects(mirror, files.map(([, , blob]) => blob), { maxBytes }));
     return { treeId, archive: await archiveTree(repo, env, treeId, limit) };
   });
 }
@@ -1111,10 +1139,27 @@ export async function resolveReleaseTreeSource(
   for (const path of LEFTOVER_OPENCODE_CONFIGS) {
     // Resolved from the tree alone: `cat-file -e` also needs the file, which
     // a partial mirror may not hold, and would answer "absent".
-    const exists = await runGitCapture(['rev-parse', '--verify', '--quiet', `${commit}:${path}`], mirror);
+    const exists = await runGit(['rev-parse', '--verify', '--quiet', `${commit}:${path}`], mirror);
     if (exists.exitCode === 0 && !exportIgnored.includes(path)) exportIgnored.push(path);
   }
   return { source: { rootTree, exportIgnored } };
+}
+
+/**
+ * The files of one agent's release at `commit`: `agentReleaseFiles` of its
+ * tree, without the paths the whole-tree release leaves out (`export-ignore`).
+ */
+export async function agentCommitFiles(
+  mirror: string,
+  project: Pick<GitBackedProject, 'manifestPath'>,
+  commit: string,
+  input: AgentFileListInput,
+): Promise<{ files: ConfigReleaseFile[] } | { reason: string }> {
+  const resolved = await resolveReleaseTreeSource(mirror, project, commit);
+  if (!('source' in resolved)) return { reason: resolved.reason };
+  const ignored = new Set(resolved.source.exportIgnored);
+  const listed = await agentReleaseFiles(mirror, resolved.source.rootTree, input);
+  return { files: listed.filter(([path]) => !ignored.has(path)) };
 }
 
 /**
@@ -1130,12 +1175,12 @@ async function archiveThroughGzip(
   limit: number,
 ): Promise<Buffer> {
   const tarPath = join(repo, 'config.tar');
-  const archived = await runGitCapture(['archive', '--format=tar', '-o', tarPath, commit], repo, null, env);
+  const archived = await runGit(['archive', '--format=tar', '-o', tarPath, commit], repo, env);
   if (archived.exitCode !== 0) throw new Error(`git archive ${commit} failed: ${archived.stderr.trim()}`);
   const tarBytes = (await stat(tarPath)).size;
   if (tarBytes > MAX_CONFIG_TAR_BYTES) throw new ConfigArchiveTooLargeError(limit, tarBytes);
   try {
-    await execFileAsync('gzip', ['-n', '-f', tarPath], { timeout: 60_000 });
+    await execFileAsync('gzip', ['-n', '-f', tarPath], { timeout: 60_000, env: gitEnv() });
   } catch (error) {
     throw new Error(`gzip -n failed: ${(error as Error).message}`);
   }

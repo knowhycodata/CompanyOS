@@ -14,7 +14,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { GitBackedProject } from '../projects/git/types';
-import { __clearConfigReleaseCachesForTests, buildConfigRelease, oneBuildPerProject, ProjectBuildBusyError } from './builder';
+import { __clearConfigReleaseCachesForTests, buildConfigRelease } from './builder';
 import { refreshMirror } from '../projects/git/mirror';
 import { __clearReleaseTreeMemosForTests, agentReleaseFiles, commitRootTree, ConfigArchiveTooLargeError, ListBudget, listConfigFiles } from './release-tree';
 import { MemoryConfigArchiveStore } from './__tests__/fakes';
@@ -340,23 +340,6 @@ describe('agentReleaseFiles bounds', () => {
     expect(release.reason).toBeNull();
     expect(release.files!.map(([path]) => path)).toEqual(['skills/notes/SKILL.md']);
   }, 120_000);
-
-  test('one project runs one file-list build at a time; a fifth waiting build answers busy', async () => {
-    const projectId = crypto.randomUUID();
-    const order: number[] = [];
-    let release!: () => void;
-    const first = oneBuildPerProject(projectId, () => new Promise<number>((resolveBuild) => { release = () => resolveBuild(0); }).then((value) => { order.push(value); return value; }));
-    const waiting = [1, 2, 3, 4].map((value) => oneBuildPerProject(projectId, async () => { order.push(value); return value; }));
-    await expect(oneBuildPerProject(projectId, async () => 5)).rejects.toBeInstanceOf(ProjectBuildBusyError);
-    // Another project is never held behind this one.
-    expect(await oneBuildPerProject(crypto.randomUUID(), async () => 'other')).toBe('other');
-    expect(order).toEqual([]);
-    release();
-    expect(await Promise.all([first, ...waiting])).toEqual([0, 1, 2, 3, 4]);
-    expect(order).toEqual([0, 1, 2, 3, 4]);
-    // The queue is gone once it drains: the next build starts at once.
-    expect(await oneBuildPerProject(projectId, async () => 6)).toBe(6);
-  });
 
   test('a tool module over the parse bound ships but is not parsed for imports', async () => {
     const big = `import { side } from './side'\nexport const blob = "${'a'.repeat(11 * 1024 * 1024)}"\nexport default { description: "b", parameters: { type: "object" }, execute: () => side }\n`;

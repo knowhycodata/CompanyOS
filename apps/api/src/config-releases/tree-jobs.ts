@@ -1,0 +1,305 @@
+/**
+ * The tree threads: where every read of repository content for a config
+ * release runs (`tree-thread.ts`). The API event loop only sends a job and
+ * receives its result, so no repository can stall the API, whatever it holds.
+ *
+ * - `threads` threads per API process run one job each.
+ * - One job per project runs at a time: requests for many commits or agents
+ *   of one project cannot take every thread.
+ * - A job may run `jobMillis` of its own time: the time its thread waits for
+ *   a download the API process runs for it does not count, the download has
+ *   its own bounds. Past that, or past `wallMillis` in all, the thread is
+ *   stopped and replaced. The job fails with `TreeJobTimeoutError`, and the
+ *   same job of that project fails at once for `timeoutMemoMillis`.
+ * - At most `maxWaitingPerProject` jobs of one project, and `maxWaiting` in
+ *   all, wait for a thread, each for at most `maxWaitMillis`. Past any of
+ *   them: `TreeJobBusyError`. Nothing is cached for it: the caller asks again.
+ */
+
+import { createHash, randomUUID } from 'node:crypto';
+import { rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import type { ReleaseTreeObjects } from './release-tree-git';
+import {
+  asBuffer,
+  deserializeError,
+  serializeError,
+  type FromThread,
+  type ToThread,
+  type TreeOp,
+  type TreeOpArgs,
+  type TreeOpResult,
+} from './tree-protocol';
+
+/** A job could not start: too many jobs of its project, or in all, wait, or it waited too long. */
+export class TreeJobBusyError extends Error {
+  constructor(readonly projectId: string) {
+    super('another release of this project is being built; it is tried again at the next convergence');
+    this.name = 'TreeJobBusyError';
+  }
+}
+
+/** A job ran past its time, or the same job of this project did so recently. */
+export class TreeJobTimeoutError extends Error {
+  constructor(readonly projectId: string) {
+    super('building the release took too long; it is tried again in a few minutes');
+    this.name = 'TreeJobTimeoutError';
+  }
+}
+
+export interface TreeJobsOptions {
+  /** Answers the downloads a thread asks for, with the project's credentials. */
+  objects: ReleaseTreeObjects;
+  /** The variables every git child process of a thread starts from. */
+  env: Record<string, string | undefined>;
+  /** Tests: another thread module that speaks `tree-protocol.ts`. */
+  entry?: URL;
+  threads?: number;
+  jobMillis?: number;
+  wallMillis?: number;
+  maxWaitMillis?: number;
+  maxWaitingPerProject?: number;
+  maxWaiting?: number;
+  timeoutMemoMillis?: number;
+}
+
+const DEFAULTS = {
+  threads: 2,
+  jobMillis: 60_000,
+  wallMillis: 300_000,
+  maxWaitMillis: 30_000,
+  maxWaitingPerProject: 8,
+  maxWaiting: 64,
+  timeoutMemoMillis: 600_000,
+};
+/** Projects, and jobs per project, the timeout memo holds at most. */
+const MAX_MEMO_PROJECTS = 1_000;
+const MAX_MEMO_JOBS_PER_PROJECT = 100;
+
+interface Job {
+  projectId: string;
+  op: TreeOp;
+  args: unknown;
+  resolve: (value: unknown) => void;
+  reject: (error: Error) => void;
+  waitTimer?: ReturnType<typeof setTimeout>;
+}
+
+interface RunningJob extends Job {
+  id: number;
+  /** Requests the thread waits on: its clock stops while any is open. */
+  open: number;
+  workLeft: number;
+  workSince: number;
+  workTimer?: ReturnType<typeof setTimeout>;
+  wallTimer: ReturnType<typeof setTimeout>;
+  /** The errors of this job's requests, by request ID: a job that fails on one fails with that very error. */
+  requestErrors: Map<number, unknown>;
+}
+
+/** Bun's `Worker`: `ref`/`unref` decide whether it keeps the process alive. */
+type Thread = Worker & { ref(): void; unref(): void };
+
+interface Slot {
+  thread: Thread;
+  scratchDir: string;
+  job: RunningJob | null;
+  stopped: boolean;
+}
+
+/** The bytes of a result, as `Buffer`s again. */
+function revive(op: TreeOp, value: unknown): unknown {
+  if (op === 'archive') return asBuffer(value as Uint8Array);
+  if ((op === 'readComposed' || op === 'fileTree') && value && typeof value === 'object') {
+    const archive = (value as { archive: Uint8Array | null }).archive;
+    return { ...value, archive: archive ? asBuffer(archive) : null };
+  }
+  return value;
+}
+
+export class TreeJobs {
+  private readonly options: Required<Omit<TreeJobsOptions, 'entry'>> & { entry: URL };
+  private readonly slots: Slot[] = [];
+  private readonly waiting: Job[] = [];
+  private readonly runningProjects = new Set<string>();
+  /** Per project: the digest of each job that ran past its time, and when that stops counting. */
+  private readonly timedOut = new Map<string, Map<string, number>>();
+  private lastJob = 0;
+
+  constructor(options: TreeJobsOptions) {
+    this.options = { ...DEFAULTS, entry: new URL('./tree-thread.ts', import.meta.url), ...options };
+  }
+
+  /** Run `op` for `projectId` in a tree thread. */
+  run<K extends TreeOp>(projectId: string, op: K, args: TreeOpArgs<K>): Promise<TreeOpResult<K>> {
+    if (this.timedOutRecently(projectId, op, args)) return Promise.reject(new TreeJobTimeoutError(projectId));
+    const ofProject = this.waiting.filter((job) => job.projectId === projectId).length;
+    if (ofProject >= this.options.maxWaitingPerProject || this.waiting.length >= this.options.maxWaiting) {
+      return Promise.reject(new TreeJobBusyError(projectId));
+    }
+    return new Promise<TreeOpResult<K>>((resolve, reject) => {
+      const job: Job = { projectId, op, args, resolve: resolve as (value: unknown) => void, reject };
+      job.waitTimer = setTimeout(() => {
+        const at = this.waiting.indexOf(job);
+        if (at < 0) return;
+        this.waiting.splice(at, 1);
+        reject(new TreeJobBusyError(projectId));
+      }, this.options.maxWaitMillis);
+      this.waiting.push(job);
+      this.pump();
+    });
+  }
+
+  /** Stop every thread. Tests only: a job still running fails. */
+  async close(): Promise<void> {
+    for (const slot of [...this.slots]) this.stop(slot, new Error('tree threads closed'));
+  }
+
+  private pump(): void {
+    for (;;) {
+      const at = this.waiting.findIndex((job) => !this.runningProjects.has(job.projectId));
+      if (at < 0) return;
+      const slot = this.slots.find((candidate) => !candidate.job) ?? (this.slots.length < this.options.threads ? this.startThread() : null);
+      if (!slot) return;
+      const [job] = this.waiting.splice(at, 1);
+      this.start(slot, job!);
+    }
+  }
+
+  private startThread(): Slot {
+    const scratchDir = join(tmpdir(), `kortix-tree-thread-${randomUUID()}`);
+    const thread = new Worker(this.options.entry) as Thread;
+    const slot: Slot = { thread, scratchDir, job: null, stopped: false };
+    thread.unref();
+    thread.addEventListener('message', (event: MessageEvent<FromThread>) => this.receive(slot, event.data));
+    thread.addEventListener('error', (event) => {
+      event.preventDefault();
+      this.stop(slot, new Error(`tree thread failed: ${(event as ErrorEvent).message}`));
+    });
+    thread.addEventListener('close', () => this.stop(slot, new Error('tree thread exited')));
+    this.post(slot, { type: 'init', env: this.options.env, scratchDir });
+    this.slots.push(slot);
+    return slot;
+  }
+
+  private post(slot: Slot, message: ToThread): void {
+    slot.thread.postMessage(message);
+  }
+
+  private start(slot: Slot, job: Job): void {
+    clearTimeout(job.waitTimer);
+    const running: RunningJob = {
+      ...job,
+      id: (this.lastJob += 1),
+      open: 0,
+      workLeft: this.options.jobMillis,
+      workSince: 0,
+      wallTimer: setTimeout(() => this.stop(slot, this.noteTimeout(running)), this.options.wallMillis),
+      requestErrors: new Map(),
+    };
+    slot.job = running;
+    this.runningProjects.add(job.projectId);
+    slot.thread.ref();
+    this.resumeClock(slot, running);
+    this.post(slot, { type: 'job', id: running.id, op: job.op, args: job.args });
+  }
+
+  private resumeClock(slot: Slot, job: RunningJob): void {
+    job.workSince = performance.now();
+    job.workTimer = setTimeout(() => this.stop(slot, this.noteTimeout(job)), Math.max(0, job.workLeft));
+  }
+
+  private pauseClock(job: RunningJob): void {
+    clearTimeout(job.workTimer);
+    job.workLeft -= performance.now() - job.workSince;
+  }
+
+  private receive(slot: Slot, message: FromThread): void {
+    const job = slot.job;
+    if (message.type === 'request') {
+      if (!job || job.id !== message.jobId) return;
+      void this.answer(slot, job, message.id, message.method, message.args);
+      return;
+    }
+    if (!job || job.id !== message.id) return;
+    this.finish(slot, job);
+    if (message.ok) {
+      job.resolve(revive(job.op, message.value));
+      return;
+    }
+    const original = message.error.requestId === undefined ? undefined : job.requestErrors.get(message.error.requestId);
+    job.reject(original instanceof Error ? original : deserializeError(message.error));
+  }
+
+  /** Run a download the thread asked for; its clock stops meanwhile. */
+  private async answer(slot: Slot, job: RunningJob, id: number, method: keyof ReleaseTreeObjects, args: unknown[]): Promise<void> {
+    if (job.open++ === 0) this.pauseClock(job);
+    let reply: ToThread;
+    try {
+      const handler = this.options.objects[method] as (...input: unknown[]) => Promise<unknown>;
+      reply = { type: 'response', id, ok: true, value: await handler(...args) };
+    } catch (error) {
+      job.requestErrors.set(id, error);
+      reply = { type: 'response', id, ok: false, error: serializeError(error) };
+    }
+    if (slot.job !== job) return;
+    if (--job.open === 0) this.resumeClock(slot, job);
+    this.post(slot, reply);
+  }
+
+  private finish(slot: Slot, job: RunningJob): void {
+    clearTimeout(job.workTimer);
+    clearTimeout(job.wallTimer);
+    slot.job = null;
+    this.runningProjects.delete(job.projectId);
+    slot.thread.unref();
+    this.pump();
+  }
+
+  /** Stop `slot`'s thread and remove its scratch folder; its job fails with `error`. */
+  private stop(slot: Slot, error: Error): void {
+    if (slot.stopped) return;
+    slot.stopped = true;
+    const at = this.slots.indexOf(slot);
+    if (at >= 0) this.slots.splice(at, 1);
+    slot.thread.terminate();
+    void rm(slot.scratchDir, { recursive: true, force: true }).catch(() => undefined);
+    const job = slot.job;
+    if (job) {
+      this.finish(slot, job);
+      job.reject(error);
+    } else {
+      this.pump();
+    }
+  }
+
+  private digest(op: TreeOp, args: unknown): string {
+    return createHash('sha256').update(op).update('\0').update(JSON.stringify(args)).digest('hex');
+  }
+
+  private noteTimeout(job: RunningJob): TreeJobTimeoutError {
+    let jobs = this.timedOut.get(job.projectId);
+    if (!jobs) {
+      jobs = new Map();
+      this.timedOut.set(job.projectId, jobs);
+      if (this.timedOut.size > MAX_MEMO_PROJECTS) this.timedOut.delete(this.timedOut.keys().next().value!);
+    }
+    jobs.set(this.digest(job.op, job.args), Date.now() + this.options.timeoutMemoMillis);
+    if (jobs.size > MAX_MEMO_JOBS_PER_PROJECT) jobs.delete(jobs.keys().next().value!);
+    return new TreeJobTimeoutError(job.projectId);
+  }
+
+  /** Did this very job of this project run past its time lately? Only a project with such a job pays for the digest. */
+  private timedOutRecently(projectId: string, op: TreeOp, args: unknown): boolean {
+    const jobs = this.timedOut.get(projectId);
+    if (!jobs) return false;
+    const key = this.digest(op, args);
+    const until = jobs.get(key);
+    if (until === undefined) return false;
+    if (until > Date.now()) return true;
+    jobs.delete(key);
+    if (jobs.size === 0) this.timedOut.delete(projectId);
+    return false;
+  }
+}
