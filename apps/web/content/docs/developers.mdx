@@ -595,7 +595,33 @@ After the merge, running sessions on that base pick up the new config, and Korti
 
 - An agent that declares `kortix_permissions` merges only when the grant includes `project.gitops.merge`. An agent without `kortix_permissions` cannot merge.
 - A session cannot merge a change request it opened unless its grant in `kortix.yaml` includes `project.gitops.merge`. Without it, the merge returns `403` `CR_SELF_MERGE_REFUSED`.
-- A merge that changes `agents`, `default_agent` or `triggers` also needs the permission the direct edit needs: `project.agent.write`, or `project.trigger.create`, `.update` or `.delete`. The merging agent cannot grant any permission it does not hold.
+- A merge also needs the permission that edits each `kortix.yaml` section it changes (table below), compared between the base branch and what the merge lands. The merging agent cannot grant any permission it does not hold. The same rule holds for a person: a custom role with `project.gitops.merge` but without `project.connector.write` cannot merge a change to a connector.
+
+| Section the change request changes | The merge also needs |
+| --- | --- |
+| `agents`, `default_agent`, `builtin_agents`, `tools`, `extensions`, `evals` | `project.agent.write` |
+| `connectors`, `policies`, `policy`, `approvals`, an agent's `policy_sets` | `project.connector.write` |
+| `triggers` | `project.trigger.create`, `.update` or `.delete`; `trigger_session_readers`: `.update` |
+| `apps` | `project.app.write` |
+| `skills` | `project.skill.write` |
+| `commands` | `project.command.write` |
+| `sandbox` | `project.sandbox.write` |
+| `env` | `project.secret.write` |
+| `project`, `spaces`, `imports`, any other key | `project.settings.write` |
+
+The Manager, Admin and Owner roles hold all of them. An agent session that pushes the default branch directly needs all of them too.
+
+#### Secrets in a change request
+
+The merge reads every commit the change request adds to its base: a merge commit by what its resolution adds, and a file git calls binary as text. A line that holds a provider-shaped key stops the merge: a private key, or an Anthropic, OpenAI-style, GitHub, AWS access key, Slack, Google API or Stripe live key. The answer is `409` `CR_SECRET_DETECTED`. Its `findings` name the `file`, `line`, `commit` and `rule` of each key, never the value.
+
+1. Store the value as a secret: `kortix secrets request <NAME>`, or `kortix secrets set <NAME>=-` with the value on stdin.
+2. Read it from the environment in the code.
+3. Remove the key from every commit of the branch, then force-push it. A commit that deletes the key is not enough: the merge carries the earlier commit.
+
+A change the check cannot read in full has more than 500 commits or 20 merge commits, a patch over 32 MB or an octopus merge, or takes more than 10 seconds to check. A long-lived branch merged into `main` is often one. A person merges it without an override, and the change request records the reason, who and when in `metadata.secret_scan_skipped`. An agent session, a service account, a key bound to a workspace or an OAuth token gets `409` `CR_SECRET_SCAN_INCOMPLETE`: split the change or ask a person to merge it.
+
+A person who checked a finding, such as a test fixture, merges anyway with `kortix cr merge <cr> --allow-secrets` (REST: `{"allow_secrets": true}`). The change request records who did it and the findings in `metadata.secret_override`. Only a person's browser sign-in or a personal key bound to no workspace may override: an agent session, a service account, a key bound to a workspace or an OAuth token gets `403` `CR_SECRET_OVERRIDE_REFUSED`.
 
 A grant that names `project.cr.open` or `project.cr.merge` counts as `project.gitops.push` or `project.gitops.merge`. Write the `gitops` name in new grants.
 
@@ -606,7 +632,7 @@ A grant that names `project.cr.open` or `project.cr.merge` counts as `project.gi
 | List, show, diff, merge preview | Read access to the workspace. |
 | Open | `project.gitops.push` |
 | Edit, close, reopen | Write access to the workspace. An agent also needs `project.gitops.push`. |
-| Merge | `project.gitops.merge`, plus the manifest permissions above for an agent. |
+| Merge | `project.gitops.merge`, plus the manifest permissions above, for a person and for an agent. |
 | Request changes | `project.review.act` |
 
 #### `kortix cr` commands
@@ -620,7 +646,7 @@ A grant that names `project.cr.open` or `project.cr.merge` counts as `project.gi
 | `kortix cr diff <cr>` | Prints the unified diff. |
 | `kortix cr open --head <branch> --title <t> [--base <branch>] [--description <t>]` | Opens a change request. Aliases: `--from`, `--into`, `--body`. |
 | `kortix cr merge-preview <cr>` | Shows whether it can merge, and the conflicts. |
-| `kortix cr merge <cr> [--message <t>]` | Merges it. |
+| `kortix cr merge <cr> [--message <t>] [--allow-secrets]` | Merges it. `--allow-secrets` merges past the secret check; only a person may. |
 | `kortix cr request-changes <cr> --message <t>` | Sends the note to the agent that opened it. |
 | `kortix cr close <cr>` | Closes it without a merge. |
 | `kortix cr reopen <cr>` | Reopens a closed one. |
@@ -640,7 +666,11 @@ Each command takes `--workspace <id>` and `--host <name>`. `ls`, `show`, `diff`,
 | (conflict) | `409` | The merge conflicts. The body lists the files. |
 | (not open) | `409` | The change request is merged or closed. |
 | `CR_SELF_MERGE_REFUSED` | `403` | A session tried to merge its own change request without a merge grant. |
-| `CR_GOVERNANCE_UNVERIFIED` | `503` | Kortix could not read the manifest to check an agent's merge. Nothing merged. Retry. |
+| `CR_SECRET_DETECTED` | `409` | A commit of the change request adds a key. `findings` lists file, line, commit and rule. See [Secrets in a change request](#secrets-in-a-change-request). |
+| `CR_SECRET_SCAN_INCOMPLETE` | `409` | The secret check could not read the change in full and the caller is not a person. `unscanned` says why. Split it, or a person merges it. |
+| `CR_SECRET_OVERRIDE_REFUSED` | `403` | An agent session, a service account, a workspace-bound key or an OAuth token sent `allow_secrets`. Only a person may. |
+| `CR_HEAD_MOVED` | `409` | The head or the base branch moved after the merge checked it. Nothing merged. Retry. |
+| `CR_GOVERNANCE_UNVERIFIED` | `503` | Kortix could not read the change request to check the merge. Nothing merged. Retry. |
 | (manifest unreadable) | `502` | Kortix could not read the manifest from the head branch. |
 
 ### The Review page
@@ -1424,7 +1454,7 @@ sandbox:
 1. Traffic through the residential address is billed per GB from your credits.
 2. Kortix's own hosts (the API, the model gateway, the storage of boot files) and common package registries connect directly.
 3. UDP is blocked while it is on, so QUIC and WebRTC cannot reveal the sandbox's own address.
-4. A session on the template starts only where the deployment offers a residential IP, and only on the Platinum sandbox provider. Elsewhere it does not start, with the message "This sandbox template asks for a residential IP, which this deployment does not offer". It never falls back to the sandbox's own address. `kortix validate` prints a warning for every template that asks.
+4. A session on the template starts only where the deployment offers a residential IP, and only on the [Platinum](https://www.platinum.dev) sandbox provider. Elsewhere it does not start, with the message "This sandbox template asks for a residential IP, which this deployment does not offer". It never falls back to the sandbox's own address. `kortix validate` prints a warning for every template that asks.
 5. It is a boot setting, not part of the image: changing it rebuilds nothing. A new sandbox uses the current value; a running one keeps its own.
 6. A template created in **Workspace admin** → **Sandbox templates** has the same setting, the **Residential IP** box.
 
@@ -2568,7 +2598,7 @@ a prefix that names its kind. Create and manage them on
 | `kortix_pat_` | Workspace key (**Workspace settings** → **API keys**, `POST /v1/workspaces/<id>/tokens`, `kortix tokens new --scope …`) | One workspace. Every other workspace answers `403 credential_fence_refused`. | You, with your current role, narrowed by the key's scope. |
 | `kortix_pat_` | Personal key (`kortix login`, **Preferences** → **Personal keys**, `POST /v1/accounts/tokens` without `project_id`) | Every workspace you belong to. | You, with your role in each workspace. |
 | `kortix_sa_` | Service account key (**Workspace settings** → **Tokens & automation**, `kortix tokens service-accounts new`) | The service account's workspace. | The service account. It has no access until someone assigns it a role. |
-| `kortix_oat_` | OAuth access token from [Sign in with Kortix](/docs/developers#sign-in-with-kortix). It lasts 1 hour. A `kortix_ort_` refresh token gets a new one. | The workspace you chose on the consent screen. A token issued before 2026-11-06 reaches every workspace. | The person who approved the app. |
+| `kortix_oat_` | OAuth access token from [Sign in with Kortix](/docs/developers#sign-in-with-kortix). It lasts 1 hour. A `kortix_ort_` refresh token gets a new one. | The workspace you chose on the consent screen, or every workspace you can open when you chose **All my workspaces**. A token issued before 2026-11-06 reaches every workspace. | The person who approved the app. |
 | `kortix_gw_` | Workspace gateway key (`kortix gateway keys new`) | The LLM gateway inference routes of one workspace, and nothing else. See [Call the LLM gateway from your own app](#call-the-llm-gateway-from-your-own-app). | The workspace. |
 | `kortix_scim_` | SCIM token (**Workspace settings** → **Identity & directory**) | Directory sync under `/scim/v2` for one account. | The directory. |
 | `kortix_pat_` in `KORTIX_TOKEN` | Session token. Kortix sets it in every session sandbox. | The session's workspace. It ends with the session. | The agent of that one session. |
@@ -2769,13 +2799,16 @@ These are the codes clients branch on most. The linked section explains each fix
 | `workspace_setting_read_only` | `400` | `PATCH /v1/workspaces/:id` named a workspace setting. `field` and `writer` (the route that writes it) are in the body. | The `writer` route. |
 | `workspace_ambiguous` | `409` | A legacy account key names several workspaces (an account the split has not reached). | Name the workspace id. |
 | `no_workspace` | `409` | You belong to no workspace yet. | `POST /v1/workspaces`, or accept an invite. |
-| `new_workspace_requires_person` | `403` | An API key, a service account or a workspace key tried to create a workspace. | Sign in, or use a personal key. |
+| `new_workspace_requires_person` | `403` | An API key, a service account, a workspace key, an OAuth token bound to one workspace or an App viewer token tried to create a workspace. | Sign in, use a personal key, or reconnect the OAuth app and choose **All my workspaces**. |
 | `account_creation_restricted` | `403` | The deployment lets only its admin create workspaces. | Ask an admin for an invite. |
 | `request_deadline` | `503` | A request ran past the API's 25-second processing limit. | Retry the read. Check the state before you repeat a write. |
 | `git_mirror_unavailable` | `503` | The workspace repository is temporarily unreachable. | Retry after `Retry-After`. [Git](/docs/developers#git) |
 | `repository_push_rejected` | `409` | The git host refused a push because of branch protection or repository rules. | [Git](/docs/developers#who-can-clone-and-push) |
 | `CR_HEAD_NOT_AHEAD` | `422` | The change request branch has no commits ahead of its base. | [Git](/docs/developers#change-requests) |
 | `CR_SELF_MERGE_REFUSED` | `403` | A session tried to merge its own change request without a `project.gitops.merge` grant. | [Git](/docs/developers#change-requests) |
+| `CR_SECRET_DETECTED` | `409` | A commit of the change request adds a key. The merge is blocked. `findings` names file, line, commit and rule, never the value. | [Git](/docs/developers#secrets-in-a-change-request) |
+| `CR_SECRET_SCAN_INCOMPLETE` | `409` | The secret check could not read the change request in full, and only a person merges it. | [Git](/docs/developers#secrets-in-a-change-request) |
+| `CR_SECRET_OVERRIDE_REFUSED` | `403` | An agent session asked to merge past the secret check. Only a person may. | [Git](/docs/developers#secrets-in-a-change-request) |
 | `MANIFEST_INVALID` | `422` | The change request makes `kortix.yaml` invalid. The merge is blocked. `issues` lists the errors. | [kortix.yaml reference](/docs/developers#kortixyaml-reference) |
 | `PERSONAL_SECRET_REQUIRES_PRIVATE_SESSION` | `409` | You tried to share a session that holds a secret shared only with you. | [Security](/docs/guide#security) |
 | `project_secret_write_limit` | `429` | The workspace wrote secrets more than 100 times in one hour. | [Security](/docs/guide#security) |
@@ -3321,7 +3354,7 @@ A self-hosted instance without billing has none of these limits.
 
 ### Volumes and snapshots
 
-A volume is a Platinum volume, separate from the machine's root disk. A
+A volume is a [Platinum volume](https://www.platinum.dev/docs/volumes), separate from the machine's root disk. A
 `mounts` entry in the release config declares it.
 
 ```yaml
@@ -4918,6 +4951,14 @@ Each run creates a new session, and the session appears in the web app with the 
 - A runtime does not serve every session control. Check a control with `runtimeSupports` before you show it: see [Gate on runtime capabilities](/docs/developers#gate-on-runtime-capabilities).
 - Changes per release are in the [CHANGELOG](https://github.com/kortix-ai/CompanyOS/blob/dev/packages/sdk/CHANGELOG.md). Runnable examples are in [packages/sdk/examples](https://github.com/kortix-ai/CompanyOS/tree/dev/packages/sdk/examples) on GitHub. The npm package does not include them.
 
+### Artifact gallery folders
+
+Import `listArtifactFolders`, `createArtifactFolder`, `updateArtifactFolder`, and `deleteArtifactFolder` from `@kortix/sdk`. React consumers use `useArtifactFolders` and `useArtifactFolderMutations` from `@kortix/sdk/react`.
+
+Folders organize the gallery. Pass `folder_id` when creating, sharing, or updating an Artifact. Use `null` to move it to the root. `listArtifacts(projectId, { folder_id: 'root' })` lists unfiled Artifacts. Omit `folder_id` to list across folders. Folders nest: pass `parent_folder_id` to `createArtifactFolder` to create one inside another, or to `updateArtifactFolder` to move it (`null` moves it to the root). A missing parent returns `404`; a move into the folder itself or one of its subfolders returns `409`. Deleting a folder moves its subfolders and Artifacts up one level. File paths, links, and sharing do not change.
+
+Folder names are workspace-visible. Creating requires artifact write permission. Editing or deleting requires artifact write permission plus folder ownership or artifact management permission. Moving an Artifact requires its existing management permission. Folder membership grants no access.
+
 ## SDK authentication
 
 Every SDK request carries one bearer credential. `createKortix` gets it from your
@@ -5326,7 +5367,13 @@ when you mount `handler` elsewhere.
 #### Consent and revocation
 
 The first sign-in shows a Kortix consent screen with your app's name and
-scopes. Kortix remembers the approval per person and app. Later sign-ins
+scopes. An app that asks for the `kortix` scope also asks which workspaces it
+gets. **All my workspaces** is the default: the token has the person's whole
+reach, the same as `kortix login`: every workspace they can open, including
+ones they join later, and it can create workspaces. Picking one workspace
+narrows the token to it: a request for another workspace answers
+`403 credential_fence_refused`.
+Kortix remembers the approval per person and app. Later sign-ins
 return straight to your app. A person revokes an app with
 `kortix.accounts.connectedApps.list()` and `.revoke(clientId)`, or on the web
 and in the CLI as [Security](/docs/guide#security) describes. After a revoke, the
@@ -6284,7 +6331,7 @@ A workspace is one account and its one project. Its id is `workspace_id`, always
 - With `onEvent`, it streams the same request (`Accept: text/event-stream`) and reports the phases `validating`, `creating_repository`, `registering` and `seeding`; the last frame is `{type: "done", project, workspace}`. On React Native, omit `onEvent`.
 - On an older API it sends `new_workspace: true` to `POST /v1/projects/provision` instead.
 - `403` `account_creation_restricted`: the deployment lets only its admin create accounts. Ask an admin for an invite.
-- `403` `new_workspace_requires_person`: only a signed-in person or a personal key creates a workspace, never an API key, a service account or a workspace key.
+- `403` `new_workspace_requires_person`: only a signed-in person, a personal key or an OAuth app granted **All my workspaces** creates a workspace, never an API key, a service account, a workspace key, an OAuth token bound to one workspace or an App viewer token.
 
 ```ts
 import { createWorkspace, isNoWorkspaceError } from '@kortix/sdk';
@@ -6548,7 +6595,7 @@ triggers:
 
 Reconcile stores the normalized policy for later session creation. It does not reshare existing sessions, reused sessions or pinned targets. No bulk backfill is implicit or exposed by this feature; a later authorized migration must select and audit its targets explicitly. A session retains the reader policy stamped at creation. A later explicit session-sharing choice clears that stamp, including a choice of private. DMs never receive additive readers; private-channel membership and deleted-session gates still apply.
 
-Reader standing permits session inventory, session details, saved log/transcript and authorized trigger-run history reads only. It does not permit prompts, start/restart/stop/delete, configuration or scope changes, sharing, approval answers or runtime proxy access. Existing independent owner/manager privileges remain unchanged.
+Reader standing permits session inventory, session details, the saved session log and authorized trigger-run history reads only. It does not permit prompts, start/restart/stop/delete, configuration or scope changes, sharing, approval answers or runtime proxy access. Existing independent owner/manager privileges remain unchanged.
 
 In trigger history, `status: fired` means delivery, not a successful agent turn. Inspect `run_status`, `run_error` and `ended_at` for terminal execution. Hidden runs are not counted as successes: an empty page with `next_cursor` can still have older authorized records.
 
@@ -6848,15 +6895,15 @@ While the session starts, pick the view by this rule:
 Saved history is the copy of the session log that the API stores. A stopped sandbox does not block it.
 
 - The first read holds the newest 40 messages. `loadOlder()` pages back. Without a log in the store, it pages the runtime.
+- While the sandbox runs, `useSession` reads the newest page again with `GET …/log?live=1`: after the first read, after a reconnect, when the tab becomes visible and at each turn end. The API answers the sandbox's own page, which is ahead of the stored copy by the journal (5 s during a turn). When the sandbox does not answer within 2 s, the API answers the stored copy. A stored copy removes no reply that is newer than its own last message. The client never reads the sandbox's log itself.
 - An unknown `savedTranscript` is `'loading'`, never `'none'`.
 - When `GET …/log` fails (a `5xx`, the network, a `404` with no `code`, an invalid page), `useSession` keeps the copy on screen and reads the page again after 2 s, 10 s and 30 s, or after the API's `Retry-After` (at most 60 s).
 - No hook reads `GET …/transcript`.
 
-To show a session before `useSession` binds it, for example on a connecting screen, call `readSavedSessionCopy({ projectId, sessionId, runtimeSessionId })` from `@kortix/sdk`. It never throws and resolves `{ log, empty, envelope }`:
+To show a session before `useSession` binds it, for example on a connecting screen, call `readSavedSessionCopy({ projectId, sessionId, runtimeSessionId })` from `@kortix/sdk`. It never throws and resolves `{ log, empty }`:
 
 - `log` is the newest session-log page (`GET …/log`). A new session with no stored log answers `404` `session_log_missing`: `log` is `null` and nothing else is read.
 - `empty` is `true` when the page proves the conversation empty and no turn ended or is open. Show the composer then.
-- `envelope` is deprecated and always `null`.
 
 `useSession` reads the log page again when it binds.
 
@@ -7282,7 +7329,7 @@ Two device stores keep what a person already saw, so a reload or a cold start pa
 | Store | Keeps | Default bounds |
 | --- | --- | --- |
 | `createPersistedQueryCache({ storage, userId, shouldPersist })` | React Query results that `shouldPersist` accepts. `isPersistableQueryKey` accepts accounts, workspaces, workspace detail, session lists and session rows. A restored entry refetches when it is first read. | 1,000,000 characters, 7 days |
-| `createSavedCopyStore({ storage, userId })`, registered with `setSavedCopyStore` | The saved session copies the server sent. `useSession` paints a kept copy before the server answers. | 12 sessions, 1,500,000 characters, 300,000 characters per copy, 14 days |
+| `createSavedCopyStore({ storage, userId })`, registered with `setSavedCopyStore` | The newest session-log page (`GET …/log`) of each session the person opened. `useSession` paints a kept page before the server answers. | 12 sessions, 1,500,000 characters, 300,000 characters per page, 14 days |
 
 ```ts
 import type { QueryClient } from '@tanstack/react-query';
@@ -8707,6 +8754,7 @@ Capture belongs to the account. `kortix.capture.account(accountId)` binds one ac
 | `audit(options?)` | The workspace's audit timeline. |
 | `skills.create(input)` · `skills.remove(…)` | Write a skill to the default branch · remove one. A whole-folder removal includes user edits; shared dependencies stay. |
 | `attachments.upload(…)` · `.delete(…)` · `.createController(options?)` | Prompt attachments, and a controller that tracks uploads for a composer. |
+| `dictation.info()` · `dictation.transcribe(audio, { surface?, signal? })` | Speech-to-text for a composer. `info()` returns `{ available, credits_per_minute, max_seconds, max_bytes }`. `transcribe` takes a recorded clip (a `Blob`, or a `{ uri, name, type }` device file on React Native; WebM, Ogg, MP4/M4A, MP3, WAV or FLAC, up to 10 minutes and 25 MB) and returns `{ text, seconds, credits }`. It is charged 1 credit per minute from the workspace credits, billed per second, on every plan, speech or not. A clip with no speech returns `text: ''`. The audio and the text are not stored. A refusal throws `ApiError` with `code`: `insufficient_credits` or `budget_exceeded` (402), `rate_limit_exceeded` (429), `dictation_unavailable`, `dictation_busy` or `dictation_failed` (503). Needs permission to start sessions. |
 | `onboardingComplete(…)` | Marks workspace onboarding done. |
 | `updateFeatureFlag(key, enabled)` | Sets one flag for the workspace (`PATCH /projects/{projectId}/features`). `key` is one of `FEATURE_FLAG_KEYS`. `enabled: null` clears the override. Needs `project.settings.write`. |
 | `claudeSubscription.get()` · `.startLogin(target?)` · `.completeLogin(input)` · `.setToken(token, target?)` | The caller's Claude Pro or Max accounts. The API never returns a token. |
@@ -8972,7 +9020,7 @@ See [Computers](/docs/guide#computers).
 | Conversation | `compact({ providerID, modelID }?)` | Summarizes the context. Needs the `session.compact` capability. |
 | Conversation | `rewind(messageId)` · `restoreRewind()` | Rewind to a message · undo the rewind. Needs the `session.rewind` capability; pi does not serve it. |
 | Stored reads | `turn()` | The current turn, read on the server. |
-| Stored reads | `log({ thread?, before_seq?, limit? }?)` | One page of the stored session log, or `null` when the session has none. It answers while the sandbox is stopped. |
+| Stored reads | `log({ thread?, before_seq?, limit?, live? }?)` | One page of the stored session log, or `null` when the session has none. It answers while the sandbox is stopped. With `live: true`, the API answers the running sandbox's own newest page (`source: 'box'`), and its stored log (`source: 'store'`) when the sandbox is not running or does not answer within 2 s. |
 | Stored reads | `liveLog({ thread?, before_seq?, limit? }?)` | One page of a thread of the sandbox's own session log, ahead of `log()` while a turn runs. |
 | Stored reads | `messageAuthors()` · `modelUsage()` · `usage()` · `cost()` · `audit(limit?, options?)` | Who wrote each message · which model answered each turn and what Kortix billed · what the session and every session it started cost, in USD (model calls, plus `compute_cost` for its boxes and `billed_cost`, everything Kortix debited) · the session's usage record · the session's audit actions. |
 | Model and agent | `setModel({ providerID, modelID } \| undefined)` · `setAgent(agent)` | The model or agent of every later `send` on this handle. `send(text, { model, agent })` overrides it for one prompt. |
@@ -8995,7 +9043,7 @@ See [Computers](/docs/guide#computers).
 | Agents | `workflows.list()` · `workflows.control(runId, body)` | The workflow runs on this session's sandbox, newest first · pause, resume or stop a run, or restart one of its agents. `list` starts a sleeping session. |
 | Loops | `reminders.list()` · `.create(input)` · `.update(reminderId, input)` · `.remove(reminderId)` · `.run(reminderId)` | The session's reminders. `run` fires one now; the schedule does not move. |
 
-`s.transcript()`, `s.transcriptSync()`, `s.pending()` and `s.runtime` are deprecated. See [Deprecated names](#deprecated-names).
+`s.pending()` and `s.runtime` are deprecated. See [Deprecated names](#deprecated-names).
 
 ### React hooks
 
@@ -9317,6 +9365,22 @@ Pure functions over v1 messages (`MessageWithParts`, `kortix.transcript.v1`, `KO
 
 The grouping and status functions accept the structural types `PartLike`, `MessageInfoLike`, `TurnLike`, `ToolStateLike` and `SessionStatusLike`, so your own message shapes work.
 
+### Removed with the v1 transcript
+
+The session-log major is a breaking release. The API serves no `GET …/sessions/:sid/transcript` and no `/v1/public/session-shares/**`, so the SDK removed every name that read them. The session log (`GET …/log`) is every session's saved history.
+
+| Removed | Use instead |
+| --- | --- |
+| `getSessionTranscript`, `getSessionTranscriptSync`, `s.transcript()`, `s.transcriptSync()` | `getSessionLogPage(projectId, sessionId, query)` or `s.log(query)`. |
+| The types `SessionTranscript`, `SessionTranscriptMessage`, `SessionTranscriptToolCall`, `SessionTranscriptSource`, `SessionTranscriptSyncEnvelope`, `SessionTranscriptSyncMessage` | `SessionLogPage`, `SessionLogMessage`, `SessionLogBlock`. |
+| `loadSessionTranscriptMessages` | `loadSessionExportMessages(sessionId, kortixSessionScope?)`: the session log first, else the runtime. |
+| `isPaintableSavedCopy`, `savedCopyEmptyRoot` | No replacement. `readSavedSessionCopy` returns `empty`. |
+| `findActiveTranscriptShare`, `getPublicSessionShare`, `getPublicSessionShareMessages`, `PublicSessionShareError`, `PublicSessionShareMeta`, `PublicSessionTranscript`, `PublicSessionTranscriptMessage`, `PublicSessionTranscriptToolCall` | No replacement. The API removed public transcript sharing. |
+| `saveSessionToIDB`, `flushIDBWrites`, `loadSessionFromIDB`, `loadAllSessionIdsFromIDB`, `pruneIDBCache` | No replacement. They stored nothing. |
+| `FeatureFlagKey` member `session_transcript_history` | No replacement. Every session saves its history in the session log. |
+
+Four shapes changed with them. The snapshot's `transcript` leg is always `{ known: true, requested: false }`, and `getSessionOpenBundle` takes no `transcript` option. `SavedCopyStore` reads and writes a `SessionLogPage`. `SavedSessionCopy` has no `envelope`. `useSessionSync`'s `mirror` option accepts only `null`.
+
 ### Removed in 0.15.0
 
 0.15.0 is a breaking release. It removed these subpaths and names. Every session runs pi, so nothing removed here reached a route a current box serves.
@@ -9342,10 +9406,8 @@ Each name below carries `@deprecated` and resolves until a later major version. 
 | --- | --- |
 | `wireIdClock`, `wireIdClockAt`, `wireIdClockDelta`, `maxWireIdClock`, `isWireIdAheadOf`, `newestWireIdClock`, `mintWireMessageIdAbove`, `MintWireMessageIdAboveInput`, `MintedWireMessageId`, `WIRE_ID_TIME_SCALE`, `WIRE_ID_TIME_MASK`, `WIRE_ID_CLOCK_TOLERANCE`, `WIRE_ID_BACKDATE_MS` | `mintWireMessageId` and `WIRE_MESSAGE_ID`, which stay current. Message ids are opaque. |
 | `s.runtime` | The session methods: `messages`, `pendingRequests`, `answerPermission`, `answerQuestion`, `compact`, `send`, `abort`, `rewind`. |
-| `s.transcript()` · `s.transcriptSync()` | `s.log(query)`. |
 | `s.pending()` | `s.pendingRequests()`. |
 | `p.sessions.ensureWarm()` · `p.sessions.claimWarm(input)` | `p.sessions.create()`. They reject with `ENDPOINT_RETIRED`. |
-| `findActiveTranscriptShare`, `getPublicSessionShare`, `getPublicSessionShareMessages`, `PublicSessionShareError`, `PublicSessionShareMeta`, `PublicSessionTranscript`, `PublicSessionTranscriptMessage`, `PublicSessionTranscriptToolCall` | No replacement. The API removed public transcript sharing; every call returns `404`. |
 | `clientSource` (a `createKortix` option) | Remove it. It is inert. Send `clientVersion` to identify a release. |
 | `p.updateExperimentalFeature` · `updateExperimentalFeature` · `ExperimentalFeatureKey` · `ExperimentalFeatureView` | `p.updateFeatureFlag` · `updateFeatureFlag` · `FeatureFlagKey` · `FeatureFlagView` |
 | `p.connectors.setAuthorizationStrategy` · `setConnectorAuthorizationStrategy` | Remove the call. It changes nothing. |

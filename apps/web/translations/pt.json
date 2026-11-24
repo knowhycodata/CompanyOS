@@ -1293,10 +1293,6 @@
       "permission": "Você precisa da permissão de configurações do espaço de trabalho para alterar um sinalizador de recurso.",
       "updateFailed": "Não foi possível atualizar {key}",
       "flags": {
-        "secrets_egress": {
-          "name": "Segredos protegidos pela rede",
-          "description": "Controle quais ferramentas e destinos podem receber os segredos do espaço de trabalho."
-        },
         "reminders": {
           "name": "Ciclos",
           "description": "Permite que agentes e pessoas agendem verificações em uma sessão, uma vez ou de forma recorrente. Cada disparo aciona essa sessão novamente. Adiciona os ciclos à lista de Gatilhos, o indicador de ciclos da sessão e `kortix loop`."
@@ -1313,25 +1309,17 @@
           "name": "Objetivos",
           "description": "Dê a um agente um objetivo pelo qual ele responde até que uma verificação independente confirme o resultado. Ele planeja, trabalha, espera, cobra as pessoas e guarda seu estado em uma pasta Goals em Arquivos. Requer Volumes e Ciclos ativados."
         },
-        "workspace_volume": {
-          "name": "Sandboxes sem estado",
-          "description": "Cada sessão mantém apenas o /workspace, em um volume próprio. Uma sandbox parada por uma hora é excluída, e a próxima abertura inicia uma nova com os mesmos arquivos e a mesma conversa. Os programas da sandbox anterior não estão mais em execução. A Kortix ativa por espaço de trabalho."
-        },
         "email_channel": {
           "name": "Canal de e-mail",
           "description": "Dê ao agente uma caixa de entrada no Resend: e-mails recebidos iniciam e continuam sessões, e o agente lê, responde e envia a partir da caixa. Use sua própria chave de API e domínio do Resend."
         },
         "chat": {
-          "name": "Canais",
-          "description": "Canais com o Kortix, como no Slack: cada mensagem é um thread, a resposta mais recente do Kortix aparece abaixo, o Kortix pode iniciar threads e você compartilha canais com outras pessoas. Substitui a lista de sessões na barra lateral."
+          "name": "Espaços estilo Slack",
+          "description": "Use canais e mensagens diretas no estilo Slack, onde cada mensagem inicia um thread. Muda a barra lateral para o layout de chat. Independente de Espaços, que agrupa sessões, arquivos e abas."
         },
         "session_groups": {
           "name": "Espaços",
           "description": "Agrupe sessões em espaços, cada um com seus arquivos e abas. Um espaço novo é só seu; compartilhe-o com pessoas ou com todo o workspace. Inicie uma sessão em um espaço pela página dele ou pelo seletor de espaço abaixo do compositor. Cada sessão de um espaço sabe para que ele serve e monta a pasta Files dele."
-        },
-        "chrome": {
-          "name": "Kortix no Chrome",
-          "description": "Permita que uma sessão use seu navegador Chrome conectado. Você pode assumir o controle ou interrompê-la a qualquer momento."
         },
         "agent_teams": {
           "name": "Equipes de agentes",
@@ -1351,11 +1339,11 @@
         },
         "chat_front": {
           "name": "Spaces-Router",
-          "description": "Com Spaces ativado, o agente com quem você conversa numa thread é um roteador: ele faz sozinho o trabalho rápido (uma resposta, um texto curto, uma olhada nos arquivos da thread) e passa o trabalho mais longo aos agentes do espaço. Ele responde como uma pessoa, em mensagens curtas. Um agente salva o resultado completo como arquivo na thread, e o roteador vincula esse arquivo em vez de redigitá-lo. “Mostrar trabalho” abaixo de uma mensagem abre o trabalho por trás dela. Requer My Kortix ativado em kortix.yaml."
+          "description": "Com Espaços estilo Slack ativados, o agente com quem você conversa numa thread é um roteador: ele faz sozinho o trabalho rápido (uma resposta, um texto curto, uma olhada nos arquivos da thread) e passa o trabalho mais longo aos agentes do espaço. Ele responde como uma pessoa, em mensagens curtas. Um agente salva o resultado completo como arquivo na thread, e o roteador vincula esse arquivo em vez de redigitá-lo. “Mostrar trabalho” abaixo de uma mensagem abre o trabalho por trás dela. Requer My Kortix ativado em kortix.yaml."
         },
         "spaces_proactive": {
           "name": "Spaces-Proactive",
-          "description": "Com os Espaços ativados, um espaço pode vigiar a si mesmo: ative Proativo nos detalhes dele, e um agente lê o que acontece ali (threads concluídas, perguntas em aberto, pessoas que entram) e escreve no chat só quando importa: um resultado que vale compartilhar, uma decisão que você precisa tomar ou algo atrasado. Ele também pode iniciar uma thread que faz o trabalho. Resumo diário opcional às 9:00."
+          "description": "Com os Espaços estilo Slack ativados, um espaço pode vigiar a si mesmo: ative Proativo nos detalhes dele, e um agente lê o que acontece ali (threads concluídas, perguntas em aberto, pessoas que entram) e escreve no chat só quando importa: um resultado que vale compartilhar, uma decisão que você precisa tomar ou algo atrasado. Ele também pode iniciar uma thread que faz o trabalho. Resumo diário opcional às 9:00."
         },
         "program_agents": {
           "name": "Agentes de programa",
@@ -1372,15 +1360,19 @@
         "calendar": {
           "name": "Calendário",
           "description": "Um calendário compartilhado para pessoas e agentes: itens com data, participantes e comentários, ao lado dos gatilhos e Loops agendados. Mencione alguém com @ para notificá-lo. Os agentes usam `kortix calendar`."
+        },
+        "review_swipe": {
+          "name": "Cartões de revisão",
+          "description": "«Precisa de você» na página de revisão abre como uma pilha de cartões: um item por cartão. Deslize para a direita para aprovar ou mesclar, para a esquerda para devolver ao agente com o que deve mudar."
         }
       },
       "channelsSwitch": {
-        "onTitle": "Ativar Espaços para {project}?",
-        "onBody": "Todos neste espaço de trabalho recebem Espaços no lugar da lista de sessões. Todas as sessões existentes vão para #general. Você pode desativar quando quiser; nada é excluído.",
+        "onTitle": "Ativar Espaços estilo Slack para {project}?",
+        "onBody": "Todos neste espaço de trabalho recebem Espaços estilo Slack no lugar da lista de sessões. Todas as sessões existentes vão para #general. Você pode desativar quando quiser; nada é excluído.",
         "drive": "Ativar também o Drive, para que os espaços tenham Arquivos.",
         "turnOn": "Ativar",
         "cancel": "Cancelar",
-        "offTitle": "Desativar Espaços?",
+        "offTitle": "Desativar Espaços estilo Slack?",
         "offBody": "Espaços, memória, arquivos e links continuam salvos. A lista de sessões volta para todos.",
         "turnOff": "Desativar"
       },
@@ -2260,6 +2252,10 @@
     "panel": {
       "outputNew": "Novo",
       "outputUpdated": "Atualizado",
+      "backgroundTasks": "Tarefas em segundo plano",
+      "finished": "Concluídas",
+      "finishedCount": "{count} concluídas",
+      "running": "Em andamento",
       "resizePane": "Redimensionar painel"
     }
   },
@@ -2462,7 +2458,8 @@
     "collapseQueue": "Recolher mensagens em espera",
     "expandQueue": "Expandir mensagens em espera",
     "myKortixRoutes": "Envia cada tarefa ao agente certo",
-    "chatInputReset": "Reset"
+    "chatInputReset": "Reset",
+    "queuedDisconnected": "Esta sessão perdeu a conexão com o Kortix. Inicie uma nova sessão para continuar."
   },
   "billing": {
     "plan": {
@@ -3090,7 +3087,7 @@
     "unified": {
       "welcome": "Bem-vindo ao {name}",
       "email": "E-mail",
-      "emailPlaceholder": "Seu endereço de e-mail",
+      "emailPlaceholder": "Digite seu endereço de e-mail…",
       "password": "Senha",
       "showPassword": "Mostrar senha",
       "hidePassword": "Ocultar senha",
@@ -3156,7 +3153,7 @@
         "title": "Redefina sua senha",
         "description": "Enviaremos um link de redefinição.",
         "email": "E-mail",
-        "emailPlaceholder": "Seu endereço de e-mail",
+        "emailPlaceholder": "Digite seu endereço de e-mail…",
         "sending": "Enviando link…",
         "submit": "Enviar link de redefinição"
       },
@@ -3196,6 +3193,13 @@
       "errorTitle": "Não foi possível iniciar sessão",
       "errorBody": "Inicia sessão no Kortix num separador do navegador e volta a abrir este painel.",
       "signIn": "Entrar"
+    },
+    "story": {
+      "label": "Sobre o Kortix CompanyOS",
+      "outcome": "Defina um resultado. Agentes de IA trabalham nele 24/7.",
+      "repo": "Seus agentes, skills e memória em um repositório que é seu.",
+      "approve": "Os agentes fazem o trabalho. Você aprova o que vai ao ar.",
+      "worksWith": "Funciona com as ferramentas que sua equipe já usa"
     }
   },
   "onboarding": {
@@ -3436,7 +3440,18 @@
         "completed": "Concluído",
         "failed": "Não terminou",
         "stopped": "Parado"
-      }
+      },
+      "card": {
+        "session": "Sessão",
+        "copyId": "Copiar ID da sessão",
+        "openNewTab": "Abrir em nova aba",
+        "model": "Modelo",
+        "runsAs": "Executa como",
+        "inline": "Executado nesta sessão, por isso não tem uma sessão própria para abrir."
+      },
+      "notStarted": "Não iniciou",
+      "notStartedSentence": "O Kortix não conseguiu iniciar este colega. Nada foi executado.",
+      "policyBlocked": "Bloqueado pela política deste espaço de trabalho. Peça a um administrador do espaço de trabalho para permitir."
     }
   },
   "agentRunLimit": {
@@ -10455,6 +10470,7 @@
       "authEmailRateLimit": "Não foi possível enviar o e-mail. Tente novamente em cerca de uma hora.",
       "authRequestRateLimit": "Muitas solicitações. Tente novamente em alguns minutos.",
       "text03217276a5f1": "Saldo {value0} créditos",
+      "text041fb4e77d8e": "Login de site",
       "text0b6a47661327": "Proprietário desconhecido",
       "text1a9030082a20": "Criar habilidade",
       "text25ab55af92b1": "Envio do anexo iniciado",
@@ -10819,6 +10835,7 @@
       "text0b2e0f1bf47e": "Cada chamada feita e quem a liberou",
       "text0b2ecc210632": "O único canal ao vivo. Faça a pergunta na thread onde ela surgiu; a resposta, o gráfico e a consulta retornam à mesma thread.",
       "text0b348466332c": "Nada mudou ainda",
+      "text93d50ea93ca0": "Digitado pelo navegador da sessão apenas nos sites dele. Nunca entra no ambiente.",
       "textf83916135509": "em uso",
       "texta251c18205f1": "Em cache",
       "text64cd989efc14": "Espaço livre",
@@ -18332,7 +18349,6 @@
       "texte59a1d133be1": "As alterações se aplicam ao próximo login. Os tokens já emitidos continuarão funcionando até expirarem.",
       "texte59eaa3acaf1": "a barreira",
       "texte5a4af9b350f": "Criei, ativei e testei a conexão SCIM",
-      "texte5a718af362a": "Os dois primeiros",
       "texte5ab168f1943": "O briefing pré-reunião",
       "texte5b104783abd": "Seu agente pode usar as ferramentas de que precisa, como faria em um computador comum.",
       "texte5bd74e98514": "outro — somente código-fonte",
@@ -21512,6 +21528,17 @@
       "grant": "{names} não {count, plural, one {está} other {estão}} nos segredos do agente {agent}. Abra Personalizar → Agentes → {agent} → Segredos e {count, plural, one {ative-o} other {ative-os}}.",
       "allowlist": "{names} {count, plural, one {está} other {estão}} fora dos segredos desta sessão. Inicie uma nova sessão para {count, plural, one {usá-lo} other {usá-los}}."
     },
+    "secretIntakeLogin": {
+      "delivery": "Um login de site para {sites}. O navegador desta sessão o digita apenas nesses sites. O agente vê apenas o nome dele.",
+      "username": "Usuário ou e-mail",
+      "password": "Senha",
+      "missing": "Digite um usuário e uma senha.",
+      "savedTitle": "Login salvo",
+      "savedDescription": "O agente já pode entrar. Ele vê apenas o nome do login.",
+      "modalTitle": "Adicionar login de site",
+      "modalDescription": "Confira o site antes de digitar a senha.",
+      "pageDescription": "Confira o site antes de digitar a senha. O login é armazenado criptografado."
+    },
     "sessionEmbed": {
       "sectionTitle": "Incorporar",
       "sectionDescription": "Apenas para páginas do mesmo site. Os visitantes devem já ter iniciado sessão e ter acesso a esta sessão; não é possível iniciar sessão dentro de um iframe entre sites diferentes.",
@@ -21558,6 +21585,37 @@
     "reviewPane": {
       "emptyTitle": "Selecione um item",
       "emptyDescription": "Os detalhes abrem aqui. Pressione J e K para percorrer a lista."
+    },
+    "reviewDeck": {
+      "label": "Cartões de revisão",
+      "remaining": "{count, plural, one {# cartão restante} other {# cartões restantes}}",
+      "merge": "Mesclar",
+      "close": "Fechar",
+      "approve": "Aprovar",
+      "deny": "Negar",
+      "dismiss": "Dispensar",
+      "yes": "Sim",
+      "no": "Não",
+      "skip": "Pular",
+      "open": "Abrir",
+      "undo": "Desfazer",
+      "staged": "{verdict}: {title}",
+      "needsChoice": "Abra para escolher uma resposta",
+      "noVerdict": "Você não pode decidir isto. Abra para ver os detalhes.",
+      "emptyTitle": "Tudo em dia",
+      "emptyDescription": "Nada precisa de você agora.",
+      "highRisk": "Risco alto",
+      "files": "{count, plural, one {# arquivo} other {# arquivos}}",
+      "conflicts": "{count, plural, one {# conflito} other {# conflitos}}",
+      "items": "{count, plural, one {# item} other {# itens}}",
+      "showCards": "Mostrar como cartões",
+      "showList": "Mostrar como lista",
+      "sendBack": "Devolver",
+      "whatShouldChange": "O que deve mudar?",
+      "sendToAgent": "Enviar ao agente",
+      "cancel": "Cancelar",
+      "reviews": "Revisões",
+      "questions": "Perguntas"
     }
   },
   "commandPalette": {
@@ -22371,6 +22429,8 @@
     "redirectsTo": "Leva você de volta para",
     "workspaceLabel": "Espaço de trabalho",
     "workspaceHint": "{client} acessa somente este espaço de trabalho.",
+    "workspaceAll": "Todos os meus espaços de trabalho",
+    "workspaceAllHint": "{client} age como você em todos os espaços de trabalho que você pode abrir, agora e depois, e pode criar novos espaços de trabalho. Escolha isto apenas para um app que você mesmo usa.",
     "scopes": {
       "profile": "Ver seu perfil",
       "email": "Ver seu endereço de e-mail",
@@ -25117,6 +25177,32 @@
     "stopNote": "O link deixará de funcionar."
   },
   "artifacts": {
+    "folderIcon": "Escolher ícone da pasta",
+    "docCreateFailed": "Não foi possível criar o documento. Tente novamente.",
+    "newFolder": "Nova pasta",
+    "editFolder": "Editar pasta",
+    "folderName": "Nome da pasta",
+    "folderCreateIn": "Em",
+    "folderSaved": "Pasta salva",
+    "folderCreated": "Pasta criada",
+    "folderSaveFailed": "Não foi possível salvar a pasta. Tente novamente.",
+    "saveFolder": "Salvar pasta",
+    "createFolder": "Criar pasta",
+    "folderActions": "Ações para {name}",
+    "deleteFolder": "Excluir pasta",
+    "deleteFolderTitle": "Excluir “{name}”?",
+    "deleteFolderHint": "As subpastas e os artefatos sobem um nível. Os arquivos e links continuam disponíveis.",
+    "folderDeleted": "Pasta excluída",
+    "folderDeleteFailed": "Não foi possível excluir a pasta. Tente novamente.",
+    "folderNavigation": "Pastas de artefatos",
+    "folderPathMore": "Mostrar caminho das pastas",
+    "folderUnavailable": "Pasta indisponível",
+    "folderLoadFailed": "Não foi possível carregar as pastas",
+    "moveToFolder": "Mover para pasta",
+    "movedToFolder": "Movido para {name}",
+    "emptyUnfiled": "Nenhum artefato sem pasta",
+    "emptyFolder": "Nenhum artefato nesta pasta",
+    "folderRoot": "Sem pasta",
     "title": "Artefatos",
     "type": {
       "doc": "Documento",
@@ -26259,6 +26345,25 @@
     "turnNote": "Dito numa chamada de voz e respondido pela voz.",
     "close": "Fechar"
   },
+  "dictation": {
+    "start": "Ditar uma mensagem",
+    "price": "{credits, plural, one {# crédito} other {# créditos}} por minuto",
+    "recording": "Ditado",
+    "discard": "Descartar gravação",
+    "finish": "Adicionar as palavras",
+    "transcribing": "Transcrevendo…",
+    "nothingHeard": "Nenhuma fala detectada. Tente de novo mais perto do microfone.",
+    "retry": "Tentar de novo",
+    "failed": "Não foi possível transcrever a gravação. Tente de novo.",
+    "busy": "Não foi possível transcrever a gravação agora. Tente de novo em instantes.",
+    "unavailable": "O ditado não está disponível neste servidor.",
+    "limitReached": "Gravação interrompida aos {minutes} minutos",
+    "micDenied": "Não foi possível usar o microfone. Permita-o para este site nas configurações do navegador.",
+    "micDeniedDesktop": "Não foi possível usar o microfone. Permita o Kortix nas configurações de privacidade do sistema.",
+    "micMissing": "Nenhum microfone encontrado. Conecte um e tente de novo.",
+    "micBusy": "Não foi possível usar o microfone. Outro app está usando.",
+    "micUnsupported": "Não é possível usar o microfone neste navegador."
+  },
   "agentMounts": {
     "lead": "Pastas de Arquivos montadas pelas sessões deste agente. Uma mudança vale de imediato para cada nova sessão.",
     "mount": "Mount folder",
@@ -26404,6 +26509,7 @@
       },
       "workingFor": "trabalhando · {elapsed}",
       "runsAs": "executa como {agent}",
+      "stateCount": "{count} {state}",
       "teamRole": "Função só para esta sessão",
       "attention": {
         "question": "Tem uma pergunta para você",

@@ -1293,10 +1293,6 @@
       "permission": "更改功能开关需要工作区的设置权限。",
       "updateFailed": "无法更新 {key}",
       "flags": {
-        "secrets_egress": {
-          "name": "网络强制保护的机密",
-          "description": "控制哪些工具和目标可以接收工作区机密。"
-        },
         "reminders": {
           "name": "循环",
           "description": "让代理和用户在会话上安排一次性或重复的检查。每次触发都会重新提示该会话。在触发器列表中新增循环，以及会话循环标记和 `kortix loop`。"
@@ -1313,25 +1309,17 @@
           "name": "目标",
           "description": "给代理一个目标，它会一直负责，直到独立检查确认结果。它会规划、执行、等待、跟进相关人员，并把状态保存在“文件”中的 Goals 文件夹里。需要开启卷和循环。"
         },
-        "workspace_volume": {
-          "name": "无状态沙盒",
-          "description": "每个会话只保留 /workspace，存放在独立的卷上。停止一小时的沙盒会被删除，下次打开时会用相同的文件和对话启动新沙盒。旧沙盒中运行的程序不会继续运行。由 Kortix 按工作区启用。"
-        },
         "email_channel": {
           "name": "电子邮件渠道",
           "description": "为智能体提供一个 Resend 邮箱：收到的邮件会启动并延续会话，智能体从该邮箱阅读、回复和发送邮件。使用你自己的 Resend API 密钥和域名。"
         },
         "chat": {
-          "name": "频道",
-          "description": "像 Slack 一样使用 Kortix 频道：每条消息都是一个线程，Kortix 的最新回复显示在下方，Kortix 可以发起线程，你可以与他人共享频道。替换侧边栏中的会话列表。"
+          "name": "Slack 风格空间",
+          "description": "使用 Slack 风格的频道和私信，每条消息都会开启一个线程。将侧边栏切换为聊天布局。此功能独立于用于分组会话、文件和标签页的空间。"
         },
         "session_groups": {
           "name": "空间",
           "description": "将会话归入空间，每个空间都有自己的文件和标签页。新空间仅你可见；可与指定成员或整个工作区共享。可从空间页面或输入框下方的空间选择器在空间中开始会话。空间中的每个会话都知道该空间的用途，并挂载其 Files 文件夹。"
-        },
-        "chrome": {
-          "name": "Chrome 中的 Kortix",
-          "description": "允许会话使用已连接的 Chrome 浏览器。你可以随时接管或停止。"
         },
         "agent_teams": {
           "name": "智能体团队",
@@ -1351,11 +1339,11 @@
         },
         "chat_front": {
           "name": "Spaces-Router",
-          "description": "开启 Spaces 后，你在话题中对话的智能体是一个路由器：快速的工作它自己完成（一个回答、一段短文、查看话题文件），较长的工作交给空间的智能体。它像人一样用简短消息回复。智能体把完整结果保存为话题中的文件，路由器链接该文件，而不是重新输入。消息下方的“查看工作”会打开背后的工作。需要在 kortix.yaml 中开启 My Kortix。"
+          "description": "开启 Slack 风格空间后，你在话题中对话的智能体是一个路由器：快速的工作它自己完成（一个回答、一段短文、查看话题文件），较长的工作交给空间的智能体。它像人一样用简短消息回复。智能体把完整结果保存为话题中的文件，路由器链接该文件，而不是重新输入。消息下方的“查看工作”会打开背后的工作。需要在 kortix.yaml 中开启 My Kortix。"
         },
         "spaces_proactive": {
           "name": "Spaces-Proactive",
-          "description": "开启空间后，空间可以自己留意动态：在空间详情中打开“主动”，一个智能体会阅读这里发生的事（完成的话题、未回答的问题、新加入的人），只在重要时在聊天中发言：值得分享的结果、需要你做的决定或逾期事项。它也可以开启一个话题来完成工作。可选每天 9:00 的简报。"
+          "description": "开启 Slack 风格空间后，空间可以自己留意动态：在空间详情中打开“主动”，一个智能体会阅读这里发生的事（完成的话题、未回答的问题、新加入的人），只在重要时在聊天中发言：值得分享的结果、需要你做的决定或逾期事项。它也可以开启一个话题来完成工作。可选每天 9:00 的简报。"
         },
         "program_agents": {
           "name": "程序智能体",
@@ -1372,15 +1360,19 @@
         "calendar": {
           "name": "日历",
           "description": "人与智能体共享的日历：带日期、参与者和评论的事项，与已排程的触发器和循环并列显示。用 @ 提及某人即可通知对方。智能体使用 `kortix calendar`。"
+        },
+        "review_swipe": {
+          "name": "审阅卡片",
+          "description": "审阅页面的“待你处理”以卡片堆显示：每张卡片一项。向右滑动批准或合并，向左滑动附上修改意见退回给智能体。"
         }
       },
       "channelsSwitch": {
-        "onTitle": "为 {project} 开启空间？",
-        "onBody": "此工作区中的所有人都会看到空间，而不是会话列表。所有现有会话都会移到 #general。你可以随时关闭；不会删除任何内容。",
+        "onTitle": "为 {project} 开启 Slack 风格空间？",
+        "onBody": "此工作区中的所有人都会看到Slack 风格空间，而不是会话列表。所有现有会话都会移到 #general。你可以随时关闭；不会删除任何内容。",
         "drive": "同时开启云盘，让空间拥有文件。",
         "turnOn": "开启",
         "cancel": "取消",
-        "offTitle": "关闭空间？",
+        "offTitle": "关闭 Slack 风格空间？",
         "offBody": "空间、记忆、文件和链接都会保留。所有人都会重新看到会话列表。",
         "turnOff": "关闭"
       },
@@ -2260,6 +2252,10 @@
     "panel": {
       "outputNew": "新",
       "outputUpdated": "已更新",
+      "backgroundTasks": "后台任务",
+      "finished": "已完成",
+      "finishedCount": "已完成 {count} 个",
+      "running": "进行中",
       "resizePane": "调整窗格大小"
     }
   },
@@ -2462,7 +2458,8 @@
     "collapseQueue": "折叠等待中的消息",
     "expandQueue": "展开等待中的消息",
     "myKortixRoutes": "把每个任务交给合适的智能体",
-    "chatInputReset": "Reset"
+    "chatInputReset": "Reset",
+    "queuedDisconnected": "此会话与 Kortix 的连接已断开。请开始新会话以继续。"
   },
   "billing": {
     "plan": {
@@ -3090,7 +3087,7 @@
     "unified": {
       "welcome": "欢迎使用 {name}",
       "email": "邮箱",
-      "emailPlaceholder": "您的邮箱地址",
+      "emailPlaceholder": "输入你的邮箱地址…",
       "password": "密码",
       "showPassword": "显示密码",
       "hidePassword": "隐藏密码",
@@ -3156,7 +3153,7 @@
         "title": "重置密码",
         "description": "我们会向你发送重置链接。",
         "email": "邮箱",
-        "emailPlaceholder": "您的邮箱地址",
+        "emailPlaceholder": "输入你的邮箱地址…",
         "sending": "正在发送链接…",
         "submit": "发送重置链接"
       },
@@ -3196,6 +3193,13 @@
       "errorTitle": "无法登录",
       "errorBody": "请先在浏览器标签页中登录 Kortix，然后重新打开此面板。",
       "signIn": "登录"
+    },
+    "story": {
+      "label": "关于 Kortix CompanyOS",
+      "outcome": "交给它一个目标，AI 智能体全天候执行。",
+      "repo": "你的智能体、技能和记忆，都在你拥有的一个仓库里。",
+      "approve": "智能体完成工作，由你批准上线内容。",
+      "worksWith": "与团队已在使用的工具协同工作"
     }
   },
   "onboarding": {
@@ -3436,7 +3440,18 @@
         "completed": "已完成",
         "failed": "未完成",
         "stopped": "已停止"
-      }
+      },
+      "card": {
+        "session": "会话",
+        "copyId": "复制会话 ID",
+        "openNewTab": "在新标签页中打开",
+        "model": "模型",
+        "runsAs": "运行身份",
+        "inline": "在此会话内运行，因此没有可打开的独立会话。"
+      },
+      "notStarted": "未启动",
+      "notStartedSentence": "Kortix 无法启动这位同事。没有运行任何内容。",
+      "policyBlocked": "已被此工作区的策略阻止。请让工作区管理员允许它。"
     }
   },
   "agentRunLimit": {
@@ -10455,6 +10470,7 @@
       "authEmailRateLimit": "无法发送邮件。请在大约一小时后重试。",
       "authRequestRateLimit": "请求过多。请在几分钟后重试。",
       "text03217276a5f1": "余额 {value0} 积分",
+      "text041fb4e77d8e": "网站登录信息",
       "text0b6a47661327": "未知所有者",
       "text1a9030082a20": "创建技能",
       "text25ab55af92b1": "已开始上传附件",
@@ -10819,6 +10835,7 @@
       "text0b2e0f1bf47e": "它执行过的每次调用，以及批准者",
       "text0b2ecc210632": "唯一的实时渠道。在问题出现的线程中提问，答案、图表和查询都会回到同一线程。",
       "text0b348466332c": "尚未有任何更改",
+      "text93d50ea93ca0": "仅由会话浏览器在其网站上输入。不会进入环境变量。",
       "textf83916135509": "已用",
       "texta251c18205f1": "已缓存",
       "text64cd989efc14": "剩余空间",
@@ -18332,7 +18349,6 @@
       "texte59a1d133be1": "更改将应用于下一次登录。已签发的令牌在过期前仍可使用。",
       "texte59eaa3acaf1": "墙",
       "texte5a4af9b350f": "我已创建、启用并测试 SCIM 连接",
-      "texte5a718af362a": "前两个",
       "texte5ab168f1943": "会前简报",
       "texte5b104783abd": "你的代理可以使用所需工具，就像在普通计算机上一样。",
       "texte5bd74e98514": "其他 — 仅源码",
@@ -21512,6 +21528,17 @@
       "grant": "{count, plural, other {# 个密钥}}（{names}）不在智能体 {agent} 的密钥中。请打开 自定义 → Agents → {agent} → 密钥 并启用{count, plural, other {它们}}。",
       "allowlist": "{count, plural, other {# 个密钥}}（{names}）不在此会话的密钥范围内。请启动新会话以使用{count, plural, other {它们}}。"
     },
+    "secretIntakeLogin": {
+      "delivery": "{sites} 的网站登录信息。此会话的浏览器只在这些网站上输入它。智能体只能看到它的名称。",
+      "username": "用户名或邮箱",
+      "password": "密码",
+      "missing": "请输入用户名和密码。",
+      "savedTitle": "登录信息已保存",
+      "savedDescription": "智能体现在可以登录了。它只能看到登录信息的名称。",
+      "modalTitle": "添加网站登录信息",
+      "modalDescription": "输入密码前请先核对网站。",
+      "pageDescription": "输入密码前请先核对网站。登录信息加密存储。"
+    },
     "sessionEmbed": {
       "sectionTitle": "嵌入",
       "sectionDescription": "仅适用于同站点页面。查看者必须已登录并拥有此会话的访问权限；不支持在跨站点 iframe 内登录。",
@@ -21558,6 +21585,37 @@
     "reviewPane": {
       "emptyTitle": "选择一个项目",
       "emptyDescription": "详情会在这里打开。按 J 和 K 在列表中移动。"
+    },
+    "reviewDeck": {
+      "label": "审阅卡片",
+      "remaining": "{count, plural, other {剩余 # 张}}",
+      "merge": "合并",
+      "close": "关闭",
+      "approve": "批准",
+      "deny": "拒绝",
+      "dismiss": "忽略",
+      "yes": "是",
+      "no": "否",
+      "skip": "跳过",
+      "open": "打开",
+      "undo": "撤销",
+      "staged": "{verdict}：{title}",
+      "needsChoice": "打开以选择答案",
+      "noVerdict": "你无法决定此项。打开查看详情。",
+      "emptyTitle": "全部处理完毕",
+      "emptyDescription": "目前没有需要你处理的内容。",
+      "highRisk": "高风险",
+      "files": "{count, plural, other {# 个文件}}",
+      "conflicts": "{count, plural, other {# 处冲突}}",
+      "items": "{count, plural, other {# 项}}",
+      "showCards": "以卡片显示",
+      "showList": "以列表显示",
+      "sendBack": "退回",
+      "whatShouldChange": "需要修改什么？",
+      "sendToAgent": "发送给智能体",
+      "cancel": "取消",
+      "reviews": "审阅",
+      "questions": "问题"
     }
   },
   "commandPalette": {
@@ -22371,6 +22429,8 @@
     "redirectsTo": "完成后返回至",
     "workspaceLabel": "工作区",
     "workspaceHint": "{client} 只能访问此工作区。",
+    "workspaceAll": "我的所有工作区",
+    "workspaceAllHint": "{client} 将以你的身份访问你能打开的每个工作区（包括以后加入的），并可以创建新工作区。仅对你自己使用的应用选择此项。",
     "scopes": {
       "profile": "查看你的个人资料",
       "email": "查看你的电子邮件地址",
@@ -25117,6 +25177,32 @@
     "stopNote": "该链接将失效。"
   },
   "artifacts": {
+    "folderIcon": "选择文件夹图标",
+    "docCreateFailed": "无法创建文档，请重试。",
+    "newFolder": "新建文件夹",
+    "editFolder": "编辑文件夹",
+    "folderName": "文件夹名称",
+    "folderCreateIn": "位置",
+    "folderSaved": "文件夹已保存",
+    "folderCreated": "文件夹已创建",
+    "folderSaveFailed": "无法保存文件夹，请重试。",
+    "saveFolder": "保存文件夹",
+    "createFolder": "创建文件夹",
+    "folderActions": "{name}的操作",
+    "deleteFolder": "删除文件夹",
+    "deleteFolderTitle": "删除“{name}”？",
+    "deleteFolderHint": "其子文件夹和作品将上移一级。文件和链接仍可使用。",
+    "folderDeleted": "文件夹已删除",
+    "folderDeleteFailed": "无法删除文件夹，请重试。",
+    "folderNavigation": "作品文件夹",
+    "folderPathMore": "显示文件夹路径",
+    "folderUnavailable": "文件夹不可用",
+    "folderLoadFailed": "无法加载文件夹",
+    "moveToFolder": "移至文件夹",
+    "movedToFolder": "已移动到 {name}",
+    "emptyUnfiled": "没有未归档的产物",
+    "emptyFolder": "此文件夹中没有作品",
+    "folderRoot": "无文件夹",
     "title": "工件",
     "type": {
       "doc": "文档",
@@ -26259,6 +26345,25 @@
     "turnNote": "在语音通话中说出，并由语音回答。",
     "close": "关闭"
   },
+  "dictation": {
+    "start": "语音输入消息",
+    "price": "每分钟 {credits, plural, other {# 积分}}",
+    "recording": "语音输入",
+    "discard": "丢弃录音",
+    "finish": "添加文字",
+    "transcribing": "正在转写…",
+    "nothingHeard": "没有听到语音。请靠近麦克风后重试。",
+    "retry": "重试",
+    "failed": "无法转写录音。请重试。",
+    "busy": "暂时无法转写录音。请稍后重试。",
+    "unavailable": "此服务器不提供语音输入。",
+    "limitReached": "录音已在 {minutes} 分钟时停止",
+    "micDenied": "无法使用麦克风。请在浏览器设置中允许此网站使用麦克风。",
+    "micDeniedDesktop": "无法使用麦克风。请在系统隐私设置中允许 Kortix。",
+    "micMissing": "未找到麦克风。请连接麦克风后重试。",
+    "micBusy": "无法使用麦克风。另一个应用正在使用它。",
+    "micUnsupported": "此浏览器无法使用麦克风。"
+  },
   "agentMounts": {
     "lead": "此智能体的会话从“文件”中挂载的文件夹。更改立即生效，并适用于所有新会话。",
     "mount": "Mount folder",
@@ -26404,6 +26509,7 @@
       },
       "workingFor": "工作中 · {elapsed}",
       "runsAs": "以 {agent} 运行",
+      "stateCount": "{count} {state}",
       "teamRole": "仅限本会话的角色",
       "attention": {
         "question": "有问题要问你",

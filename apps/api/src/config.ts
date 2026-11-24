@@ -708,11 +708,10 @@ const envSchema = z.object({
   // mounts, with the folders synced in by the box's daemon.
   KORTIX_DRIVES_SESSION_MOUNT: optStr,
   KORTIX_DRIVES_SYNC: optStr,
-  // `on` (or 1/true/yes): `workspace_volume` (stateless sandboxes) is on for
-  // every project without its own choice; dev and prod set it.
-  // `off` (or 0/false/no): no new session gets a /workspace volume, whatever its
-  // project's flag says. Unset: each project's own choice, default off. A
-  // session that already has a volume keeps it (platform/services/workspace-volume.ts).
+  // Stateless sandboxes kill switch. `off` (or 0/false/no): no new session gets
+  // a /workspace volume. Unset, `on` or anything else: every new Platinum
+  // session gets one (the default since 2026-11-23). A session that already
+  // has a volume keeps it (platform/services/workspace-volume.ts).
   KORTIX_WORKSPACE_VOLUMES: optStr,
   // The `us_region` default for a project that has made no choice: true puts
   // its new Files and sessions in KORTIX_PLATINUM_US_REGION. Off by default;
@@ -1007,6 +1006,8 @@ const envSchema = z.object({
   KORTIX_PUBLIC_RESPONSE_REQS_PER_MIN: optInt(3000),
   KORTIX_DEMO_REQUEST_REQS_PER_MIN: optInt(10),
   KORTIX_FEEDBACK_REQS_PER_MIN: optInt(10),
+  // Composer dictations per user per minute (POST /v1/projects/:id/dictation).
+  KORTIX_DICTATION_REQS_PER_MIN: optInt(20),
   KORTIX_LLM_ROUTER_REQS_PER_MIN_FREE: optInt(60),
   KORTIX_LLM_ROUTER_REQS_PER_MIN_PAID: optInt(600),
   // Per-credential bound on the LLM gateway mount (/v1/llm and its
@@ -1819,6 +1820,7 @@ export const config = {
   KORTIX_PUBLIC_RESPONSE_REQS_PER_MIN: env.KORTIX_PUBLIC_RESPONSE_REQS_PER_MIN,
   KORTIX_DEMO_REQUEST_REQS_PER_MIN: env.KORTIX_DEMO_REQUEST_REQS_PER_MIN,
   KORTIX_FEEDBACK_REQS_PER_MIN: env.KORTIX_FEEDBACK_REQS_PER_MIN,
+  KORTIX_DICTATION_REQS_PER_MIN: env.KORTIX_DICTATION_REQS_PER_MIN,
   KORTIX_LLM_ROUTER_REQS_PER_MIN_FREE: env.KORTIX_LLM_ROUTER_REQS_PER_MIN_FREE,
   KORTIX_LLM_ROUTER_REQS_PER_MIN_PAID: env.KORTIX_LLM_ROUTER_REQS_PER_MIN_PAID,
   KORTIX_LLM_GATEWAY_REQS_PER_MIN: env.KORTIX_LLM_GATEWAY_REQS_PER_MIN,

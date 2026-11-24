@@ -27,11 +27,10 @@ import {
  * every consumer's bundle. {@link FEATURE_FLAG_KEYS} is the runtime witness of
  * the same list, so other packages can assert the two have not drifted.
  *
- * `review_center`, `agent_tunnel`, `session_transcript_history`, `teams`,
+ * `review_center`, `agent_tunnel`, `teams`,
  * `config_releases`, `apps`, `llm_gateway`, `pi_harness`, `genui`, `agentmail_email`, `connectors_v2` and `connectors_api_discover` are deprecated. `agent_tunnel` graduated like
  * `review_center` below: a paired computer is a connector account and needs no
- * flag. So did `session_transcript_history`: every session saves its
- * transcript and shows it while its computer is off. And `teams`: every
+ * flag. And `teams`: every
  * project can connect Microsoft Teams. And `config_releases`: every session
  * runs its base branch's config release. And `apps`: Apps is generally
  * available — every project can create and deploy Apps. And `llm_gateway`:
@@ -74,11 +73,10 @@ export type FeatureFlagKey =
   | 'reminders'
   /** @deprecated Withdrawn — warm sessions were removed; a session boots on its own. The API sends `false` for every project. Removed in the next major. */
   | 'warm_sessions'
+  /** @deprecated Graduated 2026-11-23 — Network-Enforced Secrets: every project can set a secret's exposure to enforced (the sandbox holds a handle; Kortix substitutes the value only on approved hosts). The API sends `true` for every project, so `useFeatureFlag(id, 'secrets_egress')` reports `enabled: true`. Kept permanently. */
   | 'secrets_egress'
   /** @deprecated Withdrawn — the pi worker split left the product; pi runs in the session sandbox. The API no longer lists, resolves, or accepts it. Removed in the next major. */
   | 'pi_worker'
-  /** @deprecated Graduated — every session saves its transcript. Removed in the next major. */
-  | 'session_transcript_history'
   /** @deprecated Graduated 2026-11-12 — named provider keys, sharing, per-session key selection and named ChatGPT/Claude sign-ins are on for every project. The API sends `true` for every project, so `useFeatureFlag(id, 'pooled_provider_secrets')` reports `enabled: true`. Removed in the next major. */
   | 'pooled_provider_secrets'
   /** @deprecated Graduated — every new session runs pi; OpenCode is sunset. The API sends `true` for every project. Removed in the next major. */
@@ -116,6 +114,7 @@ export type FeatureFlagKey =
   /** Shared Drives: an admin makes a Drive and adds agents to it. Off by default: people have only My files. */
   | 'shared_drives'
   | 'goals'
+  /** @deprecated Graduated 2026-11-23 — stateless sandboxes: every new Platinum session keeps /workspace on its own volume, and a box stopped for an hour is replaced on the next open. The API sends whether new sessions get a volume (Platinum, and the deployment did not set `KORTIX_WORKSPACE_VOLUMES=off`), so `useFeatureFlag(id, 'workspace_volume')` reads that. */
   | 'workspace_volume'
   /** @deprecated Graduated 2026-11-06 — every project has Artifacts wherever the platform stores Files (Platinum). The API sends `true` there, so `useFeatureFlag(id, 'artifacts')` reads Artifacts availability. Removed in the next major. */
   | 'artifacts'
@@ -125,7 +124,7 @@ export type FeatureFlagKey =
   | 'email_channel'
   /** Session groups: named folders of the project's sessions that every member shares. Experimental, off by default. */
   | 'session_groups'
-  /** Kortix in Chrome: a session drives its owner's own Chrome through the extension. Experimental; on where the platform offers it. */
+  /** @deprecated Graduated 2026-11-24 — Kortix in Chrome: every project's sessions can drive their owner's own Chrome through the extension, wherever the platform offers it. The API sends whether it serves Kortix in Chrome (`KORTIX_CHROME_ENABLED`; off on a self-hosted server), so `useFeatureFlag(id, 'chrome')` reads that. */
   | 'chrome'
   /** Agent teams: a lead session with named teammates and a shared task list. Experimental, off by default. */
   | 'agent_teams'
@@ -143,18 +142,19 @@ export type FeatureFlagKey =
   | 'evals'
   /** Desktop tabs: the desktop app shows browser-style tabs in the title bar for this project's pages. Client-only, off by default. */
   | 'desktop_tabs'
+  /** Review cards: the Review page's Needs you opens as a swipe deck, one item at a time (right approves, left sends it back with feedback). Client-only, off by default. */
+  | 'review_swipe'
   /** Calendar: a shared calendar of dated items with the people on them and comments, plus the project's scheduled triggers (`kortix calendar`). Experimental, off by default. */
   | 'calendar'
   /** @deprecated Withdrawn — agents messaging people left the product. The API no longer lists, resolves, or accepts it. Removed in the next major. */
   | 'human_messaging';
 
-/** The keys of {@link FeatureFlagKey} that are no flag: the API never sends them, or (`llm_gateway`, `session_log`, `session_log_restore`, `pi_harness`, `genui`, `meta_agent`, `notification_center`, `pooled_provider_secrets`) sends a constant `true`, or (`volumes`, `drives`, `artifacts`) sends whether the platform stores a Drive, or (`artifact_comments`) sends a constant `false`. */
+/** The keys of {@link FeatureFlagKey} that are no flag: the API never sends them, or (`llm_gateway`, `session_log`, `session_log_restore`, `pi_harness`, `genui`, `meta_agent`, `notification_center`, `pooled_provider_secrets`, `secrets_egress`) sends a constant `true`, or (`volumes`, `drives`, `artifacts`) sends whether the platform stores a Drive, or (`workspace_volume`) sends whether new sessions get a /workspace volume, or (`chrome`) sends whether the platform serves Kortix in Chrome, or (`artifact_comments`) sends a constant `false`. */
 type GraduatedFeatureFlagKey =
   | 'agent_tunnel'
   | 'marketplace'
   | 'teams'
   | 'review_center'
-  | 'session_transcript_history'
   | 'agent_principal'
   | 'human_messaging'
   | 'project_channels'
@@ -179,8 +179,11 @@ type GraduatedFeatureFlagKey =
   | 'drives'
   | 'notification_center'
   | 'pooled_provider_secrets'
+  | 'secrets_egress'
   | 'artifacts'
-  | 'artifact_comments';
+  | 'artifact_comments'
+  | 'workspace_volume'
+  | 'chrome';
 /** The keys `KortixProject.experimental` carries on every response. */
 type ServedFeatureFlagKey = Exclude<FeatureFlagKey, GraduatedFeatureFlagKey>;
 
@@ -191,16 +194,13 @@ type ServedFeatureFlagKey = Exclude<FeatureFlagKey, GraduatedFeatureFlagKey>;
  */
 export const FEATURE_FLAG_KEYS: readonly FeatureFlagKey[] = [
   'reminders',
-  'secrets_egress',
   'us_region',
   'event_triggers',
   'chat',
   'shared_drives',
   'goals',
-  'workspace_volume',
   'email_channel',
   'session_groups',
-  'chrome',
   'agent_teams',
   'voice_call',
   'chat_input',
@@ -210,6 +210,7 @@ export const FEATURE_FLAG_KEYS: readonly FeatureFlagKey[] = [
   'evals',
   'desktop_tabs',
   'calendar',
+  'review_swipe',
 ] as const;
 
 /**
@@ -238,7 +239,7 @@ export interface FeatureFlagView {
    */
   default_enabled?: boolean;
   /**
-   * True for an internal-only flag (`workspace_volume`). The
+   * True for an internal-only flag (none since `workspace_volume` graduated on 2026-11-23). The
    * catalog lists one only while it is on, so agents and people can see it.
    * Only a Kortix platform operator can change it: `PATCH /features` answers
    * `403` with `feature_operator_only`. Absent on servers older than this field.
