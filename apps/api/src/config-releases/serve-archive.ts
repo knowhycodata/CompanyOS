@@ -32,10 +32,10 @@ import {
   ConfigArchiveTooLargeError,
   isTreeObject,
   MAX_CONFIG_ARCHIVE_BYTES,
-  isComposedSource,
   storeConfigArchive,
   TreeJobBusyError,
   treeJobs,
+  treeJobSubject,
   TreeJobTimeoutError,
 } from './builder';
 import { variantAgent, type ConfigReleaseVariant } from './release-tree';
@@ -202,7 +202,7 @@ export async function serveConfigArchive(
   // Builds the archive when the store cannot serve it, in a tree thread
   // (`tree-jobs.ts`). A composed tree exists only in a scratch repository, so
   // it is rebuilt from its commit.
-  let build: () => Promise<Buffer> = () => treeJobs.run(project.projectId, 'archive', { mirror: repo, treeId, limit: deps.archiveLimit });
+  let build: () => Promise<Buffer> = async () => treeJobs.run(await treeJobSubject(project), 'archive', { mirror: repo, treeId, limit: deps.archiveLimit });
   if (!inMirror) {
     try {
       const served = await tryServeFromStore(store, key, treeId, publicOverride, fetchImpl);
@@ -267,18 +267,18 @@ async function composedArchiveBuilder(
     const release = await buildConfigRelease(project, commit, variant).catch(() => null);
     if (release?.deferred) throw new TreeJobBusyError(project.projectId);
     const files = release?.config_tree_id === treeId ? release.files : null;
-    if (files) return async () => (await treeJobs.run(project.projectId, 'fileTree', { mirror: repo, files, archive: true })).archive!;
+    if (files) return async () => (await treeJobs.run(await treeJobSubject(project), 'fileTree', { mirror: repo, files, archive: true })).archive!;
   }
-  const tree = <K extends TreeOp>(op: K, args: TreeOpArgs<K>) => treeJobs.run(project.projectId, op, args);
+  const subject = await treeJobSubject(project);
+  const tree = <K extends TreeOp>(op: K, args: TreeOpArgs<K>) => treeJobs.run(subject, op, args);
   const deferred = (error: unknown) => error instanceof TreeJobBusyError || error instanceof TreeJobTimeoutError;
-  const resolved = await tree('resolveSource', { mirror: repo, manifestPath: project.manifestPath, commit }).catch((error: unknown) => {
+  const at = { mirror: repo, manifestPath: project.manifestPath, commit };
+  const resolved = await tree('resolveSource', at).catch((error: unknown) => {
     if (deferred(error)) throw error;
     return null;
   });
-  if (!resolved) return null;
-  if (!('source' in resolved) || !isComposedSource(resolved.source)) return null;
-  const { source } = resolved;
-  const probe = await tree('readComposed', { mirror: repo, source, archive: false });
+  if (!resolved || !('rootTree' in resolved) || !resolved.composed) return null;
+  const probe = await tree('readComposed', { ...at, archive: false });
   if (probe.treeId !== treeId) return null;
-  return async () => (await tree('readComposed', { mirror: repo, source, archive: true })).archive!;
+  return async () => (await tree('readComposed', { ...at, archive: true })).archive!;
 }

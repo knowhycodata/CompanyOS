@@ -9,29 +9,71 @@
  */
 
 import {
-  agentCommitFiles,
+  agentReleaseFiles,
   buildConfigArchive,
   ConfigArchiveTooLargeError,
+  isComposedSource,
   listConfigFiles,
   readComposedRelease,
   readFileTree,
   resolveReleaseTreeSource,
   type AgentFileListInput,
   type ConfigReleaseFile,
-  type ReleaseTreeSource,
 } from './release-tree';
 import type { ReleaseTreeObjects } from './release-tree-git';
 
+/** A commit of a project's mirror, as a job names it. */
+interface CommitArgs {
+  mirror: string;
+  manifestPath: string;
+  commit: string;
+}
+
+// replica-local: the release-tree sources this thread resolved last; a commit's source never changes, so a miss only resolves it again.
+const sources = new Map<string, ReturnType<typeof resolveReleaseTreeSource>>();
+/** Sources a thread keeps: one source can list every path of a large tree. */
+const MAX_SOURCES = 2;
+
+/**
+ * The release-tree source of a commit, resolved once per thread for the jobs
+ * of one build. Its list of left-out paths can be as long as the tree, so it
+ * stays in the thread: no job sends it to the API process or back.
+ */
+function sourceOf({ mirror, manifestPath, commit }: CommitArgs): ReturnType<typeof resolveReleaseTreeSource> {
+  const key = `${mirror}\0${manifestPath}\0${commit}`;
+  let source = sources.get(key);
+  if (!source) {
+    source = resolveReleaseTreeSource(mirror, { manifestPath }, commit);
+    source.catch(() => sources.delete(key));
+    sources.set(key, source);
+    if (sources.size > MAX_SOURCES) sources.delete(sources.keys().next().value!);
+  }
+  return source;
+}
+
 /** The jobs a tree thread runs. Each takes one argument object of plain data. */
 export const treeOps = {
-  resolveSource: (args: { mirror: string; manifestPath: string; commit: string }) =>
-    resolveReleaseTreeSource(args.mirror, { manifestPath: args.manifestPath }, args.commit),
+  /** The commit's root tree, and whether its release tree is composed (`isComposedSource`). */
+  resolveSource: async (args: CommitArgs): Promise<{ rootTree: string; composed: boolean } | { reason: string }> => {
+    const resolved = await sourceOf(args);
+    return 'source' in resolved ? { rootTree: resolved.source.rootTree, composed: isComposedSource(resolved.source) } : resolved;
+  },
   listFiles: (args: { mirror: string; treeId: string }) => listConfigFiles(args.mirror, args.treeId),
   archive: (args: { mirror: string; treeId: string; limit?: number }) => buildConfigArchive(args.mirror, args.treeId, args.limit),
-  readComposed: (args: { mirror: string; source: ReleaseTreeSource; archive: boolean; limit?: number }) =>
-    readComposedRelease(args.mirror, args.source, { archive: args.archive, limit: args.limit }),
-  agentFiles: (args: { mirror: string; manifestPath: string; commit: string; input: AgentFileListInput }) =>
-    agentCommitFiles(args.mirror, { manifestPath: args.manifestPath }, args.commit, args.input),
+  /** The commit's release tree, composed (`readComposedRelease`). */
+  readComposed: async (args: CommitArgs & { archive: boolean; limit?: number }) => {
+    const resolved = await sourceOf(args);
+    if (!('source' in resolved)) throw new Error(resolved.reason);
+    return readComposedRelease(args.mirror, resolved.source, { archive: args.archive, limit: args.limit });
+  },
+  /** One agent's files at the commit (`agentReleaseFiles`), without the paths the whole-tree release leaves out. */
+  agentFiles: async (args: CommitArgs & { input: AgentFileListInput }): Promise<{ files: ConfigReleaseFile[] } | { reason: string }> => {
+    const resolved = await sourceOf(args);
+    if (!('source' in resolved)) return { reason: resolved.reason };
+    const ignored = new Set(resolved.source.exportIgnored);
+    const listed = await agentReleaseFiles(args.mirror, resolved.source.rootTree, args.input);
+    return { files: listed.filter(([path]) => !ignored.has(path)) };
+  },
   fileTree: (args: { mirror: string; files: readonly ConfigReleaseFile[]; archive: boolean; limit?: number }) =>
     readFileTree(args.mirror, args.files, { archive: args.archive, limit: args.limit }),
 };

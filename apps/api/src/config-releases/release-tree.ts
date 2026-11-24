@@ -1146,23 +1146,6 @@ export async function resolveReleaseTreeSource(
 }
 
 /**
- * The files of one agent's release at `commit`: `agentReleaseFiles` of its
- * tree, without the paths the whole-tree release leaves out (`export-ignore`).
- */
-export async function agentCommitFiles(
-  mirror: string,
-  project: Pick<GitBackedProject, 'manifestPath'>,
-  commit: string,
-  input: AgentFileListInput,
-): Promise<{ files: ConfigReleaseFile[] } | { reason: string }> {
-  const resolved = await resolveReleaseTreeSource(mirror, project, commit);
-  if (!('source' in resolved)) return { reason: resolved.reason };
-  const ignored = new Set(resolved.source.exportIgnored);
-  const listed = await agentReleaseFiles(mirror, resolved.source.rootTree, input);
-  return { files: listed.filter(([path]) => !ignored.has(path)) };
-}
-
-/**
  * `git archive -o` to a file, then `gzip -n` on that file. Both write to disk:
  * piping one Bun child process into another truncated a 4 MiB archive to
  * 982,058 bytes with exit code 0 (measured 2026-09-21), the same failure class
