@@ -126,10 +126,12 @@ thread (`config-releases/tree-jobs.ts`, `tree-thread.ts`), 2 per API process:
 - a job may run 60 s of its own time, 300 s in all; past that the thread is
   stopped and replaced, and the same job of that project fails at once for
   10 minutes;
-- one job per project runs at a time; at most 8 of one project and 64 in all
-  wait, each at most 30 s; past that the build answers "busy" with no release
-  ID (nothing caches it; the next convergence asks again), and the archive
-  route answers 503;
+- jobs are counted per owning account: one runs at a time per account, at
+  most 8 of one account and 64 in all wait, each at most 30 s, and a free
+  thread goes to the waiting account served least recently; past a bound the
+  build answers "busy" with no release ID (nothing caches it, a session
+  without repository access keeps its running config, the next convergence
+  asks again), and the archive route answers 503;
 - downloads into the partial mirror stay in the API process, which holds the
   credentials: the thread asks for them (`release-tree-git.ts`), and their
   wait does not count against the job.
