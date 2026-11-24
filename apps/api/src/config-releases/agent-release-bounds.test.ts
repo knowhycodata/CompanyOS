@@ -292,6 +292,34 @@ describe('agentReleaseFiles bounds', () => {
     expect(result.files!.map(([path]) => path)).toEqual(['tools/t.ts']);
   }, 120_000);
 
+  // Strix review 5 of #13028: every pass over repository data pays by its length and yields.
+  test('unique deep paths under an export-ignore rule never stall the event loop', async () => {
+    const entries: Record<string, string> = {
+      'kortix.yaml': ['project:', '  name: builder-test', 'default_agent: kortix', 'tools:', '  t: tools/t.ts', 'agents:', '  kortix:', '    prompt: Main.', ''].join('\n'),
+      '.gitattributes': 'ignored/** export-ignore\n',
+      'tools/t.ts': 'export default {}\n',
+    };
+    for (let at = 0; at < 2_000; at += 1) entries[`u${at}/${Array.from({ length: 500 }, () => 'abc').join('/')}/f.txt`] = 'x\n';
+    const sha = commit(entries, 'unique deep paths');
+    const { result, stallMs } = await longestStall(() => buildConfigRelease(project, sha, 'agent:kortix', { store }));
+    expect(stallMs).toBeLessThan(300);
+    if (result.release_id) expect(result.files!.map(([path]) => path)).toEqual(['tools/t.ts']);
+    else expect(result.reason).toContain('exceed');
+  }, 120_000);
+
+  test('a tool importing 20,000 tiny modules never stalls the event loop', async () => {
+    const entries: Record<string, string> = {
+      'kortix.yaml': ['project:', '  name: builder-test', 'default_agent: kortix', 'tools:', '  fan: tools/fan.ts', 'agents:', '  kortix:', '    prompt: Main.', ''].join('\n'),
+      'tools/fan.ts': Array.from({ length: 20_000 }, (_, at) => `import './t/m${at}'`).join('\n') + '\n',
+    };
+    for (let at = 0; at < 20_000; at += 1) entries[`tools/t/m${at}.ts`] = `export const v${at} = ${at}\n`;
+    const sha = commit(entries, 'tiny modules');
+    const { result, stallMs } = await longestStall(() => buildConfigRelease(project, sha, 'agent:kortix', { store }));
+    expect(stallMs).toBeLessThan(300);
+    if (result.release_id) expect(result.files!.length).toBe(20_001);
+    else expect(result.reason).toContain('exceed');
+  }, 120_000);
+
   test('one project runs one file-list build at a time; a fifth waiting build answers busy', async () => {
     const projectId = crypto.randomUUID();
     const order: number[] = [];

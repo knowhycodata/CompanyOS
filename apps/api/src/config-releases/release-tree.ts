@@ -132,13 +132,14 @@ export async function listConfigFiles(
   }
   const files: ConfigReleaseFile[] = [];
   const out = result.stdout;
-  // One record at a time, giving the event loop back every RECORDS_PER_YIELD: a commit may list 100,000+ files.
-  for (let start = 0, count = 0; start < out.length; count += 1) {
+  const pace = pacer();
+  // One record at a time, giving the event loop back as the characters add up: a commit may list 100,000+ files.
+  for (let start = 0; start < out.length; ) {
     let end = out.indexOf('\0', start);
     if (end < 0) end = out.length;
     const record = out.slice(start, end);
     start = end + 1;
-    if (count % RECORDS_PER_YIELD === RECORDS_PER_YIELD - 1) await yieldToEventLoop();
+    await pace(record.length + 1);
     if (!record) continue;
     const tab = record.indexOf('\t');
     const [mode, type, blob] = record.slice(0, tab).split(' ');
@@ -146,16 +147,29 @@ export async function listConfigFiles(
     if (type !== 'blob' || !mode || !blob || !path) continue;
     files.push([path, mode, blob]);
   }
-  files.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+  // `ls-tree -r` lists in path order already: check it in a paced pass, and sort only when it is not.
+  let sorted = true;
+  for (let at = 1; at < files.length && sorted; at += 1) {
+    await pace(files[at]![0].length);
+    sorted = files[at - 1]![0] < files[at]![0];
+  }
+  if (!sorted) files.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
   return files;
 }
 
-/** Records or paths a loop over a whole tree handles between two returns to the event loop. */
-const RECORDS_PER_YIELD = 4_096;
-
-/** Let other requests run. */
-function yieldToEventLoop(): Promise<void> {
-  return new Promise<void>((resolveYield) => setImmediate(resolveYield));
+/**
+ * A pacer for a whole-tree pass with no work bound of its own (the listing is
+ * bounded by `runGitCapture`'s 10 MiB output): call it with the characters
+ * each step touches, and it gives the event loop back every `WORK_PER_YIELD`.
+ */
+function pacer(): (units: number) => Promise<void> {
+  let sinceYield = 0;
+  return async (units) => {
+    sinceYield += units;
+    if (sinceYield < WORK_PER_YIELD) return;
+    sinceYield = 0;
+    await new Promise<void>((resolveYield) => setImmediate(resolveYield));
+  };
 }
 
 const ARCHIVE_IDENTITY = {
@@ -351,6 +365,12 @@ export class ListBudget {
     if (this[axis] < 0) throw new ConfigArchiveTooLargeError(MAX_CONFIG_TAR_BYTES);
   }
 
+  /** Charge `units` of string work, then `pace`. */
+  async step(units: number): Promise<void> {
+    this.spend('work', units);
+    await this.pace();
+  }
+
   /** Give the event loop back once enough work ran since the last time, and stop past the wall-time bound. */
   async pace(): Promise<void> {
     if (this.sinceYield < WORK_PER_YIELD) return;
@@ -410,6 +430,7 @@ async function readBlobs(mirror: string, blobs: readonly string[], maxBlobBytes:
   const sizes = (await gitStdin(mirror, {}, ['cat-file', '--batch-check'], `${wanted.join('\n')}\n`)).toString('utf8');
   const chunks: Array<{ ids: string[]; bytes: number }> = [];
   for (const line of sizes.split('\n')) {
+    await budget.step(line.length + 1);
     const [oid, type, size] = line.split(' ');
     const bytes = Number(size);
     if (type !== 'blob' || !Number.isFinite(bytes)) continue;
@@ -434,6 +455,7 @@ async function readBlobs(mirror: string, blobs: readonly string[], maxBlobBytes:
     while (at < raw.length) {
       const eol = raw.indexOf(0x0a, at);
       if (eol < 0) break;
+      await budget.step(eol - at + 1);
       const [oid, type, size] = raw.subarray(at, eol).toString('utf8').split(' ');
       at = eol + 1;
       if (type === 'missing' || size === undefined) continue;
@@ -489,13 +511,16 @@ async function exportIgnoredPaths(
 ): Promise<string[]> {
   const files = await listConfigFiles(mirror, rootTree);
   const attributeFiles = files.filter(([path]) => path === '.gitattributes' || path.endsWith('/.gitattributes'));
-  // The attribute files are read here and by `check-attr` below.
-  await ensureStoreObjects(mirror, attributeFiles.map(([, , blob]) => blob));
+  // Every slice and loop below is paid by its length: unique deep paths cannot make this quadratic for free.
+  const budget = new ListBudget();
+  // The attribute files are read here, in one batch, and by `check-attr` below.
+  await budget.download(mirror, attributeFiles.map(([, , blob]) => blob));
+  const attributes = await readBlobs(mirror, attributeFiles.map(([, , blob]) => blob), MAX_ATTRIBUTES_FILE_BYTES, budget);
   // The common case is no rule at all: no index, no scratch repository.
   let named = false;
-  for (const [, , blob] of attributeFiles) {
-    const text = await runGitCapture(['cat-file', 'blob', blob], mirror);
-    if (text.exitCode === 0 && text.stdout.includes('export-ignore')) named = true;
+  for (const bytes of attributes.values()) {
+    await budget.step(bytes.length);
+    if (bytes.includes('export-ignore')) named = true;
   }
   if (!named) return [];
 
@@ -503,15 +528,15 @@ async function exportIgnoredPaths(
   // Every candidate and each folder above it, each folder added once: walk up from the
   // deepest folder and stop at the first one already present.
   const queriedSet = new Set<string>();
-  for (let at = 0; at < candidates.length; at += 1) {
-    const path = candidates[at]!;
+  for (const path of candidates) {
+    await budget.step(path.length);
     queriedSet.add(path);
     for (let slash = path.lastIndexOf('/'); slash > 0; slash = path.lastIndexOf('/', slash - 1)) {
+      await budget.step(slash);
       const dir = path.slice(0, slash);
       if (queriedSet.has(dir)) break;
       queriedSet.add(dir);
     }
-    if (at % RECORDS_PER_YIELD === RECORDS_PER_YIELD - 1) await yieldToEventLoop();
   }
   const queried = [...queriedSet];
   const repo = await mkdtemp(join(tmpdir(), 'kortix-config-attributes-'));
@@ -529,13 +554,17 @@ async function exportIgnoredPaths(
     // `-z` output: path NUL attribute NUL value NUL, per queried path.
     const out = (await gitWithInput(repo, env, ['check-attr', '--cached', '-z', '--stdin', 'export-ignore'], queried)).split('\0');
     const ignored = new Set<string>();
-    for (let i = 0; i + 2 < out.length; i += 3) if (out[i + 2] === 'set') ignored.add(out[i]!);
+    for (let i = 0; i + 2 < out.length; i += 3) {
+      await budget.step(out[i]!.length);
+      if (out[i + 2] === 'set') ignored.add(out[i]!);
+    }
     // Is a folder ignored, or under an ignored folder? Each folder is decided once.
     const ignoredDir = new Map<string, boolean>([['', false]]);
-    const dirIgnored = (dir: string): boolean => {
+    const dirIgnored = async (dir: string): Promise<boolean> => {
       const chain: string[] = [];
       let at = dir;
       while (!ignoredDir.has(at)) {
+        await budget.step(at.length);
         chain.push(at);
         const slash = at.lastIndexOf('/');
         at = slash < 0 ? '' : at.slice(0, slash);
@@ -548,11 +577,10 @@ async function exportIgnoredPaths(
       return value;
     };
     const left: string[] = [];
-    for (let at = 0; at < candidates.length; at += 1) {
-      const path = candidates[at]!;
+    for (const path of candidates) {
+      await budget.step(path.length);
       const slash = path.lastIndexOf('/');
-      if (ignored.has(path) || dirIgnored(slash < 0 ? '' : path.slice(0, slash))) left.push(path);
-      if (at % RECORDS_PER_YIELD === RECORDS_PER_YIELD - 1) await yieldToEventLoop();
+      if (ignored.has(path) || (await dirIgnored(slash < 0 ? '' : path.slice(0, slash)))) left.push(path);
     }
     return left;
   } finally {
@@ -679,10 +707,11 @@ async function importClosure(
         imports = [];
         if (source) {
           budget.spend('parseBytes', source.length);
-          // A parse is synchronous work: it counts toward the next return to the event loop.
-          budget.spend('work', source.length);
+          // A parse is synchronous work: its bytes and a fixed cost per module count toward the
+          // next return to the event loop, so many tiny modules pay as much as one large one.
+          budget.spend('work', source.length + PARSE_OVERHEAD_UNITS);
           try {
-            imports = new Bun.Transpiler({ loader: loaderOf(path) }).scanImports(source.toString('utf8')).map((entry) => entry.path);
+            imports = transpilerFor(loaderOf(path)).scanImports(source.toString('utf8')).map((entry) => entry.path);
           } catch {
             // A syntax error: the box reports it when it imports the module.
           }
@@ -707,6 +736,22 @@ async function importClosure(
     }
   }
   return added;
+}
+
+/** The work one parse costs beyond its bytes: the scanner's fixed setup, in character units. */
+const PARSE_OVERHEAD_UNITS = 32_768;
+
+// replica-local: one import scanner per loader; scanImports keeps no state between calls.
+const transpilers = new Map<string, InstanceType<typeof Bun.Transpiler>>();
+
+/** The import scanner for `loader`, made once. */
+function transpilerFor(loader: 'tsx' | 'jsx' | 'ts' | 'js'): InstanceType<typeof Bun.Transpiler> {
+  let transpiler = transpilers.get(loader);
+  if (!transpiler) {
+    transpiler = new Bun.Transpiler({ loader });
+    transpilers.set(loader, transpiler);
+  }
+  return transpiler;
 }
 
 /** The loader Bun parses a module at `path` with. */
@@ -777,6 +822,9 @@ function resolveRelative(from: string, relative: string): string | null {
 
 /** The characters a path reference ends at. */
 const REFERENCE_END = new Set([')', '(', '[', ']', '<', '>', '"', "'", '`', ' ', '\t', '\n', '\r']);
+/** A `.gitattributes` larger than this is not read for `export-ignore`. */
+const MAX_ATTRIBUTES_FILE_BYTES = 1024 * 1024;
+
 /** The longest path reference read; a longer run ends the reference there. */
 const MAX_REFERENCE_CHARS = 512;
 /** The references read from one file at most. */
@@ -1003,7 +1051,15 @@ export async function agentReleaseFiles(mirror: string, rootTree: string, input:
   }
   for (const file of tools.values()) take(file);
 
-  return [...out.values()].sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+  // In tree order, from the sorted listing: no sort compares two long paths.
+  const listed: ConfigReleaseFile[] = [];
+  for (const path of paths) {
+    // A lookup hashes the whole path.
+    await budget.step(path.length);
+    const file = out.get(path);
+    if (file) listed.push(file);
+  }
+  return listed;
 }
 
 /**
