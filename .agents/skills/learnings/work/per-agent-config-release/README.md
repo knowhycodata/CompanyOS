@@ -118,34 +118,39 @@ Two scopes:
 Imports and skill links are parsed once per blob per API process
 (`git cat-file --batch`, memo by blob ID).
 
-Bounds (five Strix reviews, of #13024 and four of #13028, found the earlier
-versions unbounded). The work grows with repository structure and string
-lengths an author controls, so one `ListBudget` per build counts every axis:
-bytes read (128 MiB), parsed (32 MiB) and downloaded (128 MiB), git round
-trips (512), characters of string work (200,000,000: every prefix compare,
-candidate path and directory prefix is paid by its length, never as one
-event) and wall time (20 s). Every loop over repository content returns to
-the event loop every 200,000 work units, so a build at its bounds slows only
-itself. Also: the link scan is a linear `indexOf` pass; a text file over
-256 KiB is not scanned; a module over 512 KiB ships but is not parsed (Bun's
-import scan blocks ~9.5 ms per MiB of plain code, up to ~70 ms per MiB of
-hostile code) and is remembered by blob ID, and each parse counts toward the
-next yield; the tree listing and the `export-ignore` expansion yield every
-4,096 records and add each folder once; skill text files are collected while
-their folders are walked; an import specifier over 1,024 characters resolves to
-nothing; each folder is walked once (4,000 at most); the `folders` walk takes
-at most 2,000 tool folders and 64 hops; imports are memoized by blob and
-loader, and memo hits are copied before any await, so an eviction by another
-build cannot drop an import. Past a bound the release is "too large": an
-`agent:` session keeps its running config, a `repo-agent:` session keeps the
-whole-tree release. File-list builds run one at a time per project in each
-API process; at most 4 wait, each for at most 30 s, else the build answers
-"busy" with no release ID (nothing caches it; the next convergence asks
-again). The bound tests are in `config-releases/agent-release-bounds.test.ts`. On the internal project, with every memo cleared before each of
-the 42 agents, the worst agent used 3% of the git round trips, 2% of the
-bytes read and 1% of the work. Hostile fixtures (multi-MiB specifiers at 300
-paths, 400-deep and 3,000-character paths) stall the event loop at most 11 ms
-in the tests.
+Where builds run. Eight Strix reviews (of #13024 and #13028) found one
+unbounded loop after another while builds ran on the API event loop. Since
+#13028 every read of repository content for a release (the whole-tree
+release, the per-agent releases, the archive route's rebuilds) runs in a tree
+thread (`config-releases/tree-jobs.ts`, `tree-thread.ts`), 2 per API process:
+- a job may run 60 s of its own time, 300 s in all; past that the thread is
+  stopped and replaced, and the same job of that project fails at once for
+  10 minutes;
+- one job per project runs at a time; at most 8 of one project and 64 in all
+  wait, each at most 30 s; past that the build answers "busy" with no release
+  ID (nothing caches it; the next convergence asks again), and the archive
+  route answers 503;
+- downloads into the partial mirror stay in the API process, which holds the
+  credentials: the thread asks for them (`release-tree-git.ts`), and their
+  wait does not count against the job.
+The API event loop only receives results: the largest listing (170,000
+files, the 10 MiB git output bound) blocks it ~25 ms on arrival.
+
+Bounds inside a build. One `ListBudget` per build counts every axis an author
+controls: bytes read (128 MiB), parsed (32 MiB) and downloaded (128 MiB), git
+round trips (512), characters of string work (200,000,000: every prefix
+compare, candidate path and directory prefix is paid by its length) and wall
+time (20 s). Also: the link scan is a linear `indexOf` pass; a text file over
+256 KiB is not scanned; a module over 512 KiB ships but is not parsed; an
+import specifier over 1,024 characters resolves to nothing; each folder is
+walked once (4,000 at most); the `folders` walk takes at most 2,000 tool
+folders and 64 hops; imports are memoized by blob and loader. Past a bound
+the release is "too large": an `agent:` session keeps its running config, a
+`repo-agent:` session keeps the whole-tree release. The bound tests are in
+`config-releases/agent-release-bounds.test.ts` and `tree-jobs.test.ts`. On
+the internal project, with every memo cleared before each of the 42 agents,
+the worst agent used 3% of the git round trips, 2% of the bytes read and 1%
+of the work.
 
 `include:` is new manifest schema. Proposal: a top-level `release.include`
 (project-wide globs) and `agents.<name>.include` (that agent only). The exact
