@@ -12,7 +12,7 @@ import { Fragment, Suspense, useState, type ReactNode } from 'react';
 
 import { TERMS_LAST_UPDATED, TERMS_OF_SERVICE } from './terms-of-service';
 
-const LEGAL_LAST_UPDATED = 'November 19, 2026';
+const LEGAL_LAST_UPDATED = 'November 23, 2026';
 
 type LegalTab = 'imprint' | 'terms' | 'privacy';
 
@@ -194,6 +194,7 @@ const PRIVACY_TITLES = {
   cookies: 'Cookies and analytics',
   'information-sharing': 'Who we share it with',
   'google-user-data': 'Google user data',
+  'chrome-extension': 'Kortix in Chrome',
   'international-transfers': 'International transfers',
   retention: 'How long we keep it',
   'information-protection': 'How we protect it',
@@ -400,6 +401,10 @@ function PrivacyPolicy() {
               We never use Google user data to develop, improve, or train generalized or
               non-personalized AI or machine-learning models.
             </li>
+            <li>
+              We do not create aggregated or anonymized data sets from Google user data, and we do
+              not use it for any purpose other than the features above.
+            </li>
           </Bullets>
         </Clause>
         <Clause lead="How we store and protect it">
@@ -407,6 +412,10 @@ function PrivacyPolicy() {
             <li>
               Your Google access and refresh tokens are encrypted at rest. Only Kortix servers use
               them, and only to call Google APIs. Agent sandboxes never receive them.
+            </li>
+            <li>
+              Google user data is encrypted in transit (TLS) between Google, Kortix, and the AI
+              model provider.
             </li>
             <li>
               Google data that an agent reads becomes part of that session&apos;s conversation and
@@ -420,13 +429,15 @@ function PrivacyPolicy() {
           <Bullets>
             <li>
               The AI model provider of the model that runs a session receives the Google data that
-              the agent reads in that session, to generate the agent&apos;s reply. Kortix-managed
-              models run at the providers on our{' '}
+              the agent reads in that session, only to generate the agent&apos;s reply.
+              Kortix-managed models run with zero data retention: the provider does not store the
+              data and does not use it to train AI models. They run at the providers on our{' '}
               <Link href="/legal/subprocessors" className={LINK}>
                 subprocessors page
               </Link>
               . A model that you connect with your own API key or account runs at that provider,
-              under your agreement with it.
+              because you chose it, under your agreement with it. Choose a provider plan or setting
+              that does not train on your data.
             </li>
             <li>Third-party services that you instruct an agent to send it to.</li>
             <li>
@@ -469,6 +480,58 @@ function PrivacyPolicy() {
             </li>
           </Bullets>
         </Clause>
+      </Section>
+
+      <Section id="chrome-extension" title={PRIVACY_TITLES['chrome-extension']}>
+        <P>
+          Kortix in Chrome is our extension for Chrome and other Chromium browsers. It connects your
+          browser to your Kortix account, so that your sessions can open pages, read them, and act
+          on them as you, while you watch. It uses data only to provide this feature.
+        </P>
+        <Clause lead="What it keeps in your browser">
+          <Bullets>
+            <li>
+              The sign-in tokens for your Kortix account, the server address, and the settings you
+              choose: the browser name, the access mode, and which tabs a session can reach.
+            </li>
+          </Bullets>
+          <P>Signing out or removing the extension deletes them.</P>
+        </Clause>
+        <Clause lead="What it sends to Kortix">
+          <Bullets>
+            <li>
+              When you connect it: the browser name, browser brand, operating system, and extension
+              version, so that you can recognize the browser in Kortix. While it is connected:
+              whether the browser is online.
+            </li>
+            <li>
+              When a session uses the browser: the content of the pages the session reaches,
+              including their addresses, titles, text, screenshots and network requests, and the
+              actions the session takes there. When you allow all tabs, a session can also list the
+              address and title of each open tab. You choose whether a session reaches all your tabs
+              or only the tabs it opens, and whether it must ask first. Each tab a session uses is in
+              a tab group named after the session, and you can stop the session at any time.
+            </li>
+            <li>
+              When you send a message from its side panel: the text of the page you attach, and a
+              screenshot of the visible tab if you choose to add one.
+            </li>
+          </Bullets>
+        </Clause>
+        <P>
+          We handle this data as customer content: we use it to run the session you started, keep it
+          with that session, and delete it as described under How long we keep it. The extension does
+          not read a page unless a session or you ask it to, and it contains no analytics or
+          advertising code.
+        </P>
+        <P>
+          The use of information received from Kortix in Chrome adheres to the Chrome Web Store User
+          Data Policy, including the Limited Use requirements. We do not sell this data, use it for
+          advertising, use it to determine creditworthiness or for lending, or use it to train
+          general-purpose AI models. We share it only with the service providers that run your
+          session, such as the AI model provider you choose, and as described under Who we share it
+          with.
+        </P>
       </Section>
 
       <Section id="international-transfers" title={PRIVACY_TITLES['international-transfers']}>

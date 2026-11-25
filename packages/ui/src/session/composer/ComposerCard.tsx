@@ -14,15 +14,17 @@ import type {
   SetStateAction,
 } from 'react';
 import { lazy, Suspense, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { useToastClearance } from '../../primitives/toast-clearance';
 
 import { SpaceMentionContext } from './menus/space-mentions';
+import type { DriveMentionSource } from './menus/mention-menu';
 import { useFeatureFlag } from '@kortix/sdk/react';
 
 import { ModelConnectionLayoutContext } from '../models/model-connection-layout';
 import { ImagesUnsupportedBar, ModelConnectionBar } from '../models/model-connection-gate';
 import { AnimatedComposerPlaceholder } from './animated-placeholder';
 import { AttachmentTiles } from './attachment-tiles';
+import { DictationControl } from './dictation/dictation-control';
+import { useComposerDictation } from './dictation/use-composer-dictation';
 import {
   EMPTY_AGENTS,
   EMPTY_COMMANDS,
@@ -74,6 +76,8 @@ export interface ComposerCardDerived {
   attachedFiles: AttachedFile[];
   promptAttachmentItems: UsePromptAttachmentsResult['attachments'];
   removeAttachedFile: (index: number) => void;
+  /** The project's Drive files in the `@` menu; null where Drive is off. */
+  driveMentions: DriveMentionSource | null;
   retryAttachedFile: (id: string) => void;
   pastes: PastedContent[];
   removePaste: (id: string) => void;
@@ -129,6 +133,7 @@ export function ComposerCard({
   attachedFiles,
   promptAttachmentItems,
   removeAttachedFile,
+  driveMentions,
   retryAttachedFile,
   pastes,
   removePaste,
@@ -221,8 +226,6 @@ export function ComposerCard({
 }: ComposerCardProps) {
   const connectionsAbove = useContext(ModelConnectionLayoutContext) === 'above';
   const cardRef = useRef<HTMLDivElement>(null);
-  // A composer docked at the window bottom keeps toasts above its Send/Stop button.
-  useToastClearance(cardRef, slashMenuPlacement === 'above');
   const { attachAccept, modelPickerEnabled } = useUiHostConfig();
   const inlineUnderbar = underbarPlacement === 'inline';
 
@@ -261,6 +264,7 @@ export function ComposerCard({
     drawing itself (`ChatInputOverridesProvider`). Off, nothing here changes.
   */
   const chatInputEnabled = useFeatureFlag(projectId ?? null, 'chat_input').enabled;
+  const dictation = useComposerDictation({ projectId, editorRef });
   // Inside a space the `@` menu is its people and agents (`menus/space-mentions.ts`).
   const spaceMentions = useContext(SpaceMentionContext);
   const chatInputOpen = agentMenuOpen || modelMenuOpen || reasoningMenuOpen;
@@ -490,6 +494,7 @@ export function ComposerCard({
                 sessions={allSessions ?? []}
                 currentSessionId={sessionId}
                 spaceMentions={spaceMentions}
+                driveMentions={driveMentions}
                 commands={commands}
                 actions={slashActions}
                 files={slashFiles}
@@ -580,6 +585,8 @@ export function ComposerCard({
             modelUnavailable={modelUnavailable}
             agentUnavailable={agentUnavailable}
             call={call}
+            dictation={dictation ? <DictationControl dictation={dictation} disabled={disabled} /> : undefined}
+            dictationActive={!!dictation && dictation.phase !== 'idle' && dictation.phase !== 'starting'}
             onSubmit={() => handleSubmit()}
           />
         </div>

@@ -88,6 +88,17 @@ It takes about 2.5 min. It names each red check, and you fix each one on
 each) for failures this script finds in minutes (the learnings ledger,
 2026-11-14).
 
+The script runs no DB suite and only a few package tests. When the last
+nightly is red, or `dev` moved since it ran, also run the contract lanes on
+the `dev` SHA you promote (about 15 min) and fix every red lane first:
+
+```bash
+gh workflow run tests.yml --repo kortix-ai/CompanyOS --ref dev
+```
+
+v0.16.5 found 6 reds this way that the script missed (the learnings ledger,
+2026-11-24).
+
 ### Step 3 — one dispatch: Promote to Production
 
 Write the title and notes (Step 7 shows how), then:
@@ -283,6 +294,7 @@ npm view @kortix/sdk version
 npm view @kortix/agent-tunnel version
 npm view @kortix/llm-catalog version
 gh release view "vX.Y.Z" --repo kortix-ai/CompanyOS --json name,body,assets --jq '{name,assetCount:(.assets|length)}'   # 24 assets
+for i in api gateway frontend; do for t in X.Y.Z prod; do curl -fsS "https://hub.docker.com/v2/repositories/kortix/kortix-$i/tags/$t" | jq -r --arg t "$i:$t" '"\($t) \(.digest)"'; done; done   # :prod digest = :X.Y.Z digest
 ```
 
 The API and the gateway report the promoted staging SHA: deploy-prod retags
@@ -296,7 +308,10 @@ publishes the JS bundle. `Mobile Store` builds and submits a new app version
 when `apps/mobile/app.json` carries one: Android to the Play production track,
 iOS to App Review with release after approval. Both must end green. A
 `Mobile Store` warning asks for a version bump or a person in App Store
-Connect (runbook: `apps/mobile/BUILD_GUIDE.md`).
+Connect (runbook: `apps/mobile/BUILD_GUIDE.md`). Both also run when
+`Deploy Prod` failed only in its Kortix Capture or desktop installer builds
+(`deploy-prod-gate.yml`); any other failed job stops them, and you then
+dispatch them by hand once prod is live.
 
 ### Step 10 — self-host `:stable`
 

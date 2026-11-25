@@ -35,6 +35,7 @@ import { registerRepositoryReplacementRoutes } from './routes/repository-replace
 import { registerSecretBrokerRoutes } from './routes/secret-broker';
 import { registerSecretRelayRoutes } from './routes/secret-relay';
 import { registerSetupLinksRoutes } from './routes/setup-links';
+import { registerBrowserLoginsRoutes } from './routes/browser-logins';
 import { registerConnectionsRoutes } from './routes/connections';
 import { registerConnectionActionsRoutes } from './routes/connection-actions';
 import { registerComputersRoutes } from './routes/computers';
@@ -100,8 +101,8 @@ import { registerProjectSearchRoutes } from './routes/project-search';
 import { registerProjectMyMemoryRoutes } from './routes/project-my-memory';
 import { registerChangeRequestsRoutes } from './routes/change-requests';
 import { registerPromptAttachmentsRoutes } from './routes/prompt-attachments';
+import { registerDictationRoutes } from './routes/dictation';
 import { registerChangeRequestActionsRoutes } from './routes/change-request-actions';
-import { registerMarketplaceInstallSessionRoutes } from './routes/marketplace-install-session';
 import { registerReviewItemsRoutes } from './routes/review-items';
 import { registerAgentScopeRoutes } from './routes/agent-scope';
 import { registerAgentCapabilitiesRoutes } from './routes/agent-capabilities';
@@ -143,6 +144,7 @@ export function registerAllProjectRoutes(): void {
   registerSecretBrokerRoutes();
   registerSecretRelayRoutes();
   registerSetupLinksRoutes();
+  registerBrowserLoginsRoutes();
   registerConnectionsRoutes();
   registerConnectionActionsRoutes();
   registerComputersRoutes();
@@ -207,8 +209,8 @@ export function registerAllProjectRoutes(): void {
   registerProjectMyMemoryRoutes();
   registerChangeRequestsRoutes();
   registerPromptAttachmentsRoutes();
+  registerDictationRoutes();
   registerChangeRequestActionsRoutes();
-  registerMarketplaceInstallSessionRoutes();
   registerReviewItemsRoutes();
   registerAgentScopeRoutes();
   registerAgentConfigRoutes();

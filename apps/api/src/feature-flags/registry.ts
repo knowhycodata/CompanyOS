@@ -104,12 +104,12 @@
  * that makes it the default, delete it in the next one. The comment on the
  * entry names the release and the spec section that ends it.
  *
- * The same state also serves INTERNAL-ONLY surfaces (`workspace_volume`):
- * not offered in Settings, on by the operator default or per project by a
- * Kortix operator on request. Their 403 says "contact Kortix" instead of
- * naming a toggle the caller cannot see (gate.ts).
+ * The same state also serves INTERNAL-ONLY surfaces: not offered in Settings,
+ * on by the operator default or per project by a Kortix operator on request.
+ * Their 403 says "contact Kortix" instead of naming a toggle the caller cannot
+ * see (gate.ts). No flag is hidden today: the last one, `workspace_volume`
+ * (stateless sandboxes), graduated on 2026-11-23.
  */
-import { CHROME_LAUNCHED } from '@kortix/shared/chrome-launch';
 import { config } from '../config';
 import { platinumUsRegion } from '../shared/platinum-region';
 import type { FeatureFlagKey, FeatureFlagStability } from '@kortix/api-contract';
@@ -170,17 +170,10 @@ export interface FeatureFlagDef {
  * `computer` connector. The platform-wide `TUNNEL_ENABLED` env is the only gate.
  */
 const FLAGS: readonly FeatureFlagDef[] = [
-  {
-    key: 'marketplace',
-    name: 'Marketplace',
-    description:
-      'Browse and 1-click install skills from a marketplace of community & vendor registries (any SKILL.md repo). Sources, updates, and team scopes are still in flux.',
-    stability: 'beta',
-    available: () => true,
-    // On by default for every project — no longer gated behind an opt-in toggle.
-    platformDefault: () => true,
-    enforcement: 'routes',
-  },
+  // `marketplace` withdrawn (2026-11-20): the marketplace was removed (11
+  // installs in the 90 days before). Its routes answer 410 (routes/retired.ts).
+  // The API no longer lists, resolves or accepts the key. A stored
+  // `experimental.marketplace` override is inert.
   // `connectors_api_discover` graduated (2026-10-24) with `connectors_v2`:
   // integrations.sh is part of the one Kortix catalog every project browses.
   // A stored override is inert.
@@ -220,27 +213,13 @@ const FLAGS: readonly FeatureFlagDef[] = [
     // a project with the flag off (trigger-execution-store claimDueScheduleSlots).
     enforcement: 'routes',
   },
-  {
-    key: 'secrets_egress',
-    name: 'Network-Enforced Secrets',
-    description:
-      'Let a secret be enforced at the network instead of loaded into the sandbox: the sandbox holds a handle and Kortix substitutes the real value only on requests to approved hosts. Off ⇒ every secret loads into the sandbox environment and the "Enforce at the network" option is hidden.',
-    stability: 'experimental',
-    available: () => true,
-    // On by default (Marko, 2026-09-03). The OPTION is available; a new secret
-    // still defaults to an environment variable — enforcing at the network is
-    // a per-secret choice. A project that turns the flag off hides the option
-    // and the write routes refuse to move a secret into egress delivery.
-    platformDefault: () => true,
-    enforcement: 'behavioral',
-    enforcementNote:
-      'No dedicated routes. The secret write paths (POST /secrets in ' +
-      'projects/routes/secrets.ts, PUT /secrets/:id/strategy in ' +
-      'projects/routes/secret-delivery.ts) reject a request that ' +
-      'moves a secret INTO egress delivery when the flag is off. A secret that ' +
-      'is already egress keeps serving and stays editable, so turning the flag ' +
-      'off never strands an existing enforced secret.',
-  },
+  // `secrets_egress` graduated (2026-11-23): Network-Enforced Secrets is on for
+  // every project. Any secret's exposure can be set to enforced: the sandbox
+  // holds a handle and Kortix substitutes the value only on the approved hosts.
+  // A new secret still defaults to the environment. On by default since
+  // 2026-09-03; one prod project stored `false`. A stored
+  // `experimental.secrets_egress` override is inert. The project detail still
+  // sends the key as `true` for older SDKs, hosts and CLIs.
   // `pooled_provider_secrets` graduated (2026-11-12, Marko: "remove this as a
   // feature flag … 1 common across the board default"): every project has
   // named provider accounts with sharing, per-session key selection and named
@@ -370,9 +349,9 @@ const FLAGS: readonly FeatureFlagDef[] = [
   // serializer keeps sending `true` for older clients.
   {
     key: 'chat',
-    name: 'Channels',
+    name: 'Slack-style Spaces',
     description:
-      "Channels with Kortix, the way Slack works: every message is a thread, Kortix's newest reply shows under it, Kortix can start threads, and you share channels with people. Replaces the session list in the sidebar.",
+      "Use Slack-style channels and direct messages, where every message starts a thread. Switches the sidebar to the chat layout. Separate from Spaces, which groups sessions, files and tabs.",
     stability: 'experimental',
     wip: true,
     available: () => true,
@@ -412,34 +391,13 @@ const FLAGS: readonly FeatureFlagDef[] = [
       'Grants made while on stay stored and count again when it is turned on; a change reaches running sessions at their next mount enforcement or boot. ' +
       'WEB: the Drive tree shows only My files while off (no Drives section, no All files, no Share).',
   },
-  {
-    key: 'workspace_volume',
-    // The key keeps its name: it is in the SDK's FeatureFlagKey and stored on projects.
-    name: 'Stateless sandboxes',
-    description:
-      "Every new Platinum session keeps only /workspace, on its own Platinum volume, so the sandbox is disposable: one stopped for an hour (KORTIX_SANDBOX_IDLE_DELETE_MINUTES) is deleted, and the next open boots a new sandbox on the same files and conversation. Programs that ran in the old sandbox are not running, and the agent is told so. Not a Settings toggle: Kortix turns it on.",
-    stability: 'experimental',
-    // Every workspace volume is a Platinum volume.
-    available: () => Boolean(config.PLATINUM_API_KEY),
-    // Off unless the operator sets KORTIX_WORKSPACE_VOLUMES=on (dev and prod
-    // do: deploy-dev.yml, deploy-prod.yml). Staging and self-host leave it unset.
-    platformDefault: () => workspaceVolumesSwitch() === 'on',
-    // Internal-only, never a Settings toggle. A Kortix operator sets one
-    // project's choice (PUT /v1/admin/api/projects/:id/features); `false` keeps
-    // that project off while the default is on.
-    catalogHidden: true,
-    enforcement: 'behavioral',
-    enforcementNote:
-      'BEHAVIORAL only. Read once per session, at POST /sessions (platform/services/workspace-volume.ts): on, a ' +
-      'Platinum session is inserted with `metadata.workspace_volume` and every box it ever gets mounts volume ' +
-      'kws-<session_id> at /workspace, in the region the volume was created in, with KORTIX_WORKSPACE_VOLUME=1 and ' +
-      'the session-log restore on. Turning the flag off changes no session that has a volume. ' +
-      'KORTIX_WORKSPACE_VOLUMES=on makes it the default for every project without its own choice; ' +
-      'KORTIX_WORKSPACE_VOLUMES=off stops new volumes everywhere. A box stopped longer than ' +
-      'KORTIX_SANDBOX_IDLE_DELETE_MINUTES (default 60) is deleted (projects/reaping/idle-volume-retire.ts). The ' +
-      'volume is deleted with the session content: by the retention purge after the trash window ' +
-      '(projects/session-log-purge.ts) or by account erasure.',
-  },
+  // `workspace_volume` graduated (2026-11-23): stateless sandboxes are the
+  // default. Every new Platinum session keeps /workspace on its own volume
+  // (platform/services/workspace-volume.ts), and a box stopped for
+  // KORTIX_SANDBOX_IDLE_DELETE_MINUTES is replaced on the next open. The only
+  // off switch is the deployment's KORTIX_WORKSPACE_VOLUMES=off. A stored
+  // `experimental.workspace_volume` override is inert; the serializer sends
+  // whether new sessions get a volume, for older SDKs, hosts and CLIs.
   {
     key: 'session_groups',
     // Product word "Spaces" since 2026-11-17; the key keeps its name (stored on projects).
@@ -459,27 +417,15 @@ const FLAGS: readonly FeatureFlagDef[] = [
       'SESSIONS: session create ignores `group_id` while off. On, every session of a space (a child: its parent\'s) gets the "## This space" ' +
       'turn text (projects/lib/session-where.ts: name, description, mounted folder) and mounts /Spaces/<group_id> read-write at /drives/space (drives/service.ts sessionGroupFolder). SHARING: a group is private to its creator by default; sharing it (people or the whole project) shares every session in it and its folder (shared/session-group-access.ts).',
   },
-  {
-    key: 'chrome',
-    name: 'Kortix in Chrome',
-    description:
-      "Let a session drive your own Chrome, with your logins, through the Kortix in Chrome extension: it opens its tabs in a group named after the session, and you can take over or stop it at any time.",
-    stability: 'experimental',
-    // Off on staging and prod until the Chrome Web Store listing is public.
-    available: () => config.KORTIX_CHROME_ENABLED,
-    // Not launched (CHROME_LAUNCHED, #11436): the web has no Chrome surface, so
-    // no project gets it by default and the catalog does not offer it. An
-    // operator can still turn it on for one project (the extension's dev pairing).
-    platformDefault: () => CHROME_LAUNCHED,
-    ...(CHROME_LAUNCHED ? {} : { catalogHidden: true as const }),
-    enforcement: 'routes',
-    enforcementNote:
-      'ROUTES: POST /v1/chrome/attach answers 403 `feature_disabled` when the calling session\'s project has it ' +
-      'off (chrome/routes.ts); release stays open so a session can always let go. The browsers a person ' +
-      'connected are account-level and gated only by KORTIX_CHROME_ENABLED (404 when off). BOX: off, the ' +
-      'session has no kortix-chrome skill and its CLI hides and refuses `kortix chrome` (KORTIX_FEATURE_FLAGS). ' +
-      'WEB: no sidebar row, no Chrome card in Apps and extensions, no Settings page.',
-  },
+  // `chrome` graduated (2026-11-24): Kortix in Chrome is on for every project
+  // wherever the API serves /v1/chrome. The deployment's KORTIX_CHROME_ENABLED
+  // is the only off switch (dev, staging and prod set it; self-host does not).
+  // Each person still decides per browser: the extension, its Access mode and
+  // Stop. A stored `experimental.chrome` override is inert. The box keeps
+  // listing `chrome` in KORTIX_FEATURE_FLAGS where the API serves it
+  // (projects/lib/feature-flag-env.ts): kortixd withholds the kortix-chrome
+  // skill without it, and CLIs built before then hide `kortix chrome`.
+  // The serializer sends `experimental.chrome` = KORTIX_CHROME_ENABLED.
   {
     key: 'agent_teams',
     name: 'Agent teams',
@@ -535,7 +481,7 @@ const FLAGS: readonly FeatureFlagDef[] = [
     key: 'chat_front',
     name: 'Spaces-Router',
     description:
-      'With Spaces on, the agent you chat with in a thread is a router: it does quick work itself (an answer, a short text, a look at the thread files) and hands longer work to the Space\'s agents. It writes back like a person, in short messages. An agent saves its full result as a file in the thread, and the router links that file instead of retyping it. Show work under a message opens the work behind it. Needs My Kortix on in kortix.yaml.',
+      'With Slack-style Spaces on, the agent you chat with in a thread is a router: it does quick work itself (an answer, a short text, a look at the thread files) and hands longer work to the Space\'s agents. It writes back like a person, in short messages. An agent saves its full result as a file in the thread, and the router links that file instead of retyping it. Show work under a message opens the work behind it. Needs My Kortix on in kortix.yaml.',
     stability: 'experimental',
     wip: true,
     available: () => true,
@@ -559,7 +505,7 @@ const FLAGS: readonly FeatureFlagDef[] = [
     key: 'spaces_proactive',
     name: 'Spaces-Proactive',
     description:
-      'With Spaces on, a space can watch itself: turn on Proactive in its details, and an agent reads what happens there (finished threads, questions left open, people who join) and writes in the chat only when it matters: a result worth sharing, a decision you need to make, or something overdue. It can also start a thread that does the work. Optional daily brief at 9:00.',
+      'With Slack-style Spaces on, a space can watch itself: turn on Proactive in its details, and an agent reads what happens there (finished threads, questions left open, people who join) and writes in the chat only when it matters: a result worth sharing, a decision you need to make, or something overdue. It can also start a thread that does the work. Optional daily brief at 9:00.',
     stability: 'experimental',
     wip: true,
     available: () => true,
@@ -618,6 +564,20 @@ const FLAGS: readonly FeatureFlagDef[] = [
     enforcementNote:
       'UI-ONLY: tabs are window chrome in the desktop app (apps/web/src/features/desktop-tabs). They own no data and no route, so the server has nothing to refuse. ' +
       'Off, the desktop title bar is the one it was before, and the tabs saved in the window\'s local storage stay until the flag is on again.',
+  },
+  {
+    key: 'review_swipe',
+    name: 'Review cards',
+    description:
+      "The Review page's Needs you opens as a swipe deck: one item per card. Swipe right to approve or merge, left to send it back to the agent with what should change.",
+    stability: 'experimental',
+    available: () => true,
+    platformDefault: () => false,
+    enforcement: 'ui-only',
+    enforcementNote:
+      'UI-ONLY: the deck is another view of the same review items (packages/ui/src/workspace/review/review-swipe-deck.tsx, ' +
+      'apps/mobile/components/review/ReviewSwipeDeck.tsx). Every verdict goes through the routes the list already uses, ' +
+      'so the server has nothing to refuse. Off, Needs you is the list.',
   },
   {
     key: 'calendar',
@@ -751,18 +711,6 @@ export function buildFeatureFlagCatalog(metadata: unknown): FeatureFlagView[] {
       scope: 'project' as const,
     }];
   });
-}
-
-/**
- * KORTIX_WORKSPACE_VOLUMES: `on` (or 1/true/yes) makes `workspace_volume` the
- * default for a project without its own choice; `off` (or 0/false/no) gives
- * no new session a volume; unset or anything else leaves it to each project.
- */
-export function workspaceVolumesSwitch(): 'on' | 'off' | null {
-  const value = (config.KORTIX_WORKSPACE_VOLUMES ?? '').trim().toLowerCase();
-  if (/^(1|on|true|yes)$/.test(value)) return 'on';
-  if (/^(0|off|false|no)$/.test(value)) return 'off';
-  return null;
 }
 
 /** True when only a platform operator may write this flag. */

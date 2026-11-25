@@ -708,11 +708,16 @@ const envSchema = z.object({
   // mounts, with the folders synced in by the box's daemon.
   KORTIX_DRIVES_SESSION_MOUNT: optStr,
   KORTIX_DRIVES_SYNC: optStr,
-  // `on` (or 1/true/yes): `workspace_volume` (stateless sandboxes) is on for
-  // every project without its own choice; dev and prod set it.
-  // `off` (or 0/false/no): no new session gets a /workspace volume, whatever its
-  // project's flag says. Unset: each project's own choice, default off. A
-  // session that already has a volume keeps it (platform/services/workspace-volume.ts).
+  // Shared (live) drive volumes for NEW drives. Off (the default): a new drive
+  // gets a block volume, whose commits give memory page history and Files →
+  // Versions. On: a new drive gets a shared volume when storage serves them;
+  // a shared volume has no commits, so it has no version history. A drive that
+  // is already shared stays shared either way.
+  KORTIX_SHARED_DRIVES: optBoolFalse,
+  // Stateless sandboxes kill switch. `off` (or 0/false/no): no new session gets
+  // a /workspace volume. Unset, `on` or anything else: every new Platinum
+  // session gets one (the default since 2026-11-23). A session that already
+  // has a volume keeps it (platform/services/workspace-volume.ts).
   KORTIX_WORKSPACE_VOLUMES: optStr,
   // The `us_region` default for a project that has made no choice: true puts
   // its new Files and sessions in KORTIX_PLATINUM_US_REGION. Off by default;
@@ -975,9 +980,10 @@ const envSchema = z.object({
   POSTMAN_API_KEY: optStr,
 
   // ── Kortix in Chrome ─────────────────────────────────────────────────────
-  // Master switch until launch: on in local and dev only. Off, /v1/chrome/* and
-  // the extension's control socket answer 404 and the `chrome` project flag is
-  // unavailable (feature-flags/registry.ts).
+  // On in local, dev, staging and prod; off on a self-hosted server (the store
+  // build signs in to kortix.com only). Off, /v1/chrome/* and the extension's
+  // control socket answer 404 and the `chrome` project flag is unavailable
+  // (feature-flags/registry.ts).
   KORTIX_CHROME_ENABLED: optBoolFalse,
 
   // ── Residential proxy ────────────────────────────────────────────────────
@@ -1006,6 +1012,8 @@ const envSchema = z.object({
   KORTIX_PUBLIC_RESPONSE_REQS_PER_MIN: optInt(3000),
   KORTIX_DEMO_REQUEST_REQS_PER_MIN: optInt(10),
   KORTIX_FEEDBACK_REQS_PER_MIN: optInt(10),
+  // Composer dictations per user per minute (POST /v1/projects/:id/dictation).
+  KORTIX_DICTATION_REQS_PER_MIN: optInt(20),
   KORTIX_LLM_ROUTER_REQS_PER_MIN_FREE: optInt(60),
   KORTIX_LLM_ROUTER_REQS_PER_MIN_PAID: optInt(600),
   // Per-credential bound on the LLM gateway mount (/v1/llm and its
@@ -1672,6 +1680,7 @@ export const config = {
   KORTIX_SNAPSHOT_REAP_PREDECESSOR: env.KORTIX_SNAPSHOT_REAP_PREDECESSOR,
   KORTIX_DRIVES_SESSION_MOUNT: env.KORTIX_DRIVES_SESSION_MOUNT,
   KORTIX_DRIVES_SYNC: env.KORTIX_DRIVES_SYNC,
+  KORTIX_SHARED_DRIVES: env.KORTIX_SHARED_DRIVES,
   KORTIX_WORKSPACE_VOLUMES: env.KORTIX_WORKSPACE_VOLUMES,
   KORTIX_PLATINUM_US_REGION_DEFAULT: env.KORTIX_PLATINUM_US_REGION_DEFAULT,
   KORTIX_PROJECT_SNAPSHOT_MODE: env.KORTIX_PROJECT_SNAPSHOT_MODE,
@@ -1818,6 +1827,7 @@ export const config = {
   KORTIX_PUBLIC_RESPONSE_REQS_PER_MIN: env.KORTIX_PUBLIC_RESPONSE_REQS_PER_MIN,
   KORTIX_DEMO_REQUEST_REQS_PER_MIN: env.KORTIX_DEMO_REQUEST_REQS_PER_MIN,
   KORTIX_FEEDBACK_REQS_PER_MIN: env.KORTIX_FEEDBACK_REQS_PER_MIN,
+  KORTIX_DICTATION_REQS_PER_MIN: env.KORTIX_DICTATION_REQS_PER_MIN,
   KORTIX_LLM_ROUTER_REQS_PER_MIN_FREE: env.KORTIX_LLM_ROUTER_REQS_PER_MIN_FREE,
   KORTIX_LLM_ROUTER_REQS_PER_MIN_PAID: env.KORTIX_LLM_ROUTER_REQS_PER_MIN_PAID,
   KORTIX_LLM_GATEWAY_REQS_PER_MIN: env.KORTIX_LLM_GATEWAY_REQS_PER_MIN,

@@ -1,6 +1,9 @@
 import { expect } from "@playwright/test";
+import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
+import { runDatabaseSql } from "../database";
 import { installBrowserSessionDirect } from "../session-auth";
+import { expectSettingsLayout } from "../settings-layout";
 import { dismissOnboarding, selectAccountForUi } from "../ui";
 import {
   api,
@@ -145,6 +148,112 @@ function defineSessionParity(desktop: boolean): void {
         expect(start?.status()).toBe(200);
         await expect(page.getByText("404 Page not found")).toHaveCount(0);
       } finally {
+        await dispose();
+      }
+    });
+
+    test("Workspace settings keeps one collapsible sidebar and a centered column", async ({
+      page,
+      baseURL,
+      desktopApp,
+    }) => {
+      test.setTimeout(240_000);
+      await resize(page, desktopApp, 1440, 900);
+      await pinMacPlatform(page);
+      const { session, accounts, project, dispose } = await provisionDesktopScene({
+        databaseUrl: desktopDatabaseUrl(),
+        emailPrefix: "e2e-desktop-settings",
+        name: "Desktop settings layout",
+      });
+      try {
+        const general = `${baseURL}/workspaces/${project.id}/admin/general`;
+        await installBrowserSessionDirect(page, session, general, authOptions);
+        await selectAccountForUi(page, accounts[0].account_id);
+        await page.goto(general);
+        await dismissOnboarding(page);
+        await expect(page.locator("main h1")).toBeVisible({ timeout: 60_000 });
+        const opener = page.getByRole("button", { name: "Open sidebar", exact: true });
+        const collapse = page.getByRole("button", { name: "Collapse sidebar", exact: true });
+        if (await opener.isVisible()) await opener.click();
+        await expect(collapse).toBeVisible();
+        // Off the sidebar's edge, so a collapsed sidebar does not peek open.
+        await page.mouse.move(1000, 600);
+        await expectSettingsLayout(page, 1, "sidebar open");
+
+        await collapse.click();
+        await page.mouse.move(1000, 600);
+        // Collapsed, the page draws no second settings sidebar, and one
+        // opener brings the app sidebar back: on the desktop shell it is the
+        // title-bar control, clear of the traffic lights.
+        await expectSettingsLayout(page, 0, "sidebar collapsed");
+        await expect(opener).toHaveCount(1);
+        if (desktop) {
+          const box = await opener.boundingBox();
+          expect(box?.x ?? -1, "the opener clears the native window controls").toBeGreaterThanOrEqual(62);
+          expect(box?.y ?? Infinity, "the opener shares the traffic-light row").toBeLessThan(40);
+        }
+        await page.screenshot({ path: test.info().outputPath("settings-collapsed.png"), scale: "css" });
+        await opener.click();
+        await page.mouse.move(1000, 600);
+        await expectSettingsLayout(page, 1, "sidebar reopened");
+
+        if (desktopApp) {
+          // Browser zoom keeps one sidebar and the centered column.
+          const window = await desktopApp.browserWindow(page);
+          const zoom = await window.evaluate((window) => window.webContents.getZoomFactor());
+          await window.evaluate((window) => window.webContents.setZoomFactor(1.25));
+          await expectSettingsLayout(page, 1, "zoomed in");
+          await window.evaluate((window, factor) => window.webContents.setZoomFactor(factor), zoom);
+        }
+
+        // The minimum window: the sidebar is a sheet, the page shows its
+        // strip of sections, and the column still centers.
+        await resize(page, desktopApp, 720, 480);
+        await expectSettingsLayout(page, 1, "minimum window");
+        await page.screenshot({ path: test.info().outputPath("settings-minimum-window.png"), scale: "css" });
+      } finally {
+        await dispose();
+      }
+    });
+
+    test("the default sidebar opens Review in one click, with what waits on you", async ({
+      page,
+      baseURL,
+      desktopApp,
+    }) => {
+      // Change requests were one tap away in the mobile drawer and had no
+      // sidebar row on web and desktop with `chat` off (2026-11).
+      test.setTimeout(180_000);
+      await resize(page, desktopApp, 1440, 900);
+      const databaseUrl = desktopDatabaseUrl();
+      await pinMacPlatform(page);
+      const { session, user, accounts, project, dispose } = await provisionDesktopScene({
+        databaseUrl,
+        emailPrefix: "e2e-desktop-review",
+        name: "Desktop review row",
+      });
+      const crId = randomUUID();
+      try {
+        await runDatabaseSql(
+          `INSERT INTO kortix.change_requests
+             (cr_id, account_id, project_id, number, title, base_ref, head_ref, created_by)
+           VALUES ($1::uuid, $2::uuid, $3::uuid, 1, 'Desktop parity change', 'main', 'e2e-desktop-review', $4::uuid)`,
+          [crId, accounts[0].account_id, project.id, user.id],
+          databaseUrl,
+        );
+        await installBrowserSessionDirect(page, session, `${baseURL}/workspaces/${project.id}`, authOptions);
+        await selectAccountForUi(page, accounts[0].account_id);
+        await page.goto(`${baseURL}/workspaces/${project.id}`);
+        await dismissOnboarding(page);
+        const review = page.getByRole("link", { name: /^Review/ });
+        await expect(review).toHaveCount(1, { timeout: 60_000 });
+        await expect(review).toHaveText(/^Review\s*1$/, { timeout: 60_000 });
+        await review.click();
+        await expect(page).toHaveURL(new RegExp(`/workspaces/${project.id}/review`));
+        await expect(review).toHaveAttribute("data-active", "true");
+        await expect(page.getByText("Desktop parity change")).toBeVisible({ timeout: 60_000 });
+      } finally {
+        await runDatabaseSql("DELETE FROM kortix.change_requests WHERE cr_id = $1::uuid", [crId], databaseUrl).catch(() => {});
         await dispose();
       }
     });

@@ -46,7 +46,7 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react';
-import { ToolPartRenderer, ToolSurfaceContext } from '../../tool/tool-renderers';
+import { isUnpresentedFailure, ToolPartRenderer, ToolSurfaceContext } from '../../tool/tool-renderers';
 import { PanelWidthButton } from '../../../files/viewer/viewer-actions';
 import { DOCKED_LAYER_CLASS, SESSION_BAR_CLASS } from '../../../internal/layout/panel-chrome';
 
@@ -717,7 +717,8 @@ export function ToolParts({
   summary?: string;
 }) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
-  const visible = collapseSnapshots(calls);
+  // A failed `show` presented nothing: no row, no failure banner, no full-height slot.
+  const visible = collapseSnapshots(calls).filter((call) => !isUnpresentedFailure(call));
   // A step's own icon already went red for this (StepIcon, ContextCard) — but
   // that glance lives on the panel's home, one screen back. Once the user has
   // actually opened the failed step, the detail must say so too, not just show
@@ -734,7 +735,8 @@ export function ToolParts({
     <ToolSurfaceContext.Provider value="panel">
       <div
         className={cn(
-          'flex min-w-0 flex-col gap-2',
+          // One list: the rows' own hairlines space them.
+          'flex min-w-0 flex-col',
           fillsPanel && 'h-full',
           // Tool views cap their own scroll height for the inline chat, where
           // they're one item among many. Here the detail IS the tool — a web
@@ -747,9 +749,9 @@ export function ToolParts({
           '[&_[data-scrollable]]:max-h-none',
         )}
       >
-        {summary && <p className="text-muted-foreground text-sm text-pretty">{summary}</p>}
+        {summary && <p className="text-muted-foreground px-2 pb-2 text-sm text-pretty">{summary}</p>}
         {failed && (
-          <div className="border-kortix-red/30 bg-kortix-red/5 text-foreground rounded-md border px-3 py-2 text-sm">
+          <div className="bg-kortix-red/15 text-foreground mb-2 rounded-md px-3 py-2 text-sm">
             {tI18nComplete.raw('text4e1c9bd64a7d')}
           </div>
         )}
@@ -759,14 +761,17 @@ export function ToolParts({
             `calls`: `collapseSnapshots` can fold three `todo_write` calls into
             the single row that is actually drawn, and that lone row is a
             single-part detail by every measure the reader has. */}
-        {visible.map((call) => (
-          <ToolPartRenderer
-            key={call.call_id}
-            call={call}
-            sessionId={sessionId}
-            defaultOpen={visible.length === 1}
-          />
-        ))}
+        {/* One card per call, spaced apart. */}
+        <div className="flex flex-col gap-2">
+          {visible.map((call) => (
+            <ToolPartRenderer
+              key={call.call_id}
+              call={call}
+              sessionId={sessionId}
+              defaultOpen={visible.length === 1}
+            />
+          ))}
+        </div>
       </div>
     </ToolSurfaceContext.Provider>
   );

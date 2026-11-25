@@ -1,7 +1,7 @@
 {
   "generatedAt": "static",
-  "count": 1818,
-  "aliases": 706,
+  "count": 1826,
+  "aliases": 713,
   "routes": [
     {
       "method": "GET",
@@ -2163,36 +2163,12 @@
       "path": "/v1/llm/*"
     },
     {
-      "method": "GET",
-      "path": "/v1/marketplace/items"
+      "method": "ALL",
+      "path": "/v1/marketplace"
     },
     {
-      "method": "GET",
-      "path": "/v1/marketplace/items/:id"
-    },
-    {
-      "method": "GET",
-      "path": "/v1/marketplace/items/:id/file"
-    },
-    {
-      "method": "GET",
-      "path": "/v1/marketplace/marketplaces"
-    },
-    {
-      "method": "GET",
-      "path": "/v1/marketplace/marketplaces/featured"
-    },
-    {
-      "method": "GET",
-      "path": "/v1/marketplace/sources"
-    },
-    {
-      "method": "POST",
-      "path": "/v1/marketplace/sources"
-    },
-    {
-      "method": "DELETE",
-      "path": "/v1/marketplace/sources/:id"
+      "method": "ALL",
+      "path": "/v1/marketplace/*"
     },
     {
       "method": "DELETE",
@@ -2896,6 +2872,26 @@
       "aliasOf": "/v1/workspaces/:workspaceId/artifacts/:artifactId/versions"
     },
     {
+      "method": "GET",
+      "path": "/v1/projects/:workspaceId/artifacts/folders",
+      "aliasOf": "/v1/workspaces/:workspaceId/artifacts/folders"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/projects/:workspaceId/artifacts/folders",
+      "aliasOf": "/v1/workspaces/:workspaceId/artifacts/folders"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/projects/:workspaceId/artifacts/folders/:folderId",
+      "aliasOf": "/v1/workspaces/:workspaceId/artifacts/folders/:folderId"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/projects/:workspaceId/artifacts/folders/:folderId",
+      "aliasOf": "/v1/workspaces/:workspaceId/artifacts/folders/:folderId"
+    },
+    {
       "method": "POST",
       "path": "/v1/projects/:workspaceId/artifacts/share",
       "aliasOf": "/v1/workspaces/:workspaceId/artifacts/share"
@@ -2944,6 +2940,16 @@
       "method": "GET",
       "path": "/v1/projects/:workspaceId/branches",
       "aliasOf": "/v1/workspaces/:workspaceId/branches"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/projects/:workspaceId/browser-logins",
+      "aliasOf": "/v1/workspaces/:workspaceId/browser-logins"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/projects/:workspaceId/browser-logins/resolve",
+      "aliasOf": "/v1/workspaces/:workspaceId/browser-logins/resolve"
     },
     {
       "method": "GET",
@@ -3534,6 +3540,16 @@
       "method": "GET",
       "path": "/v1/projects/:workspaceId/detail",
       "aliasOf": "/v1/workspaces/:workspaceId/detail"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/projects/:workspaceId/dictation",
+      "aliasOf": "/v1/workspaces/:workspaceId/dictation"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/projects/:workspaceId/dictation",
+      "aliasOf": "/v1/workspaces/:workspaceId/dictation"
     },
     {
       "method": "GET",
@@ -4702,11 +4718,6 @@
     },
     {
       "method": "GET",
-      "path": "/v1/projects/:workspaceId/sessions/:sessionId/transcript",
-      "aliasOf": "/v1/workspaces/:workspaceId/sessions/:sessionId/transcript"
-    },
-    {
-      "method": "GET",
       "path": "/v1/projects/:workspaceId/sessions/:sessionId/turn",
       "aliasOf": "/v1/workspaces/:workspaceId/sessions/:sessionId/turn"
     },
@@ -5726,6 +5737,22 @@
       "path": "/v1/workspaces/:workspaceId/artifacts/:artifactId/versions"
     },
     {
+      "method": "GET",
+      "path": "/v1/workspaces/:workspaceId/artifacts/folders"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/workspaces/:workspaceId/artifacts/folders"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/workspaces/:workspaceId/artifacts/folders/:folderId"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/workspaces/:workspaceId/artifacts/folders/:folderId"
+    },
+    {
       "method": "POST",
       "path": "/v1/workspaces/:workspaceId/artifacts/share"
     },
@@ -5832,6 +5859,14 @@
     {
       "method": "POST",
       "path": "/v1/workspaces/:workspaceId/branding/assets/:kind"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/workspaces/:workspaceId/browser-logins"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/workspaces/:workspaceId/browser-logins/resolve"
     },
     {
       "method": "GET",
@@ -6396,6 +6431,14 @@
     {
       "method": "GET",
       "path": "/v1/workspaces/:workspaceId/detail"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/workspaces/:workspaceId/dictation"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/workspaces/:workspaceId/dictation"
     },
     {
       "method": "GET",
@@ -7684,10 +7727,6 @@
     {
       "method": "PATCH",
       "path": "/v1/workspaces/:workspaceId/sessions/:sessionId/tasks/:seq"
-    },
-    {
-      "method": "GET",
-      "path": "/v1/workspaces/:workspaceId/sessions/:sessionId/transcript"
     },
     {
       "method": "GET",

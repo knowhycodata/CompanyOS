@@ -83,6 +83,7 @@ export {
   projectTriggerEventPolls,
   projectTriggerSessionAccessGrants,
   projectTriggerExecutions,
+  projectTriggerAdmissions,
   projectMonitorEvents,
   projectMonitorBoxes,
   sessionLifecycleCommands,
@@ -197,6 +198,7 @@ export {
   sessionPeerMessages,
   sessionTasks,
   // Artifacts: published HTML pages (flag artifacts)
+  artifactFolders,
   artifacts,
   artifactCommentThreads,
   artifactComments,

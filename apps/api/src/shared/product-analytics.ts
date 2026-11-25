@@ -44,7 +44,7 @@ export type ProductEvent =
   | 'user_signed_up'
   /** A CLI or device login completed. `method`. */
   | 'user_logged_in'
-  /** A project was created. `origin`: blank | template | marketplace | github_import. */
+  /** A project was created. `origin`: blank | template | github_import (`marketplace` until 2026-11-20). */
   | 'project_created'
   /** A person created a session (not a trigger, channel or agent). `source`. */
   | 'session_created'
@@ -58,6 +58,8 @@ export type ProductEvent =
   | 'prompt_sent'
   /** An agent turn ended. `status`: ok | error | aborted, `end_reason`, `duration_ms`. */
   | 'turn_completed'
+  /** A composer dictation was transcribed. `seconds`, `latency_ms`, `bytes`, `surface`: web | desktop | mobile | other, `heard`: words came back. Never the text. */
+  | 'dictation_transcribed'
   // Setup and adoption
   /** A project secret was saved. `name_kind`: provider | other. Never the name or value. */
   | 'secret_created'

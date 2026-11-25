@@ -25,7 +25,7 @@ import {
 } from '../../shared/cost-window';
 import { db } from '../../shared/db';
 import { resolveScopedAccountId } from '../../middleware/resolve-account';
-import { getSessionCostRecord, listSessionCosts } from '../../shared/session-costs';
+import { findSessionCostOwner, getSessionCostRecord, listSessionCosts } from '../../shared/session-costs';
 import { isUuid } from '../../shared/validate';
 import type { AppEnv } from '../../types';
 import {
@@ -52,9 +52,10 @@ usageApp.use('*', combinedAuth);
 usageApp.use('*', rejectSandboxTokens);
 // The heavy account-wide rollups hold a DB pool connection for the whole query:
 // one flooding caller must not drain the pool for every other route (KRTX-4895).
-// `/session-costs/{sessionId}` is a cheap single-record read and stays unguarded.
+// `/session-costs/{sessionId}` takes the same per-caller bound: one detail read
+// runs six statements in parallel (getSessionCostRecord) against the 6-connection pool.
 const usageRollupGuard = createUsageRollupRateLimitMiddleware();
-for (const path of ['/', '/session-costs', '/cost-by-project', '/cost-summary']) {
+for (const path of ['/', '/session-costs', '/session-costs/:sessionId', '/cost-by-project', '/cost-summary']) {
   usageApp.use(path, usageRollupGuard);
 }
 
@@ -590,21 +591,15 @@ usageApp.openapi(
     const { accountId, projectId } = await resolveSessionCostScope(c, c.req.query('project_id') || undefined);
     const ownerId = await sessionCostOwner(c, accountId, requestedOwnerId);
 
-    if (c.req.query('format') === 'csv') {
-      // Same filtered query as the JSON branch (accountId, projectId, ownerId,
-      // window, sort) — only limit/offset differ, because a CSV export wants
-      // up to CSV_ROW_CAP rows in one shot, not one paginated page of it.
-      const page = await withCostReadGuard(() =>
-        listSessionCosts({
-          accountId,
-          projectId,
-          ownerId,
-          window: parsed.window,
-          sort: parsed.sort,
-          limit: CSV_ROW_CAP,
-          offset: 0,
-        }),
-      );
+    const csv = c.req.query('format') === 'csv';
+    // Same filtered query as the JSON branch (accountId, projectId, ownerId,
+    // window, sort) — only limit/offset differ, because a CSV export wants
+    // up to CSV_ROW_CAP rows in one shot, not one paginated page of it.
+    const page = await withCostReadGuard(() =>
+      listSessionCosts({ accountId, projectId, ownerId, ...parsed, ...(csv ? { limit: CSV_ROW_CAP, offset: 0 } : {}) }),
+    );
+
+    if (csv) {
       const body = toCsv(
         [
           'session_id',
@@ -641,9 +636,7 @@ usageApp.openapi(
       });
     }
 
-    return c.json(
-      await withCostReadGuard(() => listSessionCosts({ accountId, projectId, ownerId, ...parsed })),
-    );
+    return c.json(page);
   },
 );
 
@@ -662,7 +655,7 @@ usageApp.openapi(
     },
     responses: {
       200: json(SessionCostDetailSchema, 'Session cost detail'),
-      ...errors(400, 401, 403, 404),
+      ...errors(400, 401, 403, 404, 429),
     },
   }),
   async (c) => {
@@ -765,21 +758,15 @@ usageApp.openapi(
         ? undefined
         : accessible.mode === 'allow_only' ? accessible.allowed : new Set<string>();
 
-    if (c.req.query('format') === 'csv') {
-      // Same filtered query as the JSON branch (accountId, window, sort) —
-      // only limit/offset differ, because a CSV export wants up to
-      // CSV_ROW_CAP rows in one shot, not one paginated page of it.
-      const page = await withCostReadGuard(() =>
-        listCostByProject({
-          accountId,
-          projectId,
-          visibleProjectIds,
-          window,
-          sort,
-          limit: CSV_ROW_CAP,
-          offset: 0,
-        }),
-      );
+    const csv = c.req.query('format') === 'csv';
+    // Same filtered query as the JSON branch (accountId, window, sort) —
+    // only limit/offset differ, because a CSV export wants up to
+    // CSV_ROW_CAP rows in one shot, not one paginated page of it.
+    const page = await withCostReadGuard(() =>
+      listCostByProject({ accountId, projectId, visibleProjectIds, window, sort, limit: csv ? CSV_ROW_CAP : limit, offset: csv ? 0 : offset }),
+    );
+
+    if (csv) {
       const body = toCsv(
         [
           'project_id',
@@ -807,11 +794,7 @@ usageApp.openapi(
       });
     }
 
-    return c.json(
-      await withCostReadGuard(() =>
-        listCostByProject({ accountId, projectId, visibleProjectIds, window, sort, limit, offset }),
-      ),
-    );
+    return c.json(page);
   },
 );
 
@@ -842,21 +825,29 @@ usageApp.openapi(
         })
         .openapi('CostSummaryQuery'),
     },
-    responses: { 200: json(CostSummarySchema, 'Cost summary'), ...errors(400, 401, 403, 429) },
+    responses: { 200: json(CostSummarySchema, 'Cost summary'), ...errors(400, 401, 403, 404, 429) },
   }),
   async (c) => {
     try {
       const { accountId, projectId } = await resolveSessionCostScope(c, c.req.query('project_id') || undefined);
-      if (c.get('tokenProjectId') && c.req.query('session_id')) {
+      const sessionId = c.req.query('session_id') || undefined;
+      if (c.get('tokenProjectId') && sessionId) {
         throw new HTTPException(403, {
           message: 'A workspace-bound token cannot query an arbitrary session',
         });
       }
+      if (sessionId) {
+        // The same owner rule as /session-costs/{sessionId}: a caller who may
+        // read only their own session costs gets 404 for anyone else's session.
+        const owner = await sessionCostOwner(c, accountId, undefined);
+        const session = owner ? await findSessionCostOwner({ accountId, sessionId }) : undefined;
+        if (owner && session?.ownerId !== owner) {
+          throw new HTTPException(404, { message: 'Session not found' });
+        }
+      }
       const window = parseCostWindow({ from: c.req.query('from'), to: c.req.query('to') });
       return c.json(
-        await withCostReadGuard(() =>
-          getCostSummary({ accountId, projectId, sessionId: c.req.query('session_id') || undefined, window }),
-        ),
+        await withCostReadGuard(() => getCostSummary({ accountId, projectId, sessionId, window })),
       );
     } catch (error) {
       if (error instanceof InvalidCostQueryError) {

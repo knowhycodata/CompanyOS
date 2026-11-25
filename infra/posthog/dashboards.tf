@@ -12,6 +12,7 @@
 # Layout: one markdown intro tile on top, then insights two per row.
 
 locals {
+  last_7d  = { date_from = "-7d" }
   last_30d = { date_from = "-30d" }
   last_90d = { date_from = "-90d" }
   # A completed turn that worked. Failed turns (no model, plan refusal) also fire turn_completed.
@@ -21,7 +22,9 @@ locals {
     name       = "turn_completed"
     properties = [{ key = "status", value = ["ok"], operator = "exact", type = "event" }]
   }
-  tags = ["kortix", "terraform"]
+  # screen_ready measured from the browser's navigation start (a full page load).
+  screen_load = [{ key = "navigation", value = ["load"], operator = "exact", type = "event" }]
+  tags        = ["kortix", "terraform"]
 
   dashboards = {
     activation = {
@@ -203,8 +206,40 @@ locals {
     setup = {
       name        = "Kortix · Setup"
       description = "Does the setup prompt (/setup.md) end in working loops, how fast, and where does it stop?"
-      intro       = "## Setup prompt\nA person copies the prompt (`setup_prompt_copied`, Loopmaxxing), their coding agent follows /setup.md, and the CLI reports each step: `kortix plan` (setup_started), `templates add` (setup_template_added), each `kortix onboard` (setup_onboard_run) and the first green doctor (setup_ready). One setup run = one `setup_id`; `agent` is the coding agent that ran it. The first real run is the first `trigger_fired`."
+      intro       = "## Setup prompt\nA person copies the prompt (`setup_prompt_copied`, Loopmaxxing), their coding agent follows /setup.md, and the CLI reports each step: `kortix plan` (setup_started), `templates add` (setup_template_added), each `kortix onboard` (setup_onboard_run) and the first green doctor (setup_ready). One setup run = one `setup_id`; `agent` is the coding agent that ran it. The first real run is the first `trigger_fired`. Copies and setups are two separate numbers: a copy on loopmaxxing.sh is an anonymous visitor, and the setup reports as the signed-in person, so PostHog cannot join them."
       insights = [
+        {
+          key         = "copies_7d"
+          name        = "Prompt copies (7 days)"
+          description = "setup_prompt_copied in the last 7 days, against the 7 days before. Anonymous visitors on loopmaxxing.sh: compare with setups started, never join them."
+          query = {
+            kind = "InsightVizNode"
+            source = {
+              kind               = "TrendsQuery"
+              filterTestAccounts = true
+              dateRange          = local.last_7d
+              series             = [{ kind = "EventsNode", event = "setup_prompt_copied", name = "setup_prompt_copied", math = "total" }]
+              compareFilter      = { compare = true }
+              trendsFilter       = { display = "BoldNumber" }
+            }
+          }
+        },
+        {
+          key         = "started_7d"
+          name        = "Setups started (7 days)"
+          description = "setup_started in the last 7 days (one per setup run), against the 7 days before. From a coding agent on a computer or from the Kortix agent in a session."
+          query = {
+            kind = "InsightVizNode"
+            source = {
+              kind               = "TrendsQuery"
+              filterTestAccounts = true
+              dateRange          = local.last_7d
+              series             = [{ kind = "EventsNode", event = "setup_started", name = "setup_started", math = "total" }]
+              compareFilter      = { compare = true }
+              trendsFilter       = { display = "BoldNumber" }
+            }
+          }
+        },
         {
           key         = "runs_funnel"
           name        = "Setup runs: started → template → onboard green → ready (7 days)"
@@ -239,7 +274,7 @@ locals {
         {
           key         = "runs_funnel_by_agent"
           name        = "Setup runs by coding agent (7 days)"
-          description = "The same funnel, broken down by agent: claude_code, codex, cursor, gemini, opencode, copilot, kortix (a Kortix session), other, none (a person in a terminal)."
+          description = "The same funnel, broken down by agent: claude_code, codex, cursor, gemini, opencode, copilot, kortix (the Kortix agent in a session a person started), other, none (a person in a terminal)."
           query = {
             kind = "InsightVizNode"
             source = {
@@ -269,8 +304,8 @@ locals {
         },
         {
           key         = "people_funnel"
-          name        = "Prompt copied → setup started → ready → first real run (7 days)"
-          description = "Per person. A copy counts for the person only when the browser that copied later signs in (PostHog merges the ids); copies without a sign-in show on the copies chart."
+          name        = "Setup started → ready → first real run, per person (7 days)"
+          description = "Per person: the person whose CLI started the setup (for the Kortix agent, the person who started the session). The first real run is the account's first trigger_fired."
           query = {
             kind = "InsightVizNode"
             source = {
@@ -278,7 +313,6 @@ locals {
               filterTestAccounts = true
               dateRange          = local.last_30d
               series = [
-                { kind = "EventsNode", event = "setup_prompt_copied", name = "setup_prompt_copied" },
                 { kind = "EventsNode", event = "setup_started", name = "setup_started" },
                 { kind = "EventsNode", event = "setup_ready", name = "setup_ready" },
                 { kind = "EventsNode", event = "trigger_fired", name = "trigger_fired" },
@@ -1240,6 +1274,126 @@ locals {
                 { kind = "EventsNode", event = "subscription_cancelled", name = "subscription_cancelled", math = "total" },
               ]
               trendsFilter = { display = "ActionsBar" }
+            }
+          }
+        },
+      ]
+    }
+
+    speed = {
+      name        = "Kortix · Speed"
+      description = "How long screens take to show their data, by continent, country and screen."
+      intro       = "## Speed\nscreen_ready fires once per navigation when a screen shows its data: the React Query reads behind it settled (no request for 0.5 s), or, on the session screen, the saved conversation is visible. `load` counts from the browser's navigation start (HTML, JS, sign-in and API reads); `route` counts from an in-app route change. The API and the database run in London, so the gap between continents is the cost of distance times the number of sequential API rounds. p75 is the number to hold steady everywhere."
+      insights = [
+        {
+          key         = "ready_by_continent"
+          name        = "Page load to data shown, p75 by continent (ms)"
+          description = "p75 of screen_ready.duration_ms for page loads (navigation = load), per week, by GeoIP continent."
+          query = {
+            kind = "InsightVizNode"
+            source = {
+              kind               = "TrendsQuery"
+              filterTestAccounts = true
+              dateRange          = local.last_90d
+              interval           = "week"
+              series             = [{ kind = "EventsNode", event = "screen_ready", name = "screen_ready", math = "p75", math_property = "duration_ms", properties = local.screen_load }]
+              breakdownFilter    = { breakdown = "$geoip_continent_name", breakdown_type = "event" }
+              trendsFilter       = { display = "ActionsLineGraph" }
+            }
+          }
+        },
+        {
+          key         = "ready_by_country"
+          name        = "Page load to data shown, p75 by country (ms, 30 days)"
+          description = "p75 of screen_ready.duration_ms for page loads over 30 days, top 25 GeoIP countries."
+          query = {
+            kind = "InsightVizNode"
+            source = {
+              kind               = "TrendsQuery"
+              filterTestAccounts = true
+              dateRange          = local.last_30d
+              interval           = "day"
+              series             = [{ kind = "EventsNode", event = "screen_ready", name = "screen_ready", math = "p75", math_property = "duration_ms", properties = local.screen_load }]
+              breakdownFilter    = { breakdown = "$geoip_country_name", breakdown_type = "event", breakdown_limit = 25 }
+              trendsFilter       = { display = "ActionsBarValue" }
+            }
+          }
+        },
+        {
+          key         = "home_session_daily"
+          name        = "Workspace home and session, p75 / p90 by day (ms, page loads)"
+          description = "screen_ready.duration_ms percentiles for page loads of the two screens people open most."
+          query = {
+            kind = "InsightVizNode"
+            source = {
+              kind               = "TrendsQuery"
+              filterTestAccounts = true
+              dateRange          = local.last_30d
+              interval           = "day"
+              series = flatten([for screen in [
+                { path = "/workspaces/:id", label = "home" },
+                { path = "/workspaces/:id/sessions/:id", label = "session" },
+                ] : [for pct in ["p75", "p90"] : {
+                  kind          = "EventsNode"
+                  event         = "screen_ready"
+                  name          = "screen_ready"
+                  custom_name   = "${screen.label} ${pct}"
+                  math          = pct
+                  math_property = "duration_ms"
+                  properties    = concat(local.screen_load, [{ key = "screen", value = [screen.path], operator = "exact", type = "event" }])
+              }]])
+              trendsFilter = { display = "ActionsLineGraph" }
+            }
+          }
+        },
+        {
+          key         = "ready_by_screen"
+          name        = "Page load to data shown, p75 by screen (ms, 30 days)"
+          description = "p75 of screen_ready.duration_ms for page loads over 30 days, by route template."
+          query = {
+            kind = "InsightVizNode"
+            source = {
+              kind               = "TrendsQuery"
+              filterTestAccounts = true
+              dateRange          = local.last_30d
+              interval           = "day"
+              series             = [{ kind = "EventsNode", event = "screen_ready", name = "screen_ready", math = "p75", math_property = "duration_ms", properties = local.screen_load }]
+              breakdownFilter    = { breakdown = "screen", breakdown_type = "event", breakdown_limit = 25 }
+              trendsFilter       = { display = "ActionsBarValue" }
+            }
+          }
+        },
+        {
+          key         = "route_by_continent"
+          name        = "In-app navigation to data shown, p75 by continent (ms)"
+          description = "p75 of screen_ready.duration_ms for in-app route changes (navigation = route), per week, by GeoIP continent. Cached screens send no event."
+          query = {
+            kind = "InsightVizNode"
+            source = {
+              kind               = "TrendsQuery"
+              filterTestAccounts = true
+              dateRange          = local.last_90d
+              interval           = "week"
+              series             = [{ kind = "EventsNode", event = "screen_ready", name = "screen_ready", math = "p75", math_property = "duration_ms", properties = [{ key = "navigation", value = ["route"], operator = "exact", type = "event" }] }]
+              breakdownFilter    = { breakdown = "$geoip_continent_name", breakdown_type = "event" }
+              trendsFilter       = { display = "ActionsLineGraph" }
+            }
+          }
+        },
+        {
+          key         = "fetches_by_screen"
+          name        = "API reads per page load, median by screen (30 days)"
+          description = "Median screen_ready.fetches (React Query fetches until the screen settled) for page loads, by route template."
+          query = {
+            kind = "InsightVizNode"
+            source = {
+              kind               = "TrendsQuery"
+              filterTestAccounts = true
+              dateRange          = local.last_30d
+              interval           = "day"
+              series             = [{ kind = "EventsNode", event = "screen_ready", name = "screen_ready", math = "median", math_property = "fetches", properties = local.screen_load }]
+              breakdownFilter    = { breakdown = "screen", breakdown_type = "event", breakdown_limit = 25 }
+              trendsFilter       = { display = "ActionsBarValue" }
             }
           }
         },

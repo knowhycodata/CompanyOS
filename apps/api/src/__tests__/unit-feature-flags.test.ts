@@ -138,6 +138,27 @@ describe('resolveFeatureFlag — explicit override wins', () => {
     expect(buildFeatureFlagCatalog(metadata).map((flag) => flag.key)).not.toContain('llm_gateway');
   });
 
+  test('workspace_volume graduated: stateless sandboxes need no flag and a stored override is inert', () => {
+    // 2026-11-23: every new Platinum session keeps /workspace on its own volume
+    // (platform/services/workspace-volume.ts); KORTIX_WORKSPACE_VOLUMES=off is
+    // the only off switch. A stored `false` must not resurface as a key, a
+    // catalog row, or an operator-only refusal.
+    expect(isFeatureFlagKey('workspace_volume')).toBe(false);
+    const metadata = { experimental: { workspace_volume: false } };
+    expect(Object.keys(resolveFeatureFlags(metadata))).not.toContain('workspace_volume');
+    expect(buildFeatureFlagCatalog(metadata).map((flag) => flag.key)).not.toContain('workspace_volume');
+  });
+
+  test('chrome graduated: Kortix in Chrome needs no flag and a stored override is inert', () => {
+    // 2026-11-24: every project gets Kortix in Chrome wherever the API serves
+    // /v1/chrome (KORTIX_CHROME_ENABLED, the only off switch). A stored `false`
+    // must not resurface as a key or a catalog row.
+    expect(isFeatureFlagKey('chrome')).toBe(false);
+    const metadata = { experimental: { chrome: false } };
+    expect(Object.keys(resolveFeatureFlags(metadata))).not.toContain('chrome');
+    expect(buildFeatureFlagCatalog(metadata).map((flag) => flag.key)).not.toContain('chrome');
+  });
+
   test('pooled_provider_secrets graduated: provider keys need no flag and a stored override is inert', () => {
     // 2026-11-12: named provider keys, sharing, per-session key selection and
     // named ChatGPT/Claude sign-ins are on for every project. A stored `false`
@@ -221,9 +242,18 @@ describe('resolveFeatureFlag — explicit override wins', () => {
     );
   });
 
-  test('marketplace defaults ON platform-wide and is turned off only explicitly', () => {
-    expect(resolveFeatureFlag({}, 'marketplace')).toBe(true);
-    expect(resolveFeatureFlag({ experimental: { marketplace: false } }, 'marketplace')).toBe(false);
+  test('shared_drives defaults ON platform-wide and is turned off only explicitly', () => {
+    expect(resolveFeatureFlag({}, 'shared_drives')).toBe(true);
+    expect(resolveFeatureFlag({ experimental: { shared_drives: false } }, 'shared_drives')).toBe(false);
+  });
+
+  test('marketplace withdrawn: the marketplace was removed and a stored override is inert', () => {
+    // 13 prod workspaces stored a value (11 true, 2 false) before 2026-11-20.
+    // It must not resurface as a key, a catalog row, or a gate.
+    expect(isFeatureFlagKey('marketplace')).toBe(false);
+    const metadata = { experimental: { marketplace: false } };
+    expect(Object.keys(resolveFeatureFlags(metadata))).not.toContain('marketplace');
+    expect(buildFeatureFlagCatalog(metadata).map((flag) => flag.key)).not.toContain('marketplace');
   });
 
   test('teams graduated: every project can connect Teams and a stored override is inert', () => {
@@ -260,8 +290,8 @@ describe('resolveFeatureFlag — explicit override wins', () => {
 
   test('non-boolean stored values are treated as "no override"', () => {
     for (const garbage of ['true', 1, 0, null, [], {}, 'yes']) {
-      expect(resolveFeatureFlag({ experimental: { marketplace: garbage } }, 'marketplace')).toBe(
-        resolveFeatureFlag({}, 'marketplace'),
+      expect(resolveFeatureFlag({ experimental: { shared_drives: garbage } }, 'shared_drives')).toBe(
+        resolveFeatureFlag({}, 'shared_drives'),
       );
     }
   });
@@ -269,7 +299,7 @@ describe('resolveFeatureFlag — explicit override wins', () => {
   test('a malformed experimental subtree never throws', () => {
     for (const metadata of [null, undefined, {}, { experimental: null }, { experimental: 'x' }, []]) {
       expect(typeof resolveFeatureFlag(metadata, 'reminders')).toBe('boolean');
-      expect(typeof resolveFeatureFlag(metadata, 'marketplace')).toBe('boolean');
+      expect(typeof resolveFeatureFlag(metadata, 'shared_drives')).toBe('boolean');
     }
   });
 });
@@ -347,23 +377,10 @@ describe('buildFeatureFlagCatalog', () => {
  * break (d) and take the operator lever with it.
  */
 describe('catalogHidden', () => {
-  test('only internal-only surfaces are hidden: workspace_volume (stateless sandboxes) and chrome (not launched)', () => {
-    // `apps` graduated (2026-10-14), `session_log` (2026-10-22), `session_log_restore` (2026-11-05) and
-    // `meta_agent` was removed (2026-11-02): none is a flag.
-    expect([...HIDDEN_KEYS].sort()).toEqual(['chrome', 'workspace_volume']);
-  });
-
-  // The web has no Chrome surface (CHROME_LAUNCHED = false, #11436): nothing
-  // may advertise it. Off by default and absent from the catalog while off.
-  test('chrome is off by default and not listed while CHROME_LAUNCHED is false', () => {
-    expect(resolveFeatureFlag({}, 'chrome')).toBe(false);
-    expect(buildFeatureFlagCatalog({}).some((flag) => flag.key === 'chrome')).toBe(false);
-  });
-
-  test('workspace_volume is a behavioral flag that defaults off and needs Platinum', () => {
-    const def = REGISTERED_FEATURE_FLAGS.find((f) => f.key === 'workspace_volume');
-    expect(def?.enforcement).toBe('behavioral');
-    expect(resolveFeatureFlag({}, 'workspace_volume')).toBe(false);
+  test('no flag is hidden today: hiding one is a dated, reviewed decision', () => {
+    // `apps` graduated (2026-10-14), `session_log` (2026-10-22), `session_log_restore` (2026-11-05),
+    // `workspace_volume` (2026-11-23) and `meta_agent` was removed (2026-11-02): none is a flag.
+    expect([...HIDDEN_KEYS].sort()).toEqual([]);
   });
 
   for (const key of HIDDEN_KEYS) {

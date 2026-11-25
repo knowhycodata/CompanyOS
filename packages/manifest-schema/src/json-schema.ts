@@ -51,6 +51,7 @@ import {
   CONNECTOR_POLICY_ACTIONS,
   CONNECTOR_PROVIDERS,
   ENV_NAME_RE,
+  SECRET_NAME_RE,
   DEPRECATED_KORTIX_PERMISSION_ALIASES,
   GRANTABLE_KORTIX_PERMISSIONS,
   GRANTABLE_KORTIX_WORKSPACE_PERMISSIONS,
@@ -558,6 +559,7 @@ function onRunTriggerSchema(): JsonSchemaFragment {
         description:
           'Payload path → a value (equals), or one operator: `not`, `in`, `exists`, `prefix`, `not_prefix`. A fire runs only when every path matches.',
       },
+      hard_run_caps: { type: 'boolean', description: 'Atomically cap every fire, including manual fires. No implicit manual override.' },
       max_runs_per_hour: { type: 'integer', minimum: 1, default: 60, description: 'Runs the trigger starts in any 60 minutes.' },
       max_runs_per_day: { type: 'integer', minimum: 1, description: 'Runs the trigger starts in a UTC day.' },
       max_lateness: { ...durationSchema, description: 'Schedules only, `60s` or more. A missed fire later than this does not run.' },
@@ -678,6 +680,7 @@ function triggerSchema(): JsonSchemaFragment {
       expect_event_within: durationSchema,
       // Any trigger type: runs started in any 60 minutes (60 when unset) and
       // in a UTC day (KRTX-1721).
+      hard_run_caps: { type: 'boolean', description: 'Atomically cap every fire, including manual fires. No implicit manual override.' },
       max_runs_per_hour: { type: 'integer', minimum: 1 },
       max_runs_per_day: { type: 'integer', minimum: 1 },
       // skip holds a fire while the previous run is active, or its prompt still waits (KRTX-1721).
@@ -875,7 +878,7 @@ function connectorSchema(): JsonSchemaFragment {
             ...normalizedEnumSchema(CONNECTOR_AUTH_TYPES),
             description: '`oauth1` works on `openapi`, `postman` and `http` only.',
           },
-          secret: false,
+          secret: { type: 'string', pattern: SECRET_NAME_RE.source, description: 'The name of the project secret Kortix sends as the credential. Its value lives in Secrets, never in this file.' },
           in: { default: 'header', description: 'Where the credential goes.' },
           name: { description: 'The header, query or cookie name. Required for `custom` and `api_key`.' },
           prefix: { description: 'Text before the credential value, such as `Bearer`.' },

@@ -111,7 +111,7 @@ import {
 } from '@/lib/menu-registry';
 import { track } from '@/lib/track';
 import { cn, uiRoutes } from '@kortix/ui';
-import { DEFAULT_WALLPAPER_ID } from '@kortix/ui/theme';
+import { DEFAULT_WALLPAPER_ID, getSelectableWallpaper } from '@kortix/ui/theme';
 import { hubTarget, openAccountPanel } from '@kortix/ui/internal/stores/account-panel-store';
 import { workspaceSettingsPath } from '@kortix/shared/workspace-settings';
 import { useChatSendStore } from '@kortix/ui/internal/stores/chat-send-store';
@@ -869,8 +869,9 @@ export function CommandPalette() {
   } = useInterfaceTheme();
   const { preview: previewInterfaceTheme, commit: commitThemePreview } =
     useInterfaceThemePreview(themeChoice);
+  // A retired stored id renders the default, so the default is the active row.
   const activeWallpaperId = useUserPreferencesStore(
-    (s) => s.preferences.wallpaperId ?? DEFAULT_WALLPAPER_ID,
+    (s) => getSelectableWallpaper(s.preferences.wallpaperId ?? DEFAULT_WALLPAPER_ID).id,
   );
   const panelMode = useUserPreferencesStore((s) => s.preferences.panelMode ?? 'easy');
   const conversationDensity = useUserPreferencesStore(
@@ -895,10 +896,9 @@ export function CommandPalette() {
    * the palette strictly weaker than the mouse: the sidebar switcher
    * (`workspace-menu-section.tsx`) already fans out over every account, so a
    * workspace in a second account was reachable by trackpad and invisible to
-   * ⌘K. There is no single unscoped call that returns everything — `GET
-   * /workspaces` with no `account_id` resolves server-side to ONE default
-   * account (apps/api `resolveProjectAccount`) — so it is one request per
-   * account, exactly as the sidebar does it.
+   * ⌘K. So it is one request per account, exactly as the sidebar does it
+   * (an unscoped `GET /projects` also lists every account, but under a key
+   * the sidebar does not share).
    *
    * Same `qk.projects.list(accountId)` keys and same `contract('inventory')`
    * as the sidebar, so the two controls share cache entries and this costs no
@@ -1286,8 +1286,8 @@ export function CommandPalette() {
   }, [allPaletteItems, hasQuery, debouncedQuery]);
 
   // No `flags` argument any more: Marketplace, Review and Voice were the only
-  // flag-gated rail rows and all three moved to `/workspaces/<id>/config`, whose
-  // own sub-nav composes them. Nothing left in the rail varies by flag.
+  // flag-gated rail rows and all three left the rail. Nothing left in the rail
+  // varies by flag.
   const chromeOffered = useChromeOffered(open);
   const allSettingsGroups = useMemo(
     () => settingsPaletteGroups({ hasProject: !!projectId, chromeOffered }, (key) => tSettingsRail(key as never)),

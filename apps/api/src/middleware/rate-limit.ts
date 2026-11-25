@@ -101,11 +101,12 @@ const projectWebhookRejectedRunLimiter = new TokenBucketRateLimiter('project_web
 const projectSecretWriteLimiter = new TokenBucketRateLimiter('project_secret_write');
 const llmGatewayLimiter = new TokenBucketRateLimiter('llm_gateway');
 const feedbackLimiter = new TokenBucketRateLimiter('feedback');
+const dictationLimiter = new TokenBucketRateLimiter('dictation');
 const setupEventLimiter = new TokenBucketRateLimiter('setup_event');
 const deviceTokenReleaseLimiter = new TokenBucketRateLimiter('device_token_release');
 
 /**
- * Per-session ceiling on the stored-log reads (`GET …/log`, `GET …/transcript`,
+ * Per-session ceiling on the stored-log reads (`GET …/log`,
  * `GET …/snapshot` and its `/open-bundle` alias, `KORTIX_SESSION_LOG_READS_PER_MIN`,
  * 300). INCIDENT 2026-11-10 23:38 UTC (KRTX-4696): one CLI client polled the stored
  * log of ONE session in waves that peaked near 24 requests/s for minutes (about 50k
@@ -160,8 +161,8 @@ const USAGE_ROLLUPS_IN_FLIGHT_PER_CALLER = 2;
 const usageRollupInFlight = new Map<string, number>();
 
 /**
- * Per-caller ceiling on the account-wide cost rollups (`GET /v1/usage`, `/session-costs`,
- * `/cost-by-project`, `/cost-summary`; `KORTIX_USAGE_ROLLUPS_PER_MIN`, 60 per
+ * Per-caller ceiling on the cost reads (`GET /v1/usage`, `/session-costs`,
+ * `/session-costs/{sessionId}`, `/cost-by-project`, `/cost-summary`; `KORTIX_USAGE_ROLLUPS_PER_MIN`, 60 per
  * route). INCIDENT 2026-11-13 22:09 UTC (KRTX-4895): one CLI client sent
  * ~500–800 req/min for four minutes, 368 of them `GET /v1/usage/session-costs`.
  * Each rollup is a heavy aggregation that holds a DB pool connection until the
@@ -193,7 +194,8 @@ export function createUsageRollupRateLimitMiddleware() {
     // deadline. Cap what one caller may have in flight across every rollup route.
     const inFlight = usageRollupInFlight.get(caller) ?? 0;
     if (inFlight >= USAGE_ROLLUPS_IN_FLIGHT_PER_CALLER) return deny(c, 1);
-    const result = usageRollupLimiter.check(`${caller}:${c.req.path}`, {
+    // Keyed on the route pattern: every `/session-costs/{sessionId}` read spends one bucket.
+    const result = usageRollupLimiter.check(`${caller}:${c.req.routePath}`, {
       limit: positiveInt(config.KORTIX_USAGE_ROLLUPS_PER_MIN, 60),
       windowMs: 60_000,
     });
@@ -388,6 +390,32 @@ export function createFeedbackRateLimitMiddleware() {
       },
     };
   });
+}
+
+/**
+ * Guards `POST /v1/projects/:id/dictation`, keyed on the caller's user id. A
+ * person dictates a few times a minute at most; 20 stops a loop from turning
+ * the route into a free-running transcription API. Reads pass through.
+ */
+export function createDictationRateLimitMiddleware() {
+  const guard = createAuditedRateLimitMiddleware(dictationLimiter, (c) => {
+    const userId = c.get('userId') as string | undefined;
+    const key = userId ? `user:${userId}` : `ip:${requestClientKey(c)}`;
+    return {
+      key,
+      policy: {
+        limit: positiveInt(config.KORTIX_DICTATION_REQS_PER_MIN, 20),
+        windowMs: 60_000,
+      },
+      auditContext: {
+        action: RATE_LIMIT_EXCEEDED_ACTION,
+        resourceType: 'dictation',
+        resourceId: userId ?? null,
+        metadata: { limiter: 'dictation' },
+      },
+    };
+  });
+  return async (c: Context, next: Next) => (c.req.method === 'POST' ? guard(c, next) : next());
 }
 
 /**
@@ -614,5 +642,6 @@ export function resetRateLimiters() {
   projectSecretWriteLimiter.reset();
   llmGatewayLimiter.reset();
   feedbackLimiter.reset();
+  dictationLimiter.reset();
   deviceTokenReleaseLimiter.reset();
 }

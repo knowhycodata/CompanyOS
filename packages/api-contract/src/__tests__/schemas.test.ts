@@ -140,11 +140,10 @@ function projectFixture(overrides: Record<string, unknown> = {}) {
     effective_project_role: 'manager',
     dashboard_url: 'https://kortix.com/projects/11111111-2222-4333-8444-555555555555',
     experimental: {
-      marketplace: false,
       monitors: false,
       reminders: false,
       warm_sessions: false,
-      secrets_egress: false,
+      secrets_egress: true,
       pooled_provider_secrets: true,
       us_region: false,
       event_triggers: false,
@@ -169,6 +168,7 @@ function projectFixture(overrides: Record<string, unknown> = {}) {
       program_agents: false,
       evals: false,
       desktop_tabs: false,
+      review_swipe: false,
       calendar: false,
     },
     experimental_features: [],
@@ -921,18 +921,14 @@ describe('envelopes', () => {
     // The static tuple order of a zod `keyof()` follows union order, which tsgo
     // (TypeScript 7) sorts differently from tsc 5; the runtime order is the contract.
     expect(FEATURE_FLAG_KEYS as readonly string[]).toEqual([
-      'marketplace',
       'reminders',
-      'secrets_egress',
       'us_region',
       'event_triggers',
       'chat',
       'shared_drives',
       'goals',
-      'workspace_volume',
       'email_channel',
       'session_groups',
-      'chrome',
       'agent_teams',
       'voice_call',
       'chat_input',
@@ -942,6 +938,7 @@ describe('envelopes', () => {
       'evals',
       'desktop_tabs',
       'calendar',
+      'review_swipe',
     ]);
   });
 

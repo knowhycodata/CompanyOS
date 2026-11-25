@@ -10,6 +10,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { sha256Hex } from './sha256';
 
+// Preserve the applied file; validate after the concurrent gallery index build.
+const ARTIFACT_FOLDERS_MIGRATION = '20261123215124149_artifact_folders.sql';
+const ARTIFACT_FOLDERS_SHA256 = '52ff24a277707efa2d626ff7c2d2ded472922a6e629157649829f0dfd4155bf9';
+const ARTIFACT_FOLDERS_VALIDATE = 'ALTER TABLE kortix.artifacts VALIDATE CONSTRAINT artifacts_gallery_folder_id_artifact_folders_folder_id_fk;';
+
 const AUDIT_V2_MIGRATION = '20260807221200000_centralized_audit_v2.sql';
 const AUDIT_V2_SHA256 = '769b863ef0b62c4693e232cf102757ce3c3ee904f0f44c9aea450901a56e07f9';
 const AUDIT_V2_TIMEOUT = "SET statement_timeout = '120s';";
@@ -92,6 +97,33 @@ const SUPERSEDED_GATEWAY_INDEX_MIGRATIONS = [
   },
 ] as const;
 
+// #12938 and #12944 both add the same trigger-admissions workspace twin.
+// 20261120083000000 adds it first, so this file failed with 42710 ("already
+// exists") on dev (deploy-dev 44749898469) and on every fresh database. The
+// runtime copy adds the constraint only where it is missing.
+const TRIGGER_ADMISSIONS_TWIN_MIGRATION = '20261120094700000_trigger_admissions_workspace_twin.sql';
+const TRIGGER_ADMISSIONS_TWIN_SHA256 = '19a4b0b419e4b55d0702d8e47bac9950f90c7344a5e723637aa265582522597a';
+const TRIGGER_ADMISSIONS_TWIN_STATEMENT = `ALTER TABLE kortix.project_trigger_admissions
+  ADD CONSTRAINT project_trigger_admissions_project_id_workspaces_fk
+  FOREIGN KEY (project_id) REFERENCES kortix.workspaces (workspace_id)
+  DEFERRABLE INITIALLY DEFERRED NOT VALID;`;
+const TRIGGER_ADMISSIONS_TWIN_RUNTIME = `-- Runtime correction: 20261120083000000_trigger_admissions_workspace_twin.sql
+-- adds this constraint first. Add it only where it is missing.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+      FROM pg_constraint
+     WHERE conrelid = 'kortix.project_trigger_admissions'::regclass
+       AND conname = 'project_trigger_admissions_project_id_workspaces_fk'
+  ) THEN
+    ALTER TABLE kortix.project_trigger_admissions
+      ADD CONSTRAINT project_trigger_admissions_project_id_workspaces_fk
+      FOREIGN KEY (project_id) REFERENCES kortix.workspaces (workspace_id)
+      DEFERRABLE INITIALLY DEFERRED NOT VALID;
+  END IF;
+END $$;`;
+
 /** The one `pgm.sql(...)` block that builds `index`, and the no-op that replaces it. */
 function supersededIndexBuild(source: string, index: string): string | null {
   const start = source.indexOf(`  pgm.sql(\`\n    create index concurrently if not exists ${index}\n`);
@@ -113,6 +145,7 @@ interface RuntimeOverrideOptions {
   rbacCutoverViewsExpectedSha256?: string;
   roleAssignmentsScopeExpectedSha256?: string;
   supersededIndexExpectedSha256?: Record<string, string>;
+  triggerAdmissionsTwinExpectedSha256?: string;
 }
 
 interface MigrationRuntimeDirectory {
@@ -131,6 +164,16 @@ export function materializeMigrationRuntimeDirectory(
   sourceDirectory: string,
   options: RuntimeOverrideOptions = {},
 ): MigrationRuntimeDirectory {
+  const artifactFoldersPath = join(sourceDirectory, ARTIFACT_FOLDERS_MIGRATION);
+  const artifactFoldersSource = existsSync(artifactFoldersPath) ? readFileSync(artifactFoldersPath, 'utf8') : null;
+  if (artifactFoldersSource) {
+    if (sha256Hex(artifactFoldersSource) !== ARTIFACT_FOLDERS_SHA256) {
+      throw new Error(`${ARTIFACT_FOLDERS_MIGRATION} checksum mismatch`);
+    }
+    if (artifactFoldersSource.split(ARTIFACT_FOLDERS_VALIDATE).length !== 2) {
+      throw new Error(`${ARTIFACT_FOLDERS_MIGRATION} expected exactly one gallery FK validation`);
+    }
+  }
   const auditPath = join(sourceDirectory, AUDIT_V2_MIGRATION);
   const removeLocalDockerPath = join(sourceDirectory, REMOVE_LOCAL_DOCKER_MIGRATION);
   const rbacCutoverViewsPath = join(sourceDirectory, RBAC_CUTOVER_VIEWS_MIGRATION);
@@ -156,6 +199,25 @@ export function materializeMigrationRuntimeDirectory(
       );
     }
   }
+  const triggerAdmissionsTwinPath = join(sourceDirectory, TRIGGER_ADMISSIONS_TWIN_MIGRATION);
+  const triggerAdmissionsTwinSource = existsSync(triggerAdmissionsTwinPath)
+    ? readFileSync(triggerAdmissionsTwinPath, 'utf8')
+    : null;
+  if (triggerAdmissionsTwinSource) {
+    const expectedSha256 = options.triggerAdmissionsTwinExpectedSha256 ?? TRIGGER_ADMISSIONS_TWIN_SHA256;
+    const actualSha256 = sha256Hex(triggerAdmissionsTwinSource);
+    if (actualSha256 !== expectedSha256) {
+      throw new Error(
+        `${TRIGGER_ADMISSIONS_TWIN_MIGRATION} checksum mismatch: expected ${expectedSha256}, received ${actualSha256}`,
+      );
+    }
+    const occurrenceCount = triggerAdmissionsTwinSource.split(TRIGGER_ADMISSIONS_TWIN_STATEMENT).length - 1;
+    if (occurrenceCount !== 1) {
+      throw new Error(
+        `${TRIGGER_ADMISSIONS_TWIN_MIGRATION} expected exactly one ADD CONSTRAINT statement; found ${occurrenceCount}`,
+      );
+    }
+  }
   const supersededIndexSources = SUPERSEDED_GATEWAY_INDEX_MIGRATIONS.flatMap((migration) => {
     const path = join(sourceDirectory, migration.file);
     if (!existsSync(path)) return [];
@@ -170,10 +232,12 @@ export function materializeMigrationRuntimeDirectory(
     return [{ ...migration, source, block }];
   });
   if (
+    !artifactFoldersSource &&
     !hasAuditOverride &&
     !hasRemoveLocalDockerOverride &&
     !hasRbacCutoverViewsOverride &&
     !roleAssignmentsScopeSource &&
+    !triggerAdmissionsTwinSource &&
     supersededIndexSources.length === 0
   ) {
     return { path: sourceDirectory, appliedOverrides: [], cleanup: () => {} };
@@ -238,6 +302,11 @@ export function materializeMigrationRuntimeDirectory(
   const appliedOverrides: string[] = [];
   try {
     cpSync(sourceDirectory, runtimeDirectory, { recursive: true });
+    if (artifactFoldersSource) {
+      writeFileSync(join(runtimeDirectory, ARTIFACT_FOLDERS_MIGRATION),
+        artifactFoldersSource.replace(ARTIFACT_FOLDERS_VALIDATE, '-- Runtime correction: validate in 20261123230000000 after the concurrent index.'));
+      appliedOverrides.push(`${ARTIFACT_FOLDERS_MIGRATION}: defer gallery FK validation until after the concurrent index (${ARTIFACT_FOLDERS_SHA256})`);
+    }
     if (auditSource) {
       writeFileSync(
         join(runtimeDirectory, AUDIT_V2_MIGRATION),
@@ -281,6 +350,16 @@ export function materializeMigrationRuntimeDirectory(
       );
       appliedOverrides.push(
         `${ROLE_ASSIGNMENTS_SCOPE_MIGRATION}: lock the member views before role_assignments (${ROLE_ASSIGNMENTS_SCOPE_SHA256})`,
+      );
+    }
+    if (triggerAdmissionsTwinSource) {
+      writeFileSync(
+        join(runtimeDirectory, TRIGGER_ADMISSIONS_TWIN_MIGRATION),
+        // A replacer function: a replacement string would turn the block's `$$` into `$`.
+        triggerAdmissionsTwinSource.replace(TRIGGER_ADMISSIONS_TWIN_STATEMENT, () => TRIGGER_ADMISSIONS_TWIN_RUNTIME),
+      );
+      appliedOverrides.push(
+        `${TRIGGER_ADMISSIONS_TWIN_MIGRATION}: add the twin FK only where 20261120083000000 did not (${TRIGGER_ADMISSIONS_TWIN_SHA256})`,
       );
     }
     for (const migration of supersededIndexSources) {

@@ -113,6 +113,8 @@ export const projectSecretConsumerEnum = kortixSchema.enum('project_secret_consu
   'git_proxy',
   'http_broker',
   'network',
+  // Website login for the sandbox browser (append only: the order is stored).
+  'browser',
 ]);
 
 export const projectSessionStatusEnum = kortixSchema.enum('project_session_status', [
@@ -2898,6 +2900,23 @@ export const projectMonitorBoxes = kortixSchema.table(
       .where(sql`${table.status} IN ('provisioning', 'starting', 'running', 'stopping')`),
   ],
 );
+
+/**
+ * Durable reservations serialize hard run caps across every firing replica.
+ * The R2a workspace twin is SQL-managed, like the other project FKs:
+ * project_trigger_admissions_project_id_workspaces_fk is NO ACTION,
+ * DEFERRABLE INITIALLY DEFERRED (not expressible in Drizzle), and NOT VALID.
+ */
+export const projectTriggerAdmissions = kortixSchema.table(
+  'project_trigger_admissions',
+  {
+    admissionId: uuid('admission_id').defaultRandom().primaryKey(),
+    projectId: uuid('project_id').notNull().references(() => projects.projectId, { onDelete: 'cascade' }),
+    slug: varchar('slug', { length: 128 }).notNull(),
+    admittedAt: timestamp('admitted_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [index('idx_trigger_admissions_cap').on(table.projectId, table.slug, table.admittedAt)],
+).enableRLS();
 
 /**
  * Durable execution queue for materialized cron slots.
@@ -6199,6 +6218,9 @@ export const appDeployments = kortixSchema.table(
     readyAt: timestamp('ready_at', { withTimezone: true }),
     failedAt: timestamp('failed_at', { withTimezone: true }),
     createdBy: uuid('created_by').notNull(),
+    sourceCommit: text('source_commit'),
+    sourceRef: text('source_ref'),
+    sourceForce: boolean('source_force').default(false).notNull(),
     sourceSessionId: text('source_session_id').references(() => projectSessions.sessionId, {
       onDelete: 'set null',
     }),
@@ -10045,8 +10067,26 @@ export const cliDeviceGrants = kortixSchema.table('cli_device_grants', {
  *               project: every member who may read the project
  *               public:  anyone with the link
  */
+/** Gallery organization only. Folder membership never grants access to an artifact. */
+export const artifactFolders = kortixSchema.table('artifact_folders', {
+  folderId: uuid('folder_id').defaultRandom().primaryKey(),
+  projectId: uuid('project_id').notNull().references(() => projects.projectId, { onDelete: 'cascade' }),
+  /** The folder this one sits in; null at the gallery root. Same project, no cycles (the API checks both). */
+  parentFolderId: uuid('parent_folder_id').references((): AnyPgColumn => artifactFolders.folderId, { onDelete: 'set null' }),
+  name: text('name').notNull(),
+  icon: text('icon'),
+  iconGlyph: jsonb('icon_glyph').$type<{ name: string; color: string }>(),
+  createdByUserId: uuid('created_by_user_id').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('idx_artifact_folders_project').on(table.projectId),
+  index('idx_artifact_folders_parent').on(table.parentFolderId).where(sql`${table.parentFolderId} is not null`),
+  check('artifact_folders_name_check', sql`char_length(btrim(${table.name})) between 1 and 100`),
+]).enableRLS();
+
 export const artifacts = kortixSchema.table('artifacts', {
   artifactId: uuid('artifact_id').defaultRandom().primaryKey(),
+  galleryFolderId: uuid('gallery_folder_id').references(() => artifactFolders.folderId, { onDelete: 'set null' }),
   projectId: uuid('project_id').notNull(),
   accountId: uuid('account_id').notNull(),
   driveId: uuid('drive_id').notNull(),
@@ -10070,6 +10110,7 @@ export const artifacts = kortixSchema.table('artifacts', {
 }, (table) => [
   foreignKey({ columns: [table.projectId], foreignColumns: [projects.projectId], name: 'artifacts_project_fk' }).onDelete('cascade'),
   foreignKey({ columns: [table.driveId], foreignColumns: [drives.driveId], name: 'artifacts_drive_fk' }).onDelete('cascade'),
+  index('idx_artifacts_gallery_folder').on(table.galleryFolderId).where(sql`${table.galleryFolderId} is not null`),
   index('idx_artifacts_project_updated').on(table.projectId, table.updatedAt),
   uniqueIndex('idx_artifacts_drive_path').on(table.driveId, table.root, table.entry),
   check('artifacts_type_check', sql`${table.type} in ('doc', 'html')`),

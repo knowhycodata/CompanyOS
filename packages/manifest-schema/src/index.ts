@@ -46,6 +46,7 @@ import {
   type ConnectorProvider,
   ENV_NAME_RE,
   GRANTABLE_KORTIX_PERMISSIONS,
+  SECRET_NAME_RE,
   isGrantableKortixPermission,
   isHumanOnlyKortixPermission,
   LEGACY_SANDBOX_KEYS,
@@ -1482,6 +1483,9 @@ export function validateTriggers(rawNode: unknown, path: string, issues: Manifes
         severity: 'error',
       });
     }
+    if (entry.hard_run_caps !== undefined && typeof entry.hard_run_caps !== 'boolean') {
+      issues.push({ path: `${where}.hard_run_caps`, message: 'hard_run_caps must be a boolean.', severity: 'error' });
+    }
     if (entry.session_readers !== undefined) {
       const parsed = parseTriggerReaders(entry.session_readers);
       if ('error' in parsed) issues.push({ path: `${where}.session_readers`, message: parsed.error, severity: 'error' });
@@ -1902,11 +1906,13 @@ export function validateConnectors(node: unknown, path: string, issues: Manifest
             severity: 'error',
           });
         }
-        if (auth.secret !== undefined) {
+        // The platform's secret binding writes the NAME of a project secret
+        // here; its value lives in Secrets, never in this file. Same rule as
+        // the runtime parser.
+        if (auth.secret !== undefined && !(typeof auth.secret === 'string' && SECRET_NAME_RE.test(auth.secret))) {
           issues.push({
             path: `${where}.auth.secret`,
-            message:
-              'auth.secret is no longer supported; set connector credentials in the platform.',
+            message: 'auth.secret must be the name of a project secret (^[A-Z_][A-Z0-9_]{0,63}$); its value lives in Secrets.',
             severity: 'error',
           });
         }
