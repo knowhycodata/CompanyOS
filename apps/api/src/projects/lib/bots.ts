@@ -4,7 +4,7 @@
 // (`project_spaces`, kind `dm`), created on first open by `getOrCreateDm`.
 import type { Bot } from '@kortix/api-contract';
 import { projectSessions, projectSpaces } from '@kortix/db';
-import { MY_KORTIX_AGENT_NAME, MY_KORTIX_DISPLAY_NAME } from '@kortix/shared';
+import { MY_KORTIX_AGENT_NAME, MY_KORTIX_DISPLAY_NAME, isMyKortixAgentName } from '@kortix/shared';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { resolveFeatureFlag } from '../../feature-flags/registry';
 import { db } from '../../shared/db';
@@ -120,4 +120,35 @@ export async function stopBotRuns(projectId: string, agentName: string, stoppedB
     .where(and(eq(projectSessions.projectId, projectId), eq(projectSessions.agentName, agentName), eq(projectSessions.status, 'running')));
   await Promise.all(rows.map((row) => abortRuntimeTurn(row.sessionId, { requestedStop: true, stoppedBy })));
   return rows.length;
+}
+
+/**
+ * `runtime_context` key kortixd reads (`harness/pi/bot-chat.ts`): this session
+ * is a thread of a person's chat with a bot, so its reply leads with a short
+ * overview and attaches long output as a file. Reserved (`kortix.`): only the
+ * platform sets it.
+ */
+export const BOT_CHAT_CONTEXT_KEY = 'kortix.bot_chat';
+
+/**
+ * Whether a new session is a thread of a person's chat with a bot: `kortix_bot`
+ * and `chat` are on, a person starts it (no calling or parent session), and it
+ * is filed in a DM whose agent it runs. My Kortix's own chat is not a bot chat.
+ */
+export async function startsBotChat(input: {
+  projectMetadata: unknown;
+  spaceId: string | null;
+  agentName: string | null;
+  callerSessionId: string | null | undefined;
+  parentSessionId: string | null | undefined;
+}): Promise<boolean> {
+  if (!input.spaceId || !input.agentName || input.callerSessionId || input.parentSessionId) return false;
+  if (isMyKortixAgentName(input.agentName)) return false;
+  if (!resolveFeatureFlag(input.projectMetadata, 'kortix_bot') || !resolveFeatureFlag(input.projectMetadata, 'chat')) return false;
+  const [space] = await db
+    .select({ kind: projectSpaces.kind, agent: projectSpaces.dmAgentName })
+    .from(projectSpaces)
+    .where(eq(projectSpaces.spaceId, input.spaceId))
+    .limit(1);
+  return space?.kind === 'dm' && space.agent === input.agentName;
 }
