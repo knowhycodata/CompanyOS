@@ -25,13 +25,10 @@ export async function writeProjectFeatureFlag(
   feature: FeatureFlagKey,
   enabled: boolean | null,
 ) {
-  // A bot's chat is a Chat DM space (flag `kortix_bot`, projects/lib/bots.ts): turning
-  // Kortix bot on turns Chat on in the same write. Turning it off leaves Chat as it is.
-  const alsoChat = feature === 'kortix_bot' && enabled === true;
   const metadataExpr =
     enabled === null
       ? metadataClearSubtreeKey('experimental', feature)
-      : metadataMergeSubtree('experimental', alsoChat ? { [feature]: enabled, chat: true } : { [feature]: enabled });
+      : metadataMergeSubtree('experimental', { [feature]: enabled });
   // The value before the write and the write itself in one transaction (row lock), so a
   // toggle effect tells "turned on again" from a repeated "on" even under concurrent PATCHes.
   // `updated_at` is the DB clock truncated to ms: the effect compares `#general`'s
@@ -51,7 +48,8 @@ export async function writeProjectFeatureFlag(
   // Convergence work (connector materialization, sandbox env fan-out) runs
   // behind the response; runFeatureFlagToggleEffects retries once and logs
   // failures at error level. See ./toggle-effects.ts.
-  for (const key of alsoChat ? [feature, 'chat' as const] : [feature]) {
+  // `chat` is merged into `kortix_bot` (registry.ts): its effects (#general, filing sessions) run on that switch too.
+  for (const key of feature === 'kortix_bot' ? [feature, 'chat' as const] : [feature]) {
     void runFeatureFlagToggleEffects({
       key,
       projectId,
