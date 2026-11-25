@@ -609,7 +609,7 @@ const FLAGS: readonly FeatureFlagDef[] = [
     platformDefault: () => false,
     enforcement: 'behavioral',
     enforcementNote:
-      'Off => every surface is unchanged. API: GET /bots answers 403 feature_disabled unless the flag is on (routes/bots.ts); the bot chat is the DM space, so it also needs `chat`. ' +
+      'Off => every surface is unchanged. API: GET /bots answers 403 feature_disabled unless the flag is on (routes/bots.ts). The bot chat is the DM space, so turning this flag on also turns `chat` on (feature-flags/write.ts); turning it off leaves `chat` as it is. ' +
       'WEB and MOBILE: no Bots section, bot chat or bot settings render. A bot is an agent from kortix.yaml; ' +
       'the flag adds no table, so turning it off loses no data.',
   },

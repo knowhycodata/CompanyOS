@@ -32,6 +32,11 @@ flow('BOT-1', flowMeta('spaces', [...Object.values(ROUTES), FEATURES_ROUTE], { t
 
     await world.setFeature('kortix_bot', true);
 
+    await ctx.step('turning kortix_bot on also turns chat on (a bot chat is a chat DM)', async () => {
+      const { rows } = await world.db.query("SELECT metadata->'experimental'->>'chat' AS chat FROM kortix.projects WHERE project_id = $1", [project.id]);
+      if (rows[0]?.chat !== 'true') throw new Error(`chat is ${rows[0]?.chat}, want true`);
+    });
+
     await ctx.step('flag on: the kortix agent is a bot, the default, with no chat yet', async () => {
       const res = await world.owner.get(BOTS, { params });
       res.status(200).body().schema(BotListSchema);
