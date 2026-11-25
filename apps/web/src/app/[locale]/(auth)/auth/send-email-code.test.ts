@@ -1,10 +1,8 @@
-import { MOBILE_SIGNUP_COOKIE, mobileSignupDigest } from '@/lib/auth/mobile-signup-binding';
 import { beforeEach, expect, mock, test } from 'bun:test';
 import { createTranslator } from 'next-intl';
 import messages from '../../../../../translations/en.json';
 
 const translator = createTranslator({ locale: 'en', messages, namespace: 'hardcodedUi.i18nComplete' });
-const setCookie = mock((_name: string, _value: string, _options: unknown) => {});
 let delivered = false;
 let cookieFailure = false;
 let translationFailureAfterDelivery = false;
@@ -18,7 +16,7 @@ mock.module('next/headers', () => ({
   headers: async () => new Headers(),
   cookies: async () => {
     if (delivered && cookieFailure) throw new Error('cookie store unavailable');
-    return { set: setCookie, get: (key: string) => key.endsWith('-code-verifier') ? { value: 'base64-synthetic' } : undefined };
+    return { get: (key: string) => key.endsWith('-code-verifier') ? { value: 'base64-synthetic' } : undefined };
   },
 }));
 mock.module('@/lib/public-env-server', () => ({
@@ -45,7 +43,7 @@ const form = () => {
 };
 beforeEach(() => {
   delivered = false; cookieFailure = false; translationFailureAfterDelivery = false;
-  mode = 'unknown'; sendError = null; send.mockClear(); setCookie.mockClear();
+  mode = 'unknown'; sendError = null; send.mockClear();
 });
 test('delivered send stays successful if the verifier cookie store fails', async () => {
   cookieFailure = true;
@@ -138,23 +136,4 @@ test('a closed-signup 429 whose code the copy helper does not know still surface
 test('a rejected transport does not fabricate delivery success', async () => {
   send.mockImplementationOnce(async () => { throw new Error('transport failed'); });
   await expect(sendEmailCode(null, form())).rejects.toThrow('transport failed');
-});
-
-test('mobile email delivery binds the callback to this browser without mailing its cookie secret', async () => {
-  const data = form();
-  data.set('mobileCallback', 'true');
-  data.set('mobileCallbackState', 'synthetic-native-state');
-  expect(await sendEmailCode(null, data)).toHaveProperty('success', true);
-  const [name, secret, options] = setCookie.mock.calls[0];
-  expect(name).toBe(MOBILE_SIGNUP_COOKIE);
-  expect(options).toMatchObject({ httpOnly: true, sameSite: 'lax', path: '/auth/mobile/callback', maxAge: 3600 });
-  const input = send.mock.calls[0][0];
-  if (!input || typeof input !== 'object' || !('options' in input)) throw new Error('missing send options');
-  const opts = input.options;
-  if (!opts || typeof opts !== 'object' || !('emailRedirectTo' in opts) || typeof opts.emailRedirectTo !== 'string') throw new Error('missing redirect');
-  const callback = new URL(opts.emailRedirectTo);
-  expect(callback.pathname).toBe('/auth/mobile/callback');
-  expect(callback.searchParams.get('state')).toBe('synthetic-native-state');
-  expect(callback.searchParams.get('mobile_binding')).toBe(await mobileSignupDigest(secret));
-  expect(callback.toString()).not.toContain(secret);
 });

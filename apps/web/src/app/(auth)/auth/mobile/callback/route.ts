@@ -1,4 +1,3 @@
-import { hasMobileSignupBinding, MOBILE_SIGNUP_COOKIE } from '@/lib/auth/mobile-signup-binding';
 import { buildMobileBounceHtml } from '@/lib/auth/desktop-bounce';
 import { createClient } from '@/lib/supabase/server';
 import type { NextRequest } from 'next/server';
@@ -30,10 +29,6 @@ export async function GET(request: NextRequest) {
     return authError(request, 'invalid_mobile_callback');
   }
 
-  if (signupTokenHash && !(await hasMobileSignupBinding(request))) {
-    return authError(request, 'invalid_mobile_callback');
-  }
-
   const supabase = await createClient();
   const exchange = signupTokenHash
     ? supabase.auth.verifyOtp({ token_hash: signupTokenHash, type: 'signup' })
@@ -59,10 +54,8 @@ export async function GET(request: NextRequest) {
     if (value) handoffParams.set(key, value);
   }
 
-  const response = new NextResponse(buildMobileBounceHtml(handoffParams), {
+  return new NextResponse(buildMobileBounceHtml(handoffParams), {
     status: 200,
-    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' },
+    headers: { 'Content-Type': 'text/html; charset=utf-8' },
   });
-  if (signupTokenHash) response.cookies.set(MOBILE_SIGNUP_COOKIE, '', { path: '/auth/mobile/callback', maxAge: 0 });
-  return response;
 }
