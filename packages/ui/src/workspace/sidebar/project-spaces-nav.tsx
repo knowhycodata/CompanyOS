@@ -1,7 +1,7 @@
 'use client';
 
 import type { ProjectSpace } from '@kortix/sdk';
-import { useProjectSessions, useProjectSpaces } from '@kortix/sdk/react';
+import { useFeatureFlag, useProjectSessions, useProjectSpaces } from '@kortix/sdk/react';
 import { MY_KORTIX_AGENT_NAME } from '@kortix/shared';
 import { LockSimpleIcon, PlusIcon } from '@phosphor-icons/react';
 import { type KeyboardEvent, useMemo, useState } from 'react';
@@ -15,6 +15,7 @@ import { FadedScrollArea } from '../../primitives/faded-scroll-area';
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from '../../primitives/sidebar';
 import { useUiPathname } from '../../providers/ui-provider';
 import { ProjectReviewNavItem } from './footer/project-review-nav';
+import { ProjectBotsRows } from './project-bots-nav';
 import { CreateChannelDialog } from '../spaces/create-channel-dialog';
 import { PrivateChannelsNotInRow } from '../spaces/private-channels-not-in';
 import {
@@ -63,6 +64,8 @@ export function ProjectSpacesNav({ projectId }: { projectId: string }) {
   const [createOpen, setCreateOpen] = useState(false);
   const { personal, others } = useMemo(() => orderSpaces(spaces.data ?? []), [spaces.data]);
   const chatHref = `${uiRoutes().project(projectId)}/chat`;
+  // Bots (`kortix_bot`): a section of the agents the person can message, then the spaces under their own heading.
+  const botsOn = useFeatureFlag(projectId, 'kortix_bot').enabled;
 
   const hrefOf = (space: ProjectSpace) =>
     space.kind === 'dm' ? uiRoutes().dm(projectId, space.dm_agent_name ?? '') : uiRoutes().channel(projectId, space.slug ?? '');
@@ -83,6 +86,12 @@ export function ProjectSpacesNav({ projectId }: { projectId: string }) {
           isPrivate
           names={names}
         />
+        <ProjectBotsRows projectId={projectId} pathname={pathname} enabled={botsOn} names={names} />
+        {botsOn ? (
+          <li className="text-muted-foreground px-2 pt-3 pb-1 text-xs" role="presentation">
+            {t('spaces.title')}
+          </li>
+        ) : null}
         {spaces.isError && !spaces.data ? (
           <li className="space-y-1.5 px-2 py-2">
             <p className="text-destructive/80 text-xs">{t('spaces.loadError')}</p>

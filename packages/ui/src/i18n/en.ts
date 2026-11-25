@@ -1405,7 +1405,8 @@ const catalog = {
       "personalNamed": "{name}'s space",
       "private": "Private",
       "noMessages": "No messages yet",
-      "more": "More"
+      "more": "More",
+      "title": "Spaces"
     },
     "calendar": "Calendar",
     "running": "Running",
@@ -1415,7 +1416,13 @@ const catalog = {
     "runningFailed": "Couldn't read what is running.",
     "runningRetry": "Try again",
     "runningIn": "in {title}",
-    "runningFirst": "Showing the first {count}."
+    "runningFirst": "Showing the first {count}.",
+    "bots": {
+      "title": "Bots",
+      "paused": "Paused",
+      "off": "Off",
+      "noMessages": "No messages yet"
+    }
   },
   "sessionPage": {
     "backToProject": "Back to workspace",
@@ -9568,6 +9575,11 @@ const catalog = {
       "askNotNow": "Not now",
       "askAdmin": "{agent} isn't in {space}. Ask a Space admin to add it.",
       "dismiss": "Dismiss"
+    },
+    "bot": {
+      "pausedBar": "{name} is paused. Schedules and events don't start it until you resume.",
+      "resume": "Resume",
+      "resumeFailed": "Could not resume {name}."
     }
   },
   "imageGen": {

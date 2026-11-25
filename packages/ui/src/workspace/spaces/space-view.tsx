@@ -97,6 +97,8 @@ export interface SpaceViewProps {
    * channels intro; the header and tabs are the same as any space's.
    */
   chat?: boolean;
+  /** Replaces the chat composer (a paused bot shows its Resume bar). Absent: the composer. */
+  composer?: ReactNode;
 }
 
 /** What a host's folder view draws for a space. `place` is "#general" or the DM's agent. */
@@ -150,7 +152,7 @@ export function SpaceView(props: SpaceViewProps) {
   );
 }
 
-function SpaceViewBody({ projectId, target, beforeSend, renderFolder, renderFile }: SpaceViewProps) {
+function SpaceViewBody({ projectId, target, beforeSend, renderFolder, renderFile, composer }: SpaceViewProps) {
   const t = useTranslations('spaces.view');
   const router = useUiRouter();
   const pathname = useUiPathname();
@@ -459,6 +461,7 @@ function SpaceViewBody({ projectId, target, beforeSend, renderFolder, renderFile
             beforeSend={beforeSend}
             renderFolder={renderFolder}
             renderFile={renderFile}
+            composer={composer}
           />
         </ComposerDropZone>
       </ResizablePanel>
@@ -535,6 +538,7 @@ function SpaceTabs({
   beforeSend,
   renderFolder,
   renderFile,
+  composer,
 }: {
   projectId: string;
   space: ProjectSpace;
@@ -552,6 +556,7 @@ function SpaceTabs({
   beforeSend?: () => Promise<void>;
   renderFolder?: (folder: SpaceFolder) => ReactNode;
   renderFile?: (file: SpaceFile) => ReactNode;
+  composer?: ReactNode;
 }) {
   const t = useTranslations('spaces.view');
   const state = useSpaceTabs(projectId, space);
@@ -570,7 +575,9 @@ function SpaceTabs({
         {space.is_default ? <GeneralChatHead projectId={projectId} /> : null}
         {space.kind === 'channel' ? <ChannelSetup projectId={projectId} space={space} onOpenMembers={onOpenMembers} /> : null}
         <SpaceTimeline projectId={projectId} space={space} threads={threads} selectedId={threadId} onOpenThread={onOpenThread} />
-        <SpaceComposer projectId={projectId} space={space} onOpenThread={onOpenThread} onAutoOpenThread={onAutoOpenThread} beforeSend={beforeSend} />
+        {composer ?? (
+          <SpaceComposer projectId={projectId} space={space} onOpenThread={onOpenThread} onAutoOpenThread={onAutoOpenThread} beforeSend={beforeSend} />
+        )}
       </TabsContent>
       {state.tabs.map((stored) => (
         <TabsContent key={stored.id} value={stored.id} className="flex min-h-0 flex-col overflow-y-auto">

@@ -1935,7 +1935,8 @@
       "personalNamed": "{name} のスペース",
       "private": "非公開",
       "noMessages": "まだメッセージはありません",
-      "more": "その他"
+      "more": "その他",
+      "title": "Spaces"
     },
     "calendar": "カレンダー",
     "running": "実行中",
@@ -1945,7 +1946,13 @@
     "runningFailed": "実行中のものを読み込めませんでした。",
     "runningRetry": "再試行",
     "runningIn": "{title} 内",
-    "runningFirst": "最初の {count} 件を表示しています。"
+    "runningFirst": "最初の {count} 件を表示しています。",
+    "bots": {
+      "title": "Bots",
+      "paused": "Paused",
+      "off": "Off",
+      "noMessages": "No messages yet"
+    }
   },
   "dashboard": {
     "title": "ダッシュボード",
@@ -26246,6 +26253,11 @@
       "askNotNow": "今はしない",
       "askAdmin": "{agent} は {space} にいません。スペースの管理者に追加を依頼してください。",
       "dismiss": "閉じる"
+    },
+    "bot": {
+      "pausedBar": "{name} is paused. Schedules and events don't start it until you resume.",
+      "resume": "Resume",
+      "resumeFailed": "Could not resume {name}."
     }
   },
   "imageGen": {

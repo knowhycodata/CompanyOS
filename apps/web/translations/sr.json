@@ -1935,7 +1935,8 @@
       "personalNamed": "Простор корисника {name}",
       "private": "Приватно",
       "noMessages": "Још нема порука",
-      "more": "Још"
+      "more": "Још",
+      "title": "Spaces"
     },
     "calendar": "Kalendar",
     "running": "У току",
@@ -1945,7 +1946,13 @@
     "runningFailed": "Није могуће прочитати шта је у току.",
     "runningRetry": "Покушај поново",
     "runningIn": "у {title}",
-    "runningFirst": "Приказано је првих {count}."
+    "runningFirst": "Приказано је првих {count}.",
+    "bots": {
+      "title": "Bots",
+      "paused": "Paused",
+      "off": "Off",
+      "noMessages": "No messages yet"
+    }
   },
   "dashboard": {
     "title": "Контролна табла",
@@ -26246,6 +26253,11 @@
       "askNotNow": "Не сада",
       "askAdmin": "{agent} није у {space}. Затражи од администратора простора да га дода.",
       "dismiss": "Затвори"
+    },
+    "bot": {
+      "pausedBar": "{name} is paused. Schedules and events don't start it until you resume.",
+      "resume": "Resume",
+      "resumeFailed": "Could not resume {name}."
     }
   },
   "imageGen": {

@@ -1935,7 +1935,8 @@
       "personalNamed": "Espacio de {name}",
       "private": "Privado",
       "noMessages": "Aún no hay mensajes",
-      "more": "Más"
+      "more": "Más",
+      "title": "Spaces"
     },
     "calendar": "Calendario",
     "running": "En curso",
@@ -1945,7 +1946,13 @@
     "runningFailed": "No se pudo leer lo que está en curso.",
     "runningRetry": "Reintentar",
     "runningIn": "en {title}",
-    "runningFirst": "Se muestran las primeras {count}."
+    "runningFirst": "Se muestran las primeras {count}.",
+    "bots": {
+      "title": "Bots",
+      "paused": "Paused",
+      "off": "Off",
+      "noMessages": "No messages yet"
+    }
   },
   "dashboard": {
     "title": "Panel",
@@ -26246,6 +26253,11 @@
       "askNotNow": "Ahora no",
       "askAdmin": "{agent} no está en {space}. Pide a un admin del espacio que lo añada.",
       "dismiss": "Cerrar"
+    },
+    "bot": {
+      "pausedBar": "{name} is paused. Schedules and events don't start it until you resume.",
+      "resume": "Resume",
+      "resumeFailed": "Could not resume {name}."
     }
   },
   "imageGen": {

@@ -1935,7 +1935,8 @@
       "personalNamed": "{name} 的空间",
       "private": "私密",
       "noMessages": "还没有消息",
-      "more": "更多"
+      "more": "更多",
+      "title": "Spaces"
     },
     "calendar": "日历",
     "running": "运行中",
@@ -1945,7 +1946,13 @@
     "runningFailed": "无法读取正在运行的内容。",
     "runningRetry": "重试",
     "runningIn": "在 {title} 中",
-    "runningFirst": "显示前 {count} 个。"
+    "runningFirst": "显示前 {count} 个。",
+    "bots": {
+      "title": "Bots",
+      "paused": "Paused",
+      "off": "Off",
+      "noMessages": "No messages yet"
+    }
   },
   "dashboard": {
     "title": "仪表板",
@@ -26246,6 +26253,11 @@
       "askNotNow": "暂不",
       "askAdmin": "{agent} 不在 {space} 中。请让空间管理员添加。",
       "dismiss": "关闭"
+    },
+    "bot": {
+      "pausedBar": "{name} is paused. Schedules and events don't start it until you resume.",
+      "resume": "Resume",
+      "resumeFailed": "Could not resume {name}."
     }
   },
   "imageGen": {
