@@ -16,7 +16,7 @@ import { PersonalOnboardingWelcome } from '@/components/projects/personal-onboar
 import { ProjectPendingScreen } from '@/components/projects/project-pending-screen';
 import { Button } from '@kortix/ui/button';
 import Hint from '@kortix/ui/hint';
-import { SidebarEdgePeek, useSidebar } from '@kortix/ui/sidebar';
+import { useSidebar } from '@kortix/ui/sidebar';
 import { useBrandingScope } from '@kortix/ui/internal/branding/branding-provider';
 import { AppProviders } from '@/features/layout/app-providers';
 import { useAuth } from '@/features/providers/auth-provider';
@@ -347,7 +347,7 @@ const ProjectSheelLayout = ({
   children: React.ReactNode;
 }) => {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
-  const { state, isMobile, toggleSidebar, peek, peekEnter, peekLeave } = useSidebar();
+  const { state, isMobile, toggleSidebar, peek, peekEnter, peekLeave, rail } = useSidebar();
   const isExpanded = !isMobile && state === 'expanded';
   // The sidebar hides fully when collapsed (offcanvas everywhere, no icon
   // rail), so a hidden sidebar means no seam border and no way back from the
@@ -388,9 +388,8 @@ const ProjectSheelLayout = ({
       // the window's desktop Back (root layout) steps aside on every project view.
       data-kx-titlebar-owner=""
     >
-      {/* Collapsed: an invisible strip on the viewport's left edge summons
-          the sidebar as a hover flyout; it self-hides while docked open. */}
-      <SidebarEdgePeek />
+      {/* No edge strip: the sidebar's icon rail (ProjectRail) stays on screen
+          and its hover summons the collapsed panel. */}
       {/* Some project views start with content instead of a titlebar row. Give
           those views the same native drag band without covering controls on
           views that already own the band. CSS disables this fallback whenever
@@ -409,7 +408,7 @@ const ProjectSheelLayout = ({
       {/* Page headers can share z-50 with this fixed control. Paint the
           control after them so their macOS drag regions cannot take its click. */}
       {children}
-      {desktopShell && !isExpanded && (
+      {desktopShell && !isExpanded && !rail && (
         <Hint
           label={
             peek ? tI18nComplete.raw('textbc44e1fccb68') : tI18nComplete.raw('text45609089ee73')

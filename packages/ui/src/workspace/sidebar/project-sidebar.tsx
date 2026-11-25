@@ -42,6 +42,8 @@ import {
 } from '@phosphor-icons/react';
 import { UiLink as Link, useUiPathname } from '../../providers/ui-provider';
 import { SettingsReturnTracker, SidebarDrill } from './sidebar-drill';
+import { ProjectRail, type RailSection } from './project-rail';
+import { isProjectAdminPath } from '../../internal/layout/project-capability-nav';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { SidebarBalanceWarning } from './footer/project-balance-warning';
 import { SidebarUpgradeButton } from './footer/project-upgrade-button';
@@ -97,6 +99,10 @@ export function ProjectSidebar({
   const isMobile = useIsMobile();
   const pathname = useUiPathname();
   const sessionsGroupRef = useRef<HTMLDivElement>(null);
+  // Desktop: the rail picks what the panel shows. Workspace settings follow the route.
+  const [section, setSection] = useState<RailSection>('home');
+  const settingsOpen = isProjectAdminPath(pathname);
+  const railed = !isMobile;
   // Mounted outside <Sidebar>: the mobile sheet unmounts its content on close.
   const [computerConnectOpen, setComputerConnectOpen] = useState(false);
   const [connectMcpOpen, setConnectMcpOpen] = useState(false);
@@ -202,6 +208,18 @@ export function ProjectSidebar({
     <Sidebar
       collapsible="offcanvas"
       variant="inset"
+      rail={
+        railed ? (
+          <ProjectRail
+            projectId={projectId}
+            section={section}
+            onSection={setSection}
+            onOpenSearch={onOpenSearch ? handleOpenSearch : undefined}
+            help={help}
+            settingsOpen={settingsOpen}
+          />
+        ) : undefined
+      }
       // No background here. This className lands on the sidebar CONTAINER —
       // the square positioning box — while the visible card is the rounded
       // inner box, which already carries `bg-sidebar`. Painting it twice put a
@@ -228,6 +246,19 @@ export function ProjectSidebar({
             pointing at. The workspace directory is now a second VIEW of this
             menu, behind "Switch Workspace", which is why there is no footer
             control below any more. */}
+        {railed ? (
+          // Desktop: the rail carries search, the toggle and help; the panel names what it shows.
+          <div
+            className={cn(
+              'flex w-full items-center gap-1 px-2',
+              !peek && 'kx-titlebar-row kx-titlebar-band-height kx-project-sidebar-titlebar',
+            )}
+          >
+            <span className="text-foreground truncate text-sm font-medium">
+              {settingsOpen ? t('customize') : section === 'more' ? t('more') : chat ? t('spaces.channels') : t('sessions')}
+            </span>
+          </div>
+        ) : (
         <div
           className={cn(
             'flex w-full items-center gap-1',
@@ -316,6 +347,7 @@ export function ProjectSidebar({
             )}
           </div>
         </div>
+        )}
       </SidebarHeader>
       {/* One icon lane for every row (Jay, 2026-10-12). Session rows inset
           their status mark by `px-2`; the menu-button recipe insets by
@@ -326,6 +358,16 @@ export function ProjectSidebar({
           side only: right padding still clears trailing badges. */}
       <SidebarContent className="relative min-h-0 flex-1 [scrollbar-width:'none'] overflow-hidden [-ms-overflow-style:'none'] [&::-webkit-scrollbar]:hidden [&_[data-sidebar=menu-button]]:pl-2">
         <SidebarDrill projectId={projectId} onNavigate={handleDrilledNavigate}>
+          {railed && section === 'more' ? (
+            // The rail's More: every page beside the sessions. Each row keeps its own
+            // flag and permission gate; Apps keeps its hover card with the Apps list.
+            <SidebarGroup className="py-0">
+              <SidebarMenu>
+                <ProjectNavItems projectId={projectId} />
+              </SidebarMenu>
+            </SidebarGroup>
+          ) : (
+          <>
           <SidebarGroup className="py-0">
             <SidebarMenu>
               {chat ? null : (
@@ -354,7 +396,7 @@ export function ProjectSidebar({
               {/* Customize, Apps, Files: order and
                   visibility come from "Customize sidebar". They moved up here
                   from the footer (Jay, 2026-10-12) to keep the footer short. */}
-              {chat ? null : <ProjectNavItems projectId={projectId} />}
+              {chat || railed ? null : <ProjectNavItems projectId={projectId} />}
             </SidebarMenu>
           </SidebarGroup>
 
@@ -376,6 +418,8 @@ export function ProjectSidebar({
               <ProjectSessionList projectId={projectId} />
             )}
           </SidebarGroup>
+          </>
+          )}
 
           <SidebarGroup className="mt-auto">
             <SidebarMenu className="gap-1">
@@ -394,7 +438,12 @@ export function ProjectSidebar({
 
       {/* Help sits alone at the foot: a person looks for it at the bottom of
           the navigation. `pl-2.5` puts its glyph on the rows' icon lane above. */}
-      {help ? <SidebarFooter className="flex-row pt-0 pl-2.5">{help}</SidebarFooter> : null}
+      {railed ? (
+        // Desktop: help moved to the rail; the workspace switcher sits at the panel's foot.
+        menu ? <SidebarFooter className="pt-0">{menu}</SidebarFooter> : null
+      ) : help ? (
+        <SidebarFooter className="flex-row pt-0 pl-2.5">{help}</SidebarFooter>
+      ) : null}
 
       <SidebarRail aria-label={t('resize')} title={t('resizeHelp')} />
     </Sidebar>

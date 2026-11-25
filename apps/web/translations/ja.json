@@ -1954,7 +1954,10 @@
       "noMessages": "No messages yet",
       "newBot": "New bot",
       "newBotPrompt": "I want a new bot. Ask me what it should own and how we'll know it's done. Then propose it, and when I say yes, add it to kortix.yaml as an agent with every workspace app (connectors: all)."
-    }
+    },
+    "home": "Home",
+    "more": "More",
+    "rail": "Workspace navigation"
   },
   "dashboard": {
     "title": "ダッシュボード",

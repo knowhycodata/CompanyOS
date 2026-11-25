@@ -317,16 +317,21 @@ test('with chat on, neither the Spaces list nor the opened More group has an Inb
 const REVIEW_HREF = '/workspaces/synthetic-project/review';
 const reviewLinks = () => [...document.querySelectorAll(`a[href="${REVIEW_HREF}"]`)];
 
-test('the desktop sidebar shows Review first under New session, with what waits on the viewer', async () => {
+test('desktop: the rail holds Home and More (Search only with a search handler); Review moves from the sessions panel to More, with what waits on the viewer', async () => {
   await mountSidebar(1280);
+  const rail = container!.querySelector('nav[aria-label="rail"]');
+  expect(rail).not.toBeNull();
+  for (const name of ['home', 'more']) expect(rail!.querySelector(`button[aria-label="${name}"]`)).not.toBeNull();
+  // Mounted without onOpenSearch: no Search button.
+  expect(rail!.querySelector('button[aria-label="search"]')).toBeNull();
+  // Home: New session and the sessions, no page rows.
+  expect(container!.innerHTML).toContain('newSession');
+  expect(reviewLinks()).toHaveLength(0);
+  await act(async () => (rail!.querySelector('button[aria-label="more"]') as HTMLButtonElement).click());
   const links = reviewLinks();
   expect(links).toHaveLength(1);
   // 2 from the review summary + 1 open question; the approval is already in the summary.
   expect(links[0]!.textContent).toBe('spaces.review3');
-  const html = container!.innerHTML;
-  const review = html.indexOf(`href="${REVIEW_HREF}"`);
-  expect(review).toBeGreaterThan(html.indexOf('newSession'));
-  expect(review).toBeLessThan(html.indexOf('data-testid="session-list"'));
 });
 
 test('the mobile sheet shows the Review row', async () => {
@@ -338,6 +343,7 @@ test('a viewer who may not act on Review gets no Review row, the rule of the mob
   reviewAccess = { settled: true, tabs: [] };
   await mountSidebar(1280);
   expect(container!.innerHTML).toContain('newSession');
+  await act(async () => (container!.querySelector('nav[aria-label="rail"] button[aria-label="more"]') as HTMLButtonElement).click());
   expect(reviewLinks()).toHaveLength(0);
 });
 
