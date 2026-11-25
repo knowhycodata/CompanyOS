@@ -99,6 +99,8 @@ export interface SpaceViewProps {
   chat?: boolean;
   /** Replaces the chat composer (a paused bot shows its Resume bar). Absent: the composer. */
   composer?: ReactNode;
+  /** Extra buttons at the right of the header (a bot's settings gear). */
+  headerActions?: ReactNode;
 }
 
 /** What a host's folder view draws for a space. `place` is "#general" or the DM's agent. */
@@ -152,7 +154,7 @@ export function SpaceView(props: SpaceViewProps) {
   );
 }
 
-function SpaceViewBody({ projectId, target, beforeSend, renderFolder, renderFile, composer }: SpaceViewProps) {
+function SpaceViewBody({ projectId, target, beforeSend, renderFolder, renderFile, composer, headerActions }: SpaceViewProps) {
   const t = useTranslations('spaces.view');
   const router = useUiRouter();
   const pathname = useUiPathname();
@@ -352,6 +354,7 @@ function SpaceViewBody({ projectId, target, beforeSend, renderFolder, renderFile
       renameOpen={renameOpen}
       setRenameOpen={setRenameOpen}
       onViewAllMembers={() => openDetails('people')}
+      actions={headerActions}
     />
   );
 
@@ -615,6 +618,7 @@ function SpaceHeader({
   renameOpen,
   setRenameOpen,
   onViewAllMembers,
+  actions,
 }: {
   projectId: string;
   target: SpaceTarget;
@@ -630,6 +634,7 @@ function SpaceHeader({
   setRenameOpen: (open: boolean) => void;
   /** "View all members": the Details panel, at People. */
   onViewAllMembers: () => void;
+  actions?: ReactNode;
 }) {
   const t = useTranslations('spaces.view');
   const sidebar = useOptionalSidebar();
@@ -702,6 +707,7 @@ function SpaceHeader({
         ) : null}
       </div>
       {channel && channel.is_member === false && channel.visibility !== 'private' ? <JoinChannelButton projectId={projectId} space={channel} /> : null}
+      {actions}
       {channel && (roster.people.length > 0 || roster.agents.length > 0) ? (
         <SpaceRosterButton projectId={projectId} roster={roster} onViewAll={onViewAllMembers} />
       ) : null}

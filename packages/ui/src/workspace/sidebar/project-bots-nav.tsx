@@ -2,13 +2,15 @@
 
 import type { WorkspaceBot } from '@kortix/sdk';
 import { useProjectSessions, useWorkspaceBots } from '@kortix/sdk/react';
-import { PauseCircleIcon } from '@phosphor-icons/react';
+import { PauseCircleIcon, PlusIcon } from '@phosphor-icons/react';
 import { useMemo } from 'react';
 
 import { useTranslations } from '../../i18n';
 import { AgentMark } from '../../internal/components/agent-mark';
 import { HoverPrefetchLink } from '../../internal/components/hover-prefetch-link';
 import { useIsMobile } from '../../internal/hooks';
+import { useComposerPrefillStore } from '../../internal/stores/composer-prefill-store';
+import { useUiRouter } from '../../providers/ui-provider';
 import { uiRoutes } from '../../lib/routes';
 import { SidebarMenuButton, SidebarMenuItem, useSidebar } from '../../primitives/sidebar';
 import { spacePreview } from '../spaces/space-identity';
@@ -21,7 +23,8 @@ function isAt(pathname: string | null, href: string): boolean {
 /**
  * The Bots rows of the sidebar (flag `kortix_bot`): one row per agent the
  * person can message, after their own space. My Kortix is that space, so it
- * is not repeated here. A row opens the bot's chat (`/dm/<agent>`). Rows
+ * is not repeated here. A row opens the bot's chat (`/dm/<agent>`). New bot
+ * opens that chat with My Kortix with the request in the composer. Rows
  * render once the list arrives; nothing renders while the flag is off.
  */
 export function ProjectBotsRows({
@@ -37,8 +40,18 @@ export function ProjectBotsRows({
 }) {
   const t = useTranslations('sidebar.bots');
   const bots = useWorkspaceBots(projectId, { enabled });
+  const router = useUiRouter();
+  const setPrefill = useComposerPrefillStore((s) => s.setPrefill);
+  const isMobile = useIsMobile();
+  const { setOpenMobile } = useSidebar();
   const shown = (bots.data ?? []).filter((bot) => !bot.builtin);
-  if (!enabled || shown.length === 0) return null;
+  if (!enabled || !bots.data) return null;
+  // A new bot is made in the person's chat with My Kortix: the request waits in the composer, unsent, to edit first.
+  const newBot = () => {
+    setPrefill(projectId, t('newBotPrompt'));
+    if (isMobile) setOpenMobile(false);
+    router.push(`${uiRoutes().project(projectId)}/chat`);
+  };
   return (
     <>
       <li className="text-muted-foreground px-2 pt-3 pb-1 text-xs" role="presentation">
@@ -48,6 +61,12 @@ export function ProjectBotsRows({
         const href = uiRoutes().dm(projectId, bot.name);
         return <BotRow key={bot.name} projectId={projectId} bot={bot} href={href} active={isAt(pathname, href)} names={names} />;
       })}
+      <SidebarMenuItem>
+        <SidebarMenuButton onClick={newBot} className="text-muted-foreground hover:text-sidebar-foreground">
+          <PlusIcon />
+          <span>{t('newBot')}</span>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
     </>
   );
 }

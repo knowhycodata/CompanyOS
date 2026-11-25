@@ -1951,7 +1951,9 @@
       "title": "Bots",
       "paused": "Paused",
       "off": "Off",
-      "noMessages": "No messages yet"
+      "noMessages": "No messages yet",
+      "newBot": "New bot",
+      "newBotPrompt": "I want a new bot. Ask me what it should own and how we'll know it's done. Then propose it, and add it to kortix.yaml when I say yes."
     }
   },
   "dashboard": {
@@ -26257,7 +26259,23 @@
     "bot": {
       "pausedBar": "{name} is paused. Schedules and events don't start it until you resume.",
       "resume": "Resume",
-      "resumeFailed": "Could not resume {name}."
+      "resumeFailed": "Could not resume {name}.",
+      "settings": {
+        "title": "Settings",
+        "settingsButton": "Bot settings",
+        "agent": "Agent",
+        "status": "Status",
+        "active": "Active",
+        "paused": "Paused",
+        "off": "Off",
+        "pauseFailed": "Could not change the bot's status.",
+        "description": "Description",
+        "save": "Save",
+        "saveFailed": "Could not save the description.",
+        "model": "Model",
+        "apps": "Apps and secrets",
+        "allSettings": "All agent settings"
+      }
     }
   },
   "imageGen": {
