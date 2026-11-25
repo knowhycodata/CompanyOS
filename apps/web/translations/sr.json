@@ -1366,6 +1366,10 @@
         "review_swipe": {
           "name": "Kartice za pregled",
           "description": "„Čeka tebe“ na stranici Pregled otvara se kao špil kartica: jedna stavka po kartici. Prevuci desno da odobriš ili spojiš, levo da je vratiš agentu sa onim što treba promeniti."
+        },
+        "kortix_bot": {
+          "name": "Kortix bot",
+          "description": "A person messages each of the project's agents as a bot, in one chat per person. The bot answers in plain text, starts work as tasks, and posts each result as a reply under the message that asked for it."
         }
       },
       "channelsSwitch": {

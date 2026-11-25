@@ -1366,6 +1366,10 @@
         "review_swipe": {
           "name": "レビューカード",
           "description": "レビューページの「対応待ち」をカードの山で表示します。1 枚に 1 件。右にスワイプで承認またはマージ、左にスワイプで変更点を添えてエージェントに差し戻します。"
+        },
+        "kortix_bot": {
+          "name": "Kortix bot",
+          "description": "A person messages each of the project's agents as a bot, in one chat per person. The bot answers in plain text, starts work as tasks, and posts each result as a reply under the message that asked for it."
         }
       },
       "channelsSwitch": {

@@ -598,6 +598,21 @@ const FLAGS: readonly FeatureFlagDef[] = [
       '(KORTIX_FEATURE_FLAGS → kortixd). WEB: no Calendar row and no palette entry; /workspaces/:id/calendar renders FeatureGateScreen. ' +
       'The calendar_items and calendar_comments rows stay.',
   },
+  {
+    key: 'kortix_bot',
+    name: 'Kortix bot',
+    description:
+      "A person messages each of the project's agents as a bot, in one chat per person. The bot answers in plain text, starts work as tasks, and posts each result as a reply under the message that asked for it.",
+    stability: 'experimental',
+    wip: true,
+    available: () => true,
+    platformDefault: () => false,
+    enforcement: 'behavioral',
+    enforcementNote:
+      'Off => every surface is unchanged. API: GET /bots answers 403 feature_disabled unless the flag is on (routes/bots.ts); the bot chat is the DM space, so it also needs `chat`. ' +
+      'WEB and MOBILE: no Bots section, bot chat or bot settings render. A bot is an agent from kortix.yaml; ' +
+      'the flag adds no table, so turning it off loses no data.',
+  },
 ];
 
 const FLAG_BY_KEY: Record<FeatureFlagKey, FeatureFlagDef> = Object.fromEntries(

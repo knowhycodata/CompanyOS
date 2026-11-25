@@ -146,6 +146,8 @@ export type FeatureFlagKey =
   | 'review_swipe'
   /** Calendar: a shared calendar of dated items with the people on them and comments, plus the project's scheduled triggers (`kortix calendar`). Experimental, off by default. */
   | 'calendar'
+  /** Kortix bot: the project's agents appear as bots a person messages in one chat each; results come back as replies. Experimental, off by default. */
+  | 'kortix_bot'
   /** @deprecated Withdrawn — agents messaging people left the product. The API no longer lists, resolves, or accepts it. Removed in the next major. */
   | 'human_messaging';
 
@@ -211,6 +213,7 @@ export const FEATURE_FLAG_KEYS: readonly FeatureFlagKey[] = [
   'desktop_tabs',
   'calendar',
   'review_swipe',
+  'kortix_bot',
 ] as const;
 
 /**
