@@ -1,5 +1,6 @@
 import { beforeEach, expect, mock, test } from 'bun:test';
 import { NextRequest } from 'next/server';
+import { MOBILE_SIGNUP_COOKIE, mobileSignupDigest } from '@/lib/auth/mobile-signup-binding';
 
 // Only the Supabase transport is replaced; the route's branching runs for real.
 mock.module('server-only', () => ({}));
@@ -16,6 +17,11 @@ mock.module('@/lib/supabase/server', () => ({
 const { GET } = await import('./route');
 const request = (query: string) =>
   new NextRequest(`http://localhost:13000/auth/mobile/callback?mobile_callback=1&state=synthetic-state&${query}`);
+async function boundRequest(query: string) {
+  const req = request(`${query}&mobile_binding=${await mobileSignupDigest('synthetic-browser-secret')}`);
+  req.cookies.set(MOBILE_SIGNUP_COOKIE, 'synthetic-browser-secret');
+  return req;
+}
 const errorOf = (response: Response) => new URL(response.headers.get('location') ?? '').searchParams.get('error');
 
 beforeEach(() => {
@@ -24,7 +30,7 @@ beforeEach(() => {
 });
 
 test('a signup token hash is verified and the session bounces to the app', async () => {
-  const response = await GET(request('token_hash=synthetic-hash&type=signup&returnUrl=/workspaces/start'));
+  const response = await GET(await boundRequest('token_hash=synthetic-hash&type=signup&returnUrl=/workspaces/start'));
   expect(verifyOtp).toHaveBeenCalledWith({ token_hash: 'synthetic-hash', type: 'signup' });
   expect(exchangeCodeForSession).not.toHaveBeenCalled();
   expect(response.headers.get('content-type')).toContain('text/html');
@@ -48,7 +54,7 @@ test('a token hash of another type is not verified', async () => {
 
 test('a failed verification returns to /auth with the error', async () => {
   verifyOtp.mockImplementationOnce(async () => ({ data: { session: null }, error: { message: 'Email link is invalid or has expired' } }));
-  const response = await GET(request('token_hash=synthetic-hash&type=signup'));
+  const response = await GET(await boundRequest('token_hash=synthetic-hash&type=signup'));
   expect(errorOf(response)).toBe('Email link is invalid or has expired');
 });
 
@@ -56,4 +62,18 @@ test('without the mobile state nothing is verified', async () => {
   const response = await GET(new NextRequest('http://localhost:13000/auth/mobile/callback?token_hash=synthetic-hash&type=signup'));
   expect(verifyOtp).not.toHaveBeenCalled();
   expect(errorOf(response)).toBe('invalid_mobile_callback');
+});
+
+test('a signup link without the initiating browser cookie cannot obtain a session', async () => {
+  const response = await GET(request('token_hash=synthetic-hash&type=signup&mobile_binding=public-digest'));
+  expect(errorOf(response)).toBe('invalid_mobile_callback');
+  expect(verifyOtp).not.toHaveBeenCalled();
+  expect(await response.text()).not.toContain('synthetic-access');
+});
+
+test('a different browser cookie cannot use the signup link', async () => {
+  const req = await boundRequest('token_hash=synthetic-hash&type=signup');
+  req.cookies.set(MOBILE_SIGNUP_COOKIE, 'another-browser-secret');
+  expect(errorOf(await GET(req))).toBe('invalid_mobile_callback');
+  expect(verifyOtp).not.toHaveBeenCalled();
 });

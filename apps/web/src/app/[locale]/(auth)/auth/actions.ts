@@ -2,6 +2,7 @@
 
 import { AUTH_TIMEOUT_MESSAGE, AUTH_UPSTREAM_TIMEOUT_MS } from '@/lib/auth/submit-auth';
 import { settleWithin } from '@/lib/deadline';
+import { MOBILE_SIGNUP_COOKIE, mobileSignupDigest } from '@/lib/auth/mobile-signup-binding';
 import { buildMobileSessionHandoffUrl } from '@/lib/auth/mobile-handoff';
 import {
   resolveNewAccountReturnUrl,
@@ -106,7 +107,7 @@ function mobileCallbackState(formData: FormData): string | null {
   return typeof state === 'string' && state.length > 0 ? state : null;
 }
 
-function emailRedirectUrl({
+async function emailRedirectUrl({
   origin,
   returnUrl,
   acceptedTerms = false,
@@ -116,7 +117,7 @@ function emailRedirectUrl({
   returnUrl: string;
   acceptedTerms?: boolean;
   mobileState?: string | null;
-}): string {
+}): Promise<string> {
   // This route intentionally is not an app universal-link path: the browser
   // owns the PKCE verifier and must exchange the code before bouncing the
   // resulting session to the installed app.
@@ -129,6 +130,12 @@ function emailRedirectUrl({
   if (mobileState) {
     url.searchParams.set('mobile_callback', '1');
     url.searchParams.set('state', mobileState);
+    const secret = crypto.randomUUID();
+    (await cookies()).set(MOBILE_SIGNUP_COOKIE, secret, {
+      httpOnly: true, secure: new URL(origin).protocol === 'https:',
+      sameSite: 'lax', path: '/auth/mobile/callback', maxAge: 3600,
+    });
+    url.searchParams.set('mobile_binding', await mobileSignupDigest(secret));
   }
   return url.toString();
 }
@@ -292,7 +299,7 @@ export async function sendEmailCode(prevState: any, formData: FormData) {
   }
 
   const supabase = await createClient();
-  const emailRedirectTo = emailRedirectUrl({
+  const emailRedirectTo = await emailRedirectUrl({
     origin,
     returnUrl,
     acceptedTerms,
@@ -600,7 +607,7 @@ export async function signUpWithPassword(prevState: any, formData: FormData) {
   }
 
   const supabase = await createClient();
-  const emailRedirectTo = emailRedirectUrl({
+  const emailRedirectTo = await emailRedirectUrl({
     origin,
     // The confirmation link outlives the "new user" heuristic downstream, so
     // the signup rule has to be applied before it is minted, not after.
