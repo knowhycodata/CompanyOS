@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+import { KORTIX_SUPABASE_AUTH_COOKIE } from '@/lib/supabase/constants';
 import { buildMobileBounceHtml } from '@/lib/auth/desktop-bounce';
 import { createClient } from '@/lib/supabase/server';
 import type { NextRequest } from 'next/server';
@@ -23,10 +25,21 @@ export async function GET(request: NextRequest) {
   // The signup confirmation links here with a token hash instead of a PKCE
   // code: GoTrue expires a signup code 5 minutes after the signup started,
   // the token hash lives as long as the email's OTP.
-  const signupTokenHash = searchParams.get('type') === 'signup' ? searchParams.get('token_hash') : null;
+  const signupTokenHash =
+    searchParams.get('type') === 'signup' ? searchParams.get('token_hash') : null;
 
   if (searchParams.get('mobile_callback') !== '1' || !state) {
     return authError(request, 'invalid_mobile_callback');
+  }
+
+  // The emailed hash is a bearer credential. A scanner holding only the URL
+  // must not exchange it for the session rendered into the native handoff.
+  if (signupTokenHash) {
+    const binder = request.cookies.get(`${KORTIX_SUPABASE_AUTH_COOKIE}-mobile-signup`)?.value;
+    const digest = searchParams.get('browser_binding');
+    if (!binder || !digest || createHash('sha256').update(binder).digest('hex') !== digest) {
+      return authError(request, 'invalid_mobile_callback');
+    }
   }
 
   const supabase = await createClient();
