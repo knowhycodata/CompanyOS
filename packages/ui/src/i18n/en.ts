@@ -795,10 +795,6 @@ const catalog = {
       "permission": "You need the workspace's settings permission to change a feature flag.",
       "updateFailed": "Failed to update {key}",
       "flags": {
-        "secrets_egress": {
-          "name": "Network-Enforced Secrets",
-          "description": "Control which tools and destinations can receive workspace secrets."
-        },
         "reminders": {
           "name": "Loops",
           "description": "Let agents and people schedule check-ins on a session, once or on repeat. Each fire re-prompts that session. Adds loops to the Triggers list, the session loop chip, and `kortix loop`."
@@ -815,25 +811,17 @@ const catalog = {
           "name": "Goals",
           "description": "Give an agent an objective it owns until an independent check confirms the outcome. It plans, works, waits, follows up with people, and keeps its state in a Goals folder in Files. Needs Volumes and Loops on."
         },
-        "workspace_volume": {
-          "name": "Stateless sandboxes",
-          "description": "Every session keeps only /workspace, on its own volume. A sandbox stopped for an hour is deleted, and the next open starts a new one with the same files and conversation. Programs that ran in the old sandbox are not running. Kortix enables it per workspace."
-        },
         "email_channel": {
           "name": "Email channel",
           "description": "Give the agent an email inbox on Resend: inbound mail starts and continues sessions, and the agent reads, replies and sends from the inbox. Bring your own Resend API key and domain."
         },
         "chat": {
-          "name": "Channels",
-          "description": "Channels with Kortix, the way Slack works: every message is a thread, Kortix's newest reply shows under it, Kortix can start threads, and you share channels with people. Replaces the session list in the sidebar."
+          "name": "Slack-style Spaces",
+          "description": "Use Slack-style channels and direct messages, where every message starts a thread. Switches the sidebar to the chat layout. Separate from Spaces, which groups sessions, files and tabs."
         },
         "session_groups": {
           "name": "Spaces",
           "description": "Group sessions into spaces, each with its own files and tabs. A new space is private to you; share it with people or with the whole workspace. Start a session in a space from its page or from the Space picker under the composer. Every session in a space knows what the space is for and mounts its Files folder."
-        },
-        "chrome": {
-          "name": "Kortix in Chrome",
-          "description": "Let a session use your connected Chrome browser. You can take over or stop it at any time."
         },
         "agent_teams": {
           "name": "Agent teams",
@@ -853,11 +841,11 @@ const catalog = {
         },
         "chat_front": {
           "name": "Spaces-Router",
-          "description": "With Spaces on, the agent you chat with in a thread is a router: it does quick work itself (an answer, a short text, a look at the thread files) and hands longer work to the Space's agents. It writes back like a person, in short messages. An agent saves its full result as a file in the thread, and the router links that file instead of retyping it. Show work under a message opens the work behind it. Needs My Kortix on in kortix.yaml."
+          "description": "With Slack-style Spaces on, the agent you chat with in a thread is a router: it does quick work itself (an answer, a short text, a look at the thread files) and hands longer work to the Space's agents. It writes back like a person, in short messages. An agent saves its full result as a file in the thread, and the router links that file instead of retyping it. Show work under a message opens the work behind it. Needs My Kortix on in kortix.yaml."
         },
         "spaces_proactive": {
           "name": "Spaces-Proactive",
-          "description": "With Spaces on, a space can watch itself: turn on Proactive in its details, and an agent reads what happens there (finished threads, questions left open, people who join) and writes in the chat only when it matters: a result worth sharing, a decision you need to make, or something overdue. It can also start a thread that does the work. Optional daily brief at 9:00."
+          "description": "With Slack-style Spaces on, a space can watch itself: turn on Proactive in its details, and an agent reads what happens there (finished threads, questions left open, people who join) and writes in the chat only when it matters: a result worth sharing, a decision you need to make, or something overdue. It can also start a thread that does the work. Optional daily brief at 9:00."
         },
         "program_agents": {
           "name": "Program agents",
@@ -874,15 +862,19 @@ const catalog = {
         "calendar": {
           "name": "Calendar",
           "description": "A shared calendar for people and agents: dated items with the people on them and comments, beside the scheduled triggers and Loops. Mention someone with @ to notify them. Agents use `kortix calendar`."
+        },
+        "review_swipe": {
+          "name": "Review cards",
+          "description": "The Review page's Needs you opens as a swipe deck: one item per card. Swipe right to approve or merge, left to send it back to the agent with what should change."
         }
       },
       "channelsSwitch": {
-        "onTitle": "Turn on Spaces for {project}?",
-        "onBody": "Everyone in this workspace gets Spaces instead of the session list. All existing sessions move into #general. You can turn it off any time; nothing is deleted.",
+        "onTitle": "Turn on Slack-style Spaces for {project}?",
+        "onBody": "Everyone in this workspace gets Slack-style Spaces instead of the session list. All existing sessions move into #general. You can turn it off any time; nothing is deleted.",
         "drive": "Turn on Drive too, so spaces get Files.",
         "turnOn": "Turn on",
         "cancel": "Cancel",
-        "offTitle": "Turn off Spaces?",
+        "offTitle": "Turn off Slack-style Spaces?",
         "offBody": "Spaces, memory, files and links stay saved. The session list comes back for everyone.",
         "turnOff": "Turn off"
       },
@@ -1630,6 +1622,10 @@ const catalog = {
     "panel": {
       "outputNew": "New",
       "outputUpdated": "Updated",
+      "backgroundTasks": "Background tasks",
+      "finished": "Finished",
+      "finishedCount": "{count} finished",
+      "running": "Running",
       "resizePane": "Resize pane"
     }
   },
@@ -1739,7 +1735,8 @@ const catalog = {
     "hintSettings": "Press {modifier}, to open settings",
     "hintCompact": "Ask to compact the session when it gets long",
     "myKortixRoutes": "Routes each task to the right agent",
-    "chatInputReset": "Reset"
+    "chatInputReset": "Reset",
+    "queuedDisconnected": "This session lost its connection to Kortix. Start a new session to continue."
   },
   "auth": {
     "haveReferralCode": "Have a referral code?",
@@ -1829,7 +1826,7 @@ const catalog = {
     "unified": {
       "welcome": "Welcome to {name}",
       "email": "Email",
-      "emailPlaceholder": "Your email address",
+      "emailPlaceholder": "Enter your email address…",
       "password": "Password",
       "showPassword": "Show password",
       "hidePassword": "Hide password",
@@ -1895,7 +1892,7 @@ const catalog = {
         "title": "Reset your password",
         "description": "We'll email you a reset link.",
         "email": "Email",
-        "emailPlaceholder": "Your email address",
+        "emailPlaceholder": "Enter your email address…",
         "sending": "Sending link…",
         "submit": "Send reset link"
       },
@@ -1935,6 +1932,13 @@ const catalog = {
       "errorTitle": "Couldn't sign in",
       "errorBody": "Sign in to Kortix in a browser tab, then reopen this panel.",
       "signIn": "Sign in"
+    },
+    "story": {
+      "label": "About Kortix CompanyOS",
+      "outcome": "Hand it an outcome. AI agents run it 24/7.",
+      "repo": "Your agents, skills, and memory in one repo you own.",
+      "approve": "Agents do the work. You approve what ships.",
+      "worksWith": "Works with the tools your team already uses"
     }
   },
   "tools": {
@@ -2170,7 +2174,18 @@ const catalog = {
         "completed": "Done",
         "failed": "Didn’t finish",
         "stopped": "Stopped"
-      }
+      },
+      "card": {
+        "session": "Session",
+        "copyId": "Copy session ID",
+        "openNewTab": "Open in new tab",
+        "model": "Model",
+        "runsAs": "Runs as",
+        "inline": "Ran inside this session, so it has no session of its own to open."
+      },
+      "notStarted": "Didn’t start",
+      "notStartedSentence": "Kortix couldn’t start this colleague. Nothing ran.",
+      "policyBlocked": "Blocked by this workspace’s policy. Ask a workspace admin to allow it."
     }
   },
   "agentScope": {
@@ -2781,6 +2796,7 @@ const catalog = {
       "noModelAddProviderKey": "Add provider key",
       "noModelUpgradePlan": "Upgrade plan",
       "text03217276a5f1": "Balance {value0} credits",
+      "text041fb4e77d8e": "Website login",
       "text0b6a47661327": "Unknown owner",
       "text1a9030082a20": "Create skill",
       "text38e64d6a8162": "Commits a SKILL.md to the workspace's default branch. No model or chat needed.",
@@ -2901,6 +2917,7 @@ const catalog = {
       "text0af465ef42c0": "On failure",
       "text0b1bdec38bf0": "Default template",
       "text0b348466332c": "Nothing changed yet",
+      "text93d50ea93ca0": "Typed by the session browser on its sites only. It never enters the environment.",
       "textf83916135509": "used",
       "texta251c18205f1": "Cached",
       "text64cd989efc14": "Free space",
@@ -5539,7 +5556,6 @@ const catalog = {
       "texte595f45dc6c9": "Europe",
       "texte5974d3936df": "Copy the Bot User OAuth Token and Signing Secret from the installed Slack app.",
       "texte5985e84210e": "Any resource",
-      "texte5a718af362a": "The first two",
       "texte5c253036018": "The name of a saved secret holding the key both sides sign with. Add the secret under Secrets first — the key itself is never stored here.",
       "texte5dbdffb8816": "Save rules",
       "texte5ee1e7e84aa": "Session expired",
@@ -6433,6 +6449,16 @@ const catalog = {
       "grant": "{names} {count, plural, one {is} other {are}} not in the {agent} agent's secrets. Open Customize → Agents → {agent} → Secrets and enable {count, plural, one {it} other {them}}.",
       "allowlist": "{names} {count, plural, one {is} other {are}} outside this session's secrets. Start a new session to use {count, plural, one {it} other {them}}."
     },
+    "secretIntakeLogin": {
+      "delivery": "A website login for {sites}. The browser in this session types it on these sites only. The agent sees only its name.",
+      "username": "Username or email",
+      "password": "Password",
+      "missing": "Enter a username and a password.",
+      "savedTitle": "Login saved",
+      "savedDescription": "The agent can sign in now. It sees only the login's name.",
+      "modalTitle": "Add a website login",
+      "modalDescription": "Check the site before you type the password."
+    },
     "sessionEmbed": {
       "sectionTitle": "Embed",
       "sectionDescription": "For same-site pages only. Viewers must already be signed in with access to this session; signing in inside a cross-site iframe is not supported.",
@@ -6475,6 +6501,37 @@ const catalog = {
     "reviewPane": {
       "emptyTitle": "Select an item",
       "emptyDescription": "Its details open here. Press J and K to move through the list."
+    },
+    "reviewDeck": {
+      "label": "Review cards",
+      "remaining": "{count, plural, one {# card left} other {# cards left}}",
+      "merge": "Merge",
+      "close": "Close",
+      "approve": "Approve",
+      "deny": "Deny",
+      "dismiss": "Dismiss",
+      "yes": "Yes",
+      "no": "No",
+      "skip": "Skip",
+      "open": "Open",
+      "undo": "Undo",
+      "staged": "{verdict}: {title}",
+      "needsChoice": "Open it to choose an answer",
+      "noVerdict": "You cannot decide this one. Open it for details.",
+      "emptyTitle": "You are all caught up",
+      "emptyDescription": "Nothing needs you right now.",
+      "highRisk": "High risk",
+      "files": "{count, plural, one {# file} other {# files}}",
+      "conflicts": "{count, plural, one {# conflict} other {# conflicts}}",
+      "items": "{count, plural, one {# item} other {# items}}",
+      "showCards": "Show as cards",
+      "showList": "Show as list",
+      "sendBack": "Send back",
+      "whatShouldChange": "What should change?",
+      "sendToAgent": "Send to agent",
+      "cancel": "Cancel",
+      "reviews": "Reviews",
+      "questions": "Questions"
     }
   },
   "commandPalette": {
@@ -8487,6 +8544,32 @@ const catalog = {
     }
   },
   "artifacts": {
+    "folderIcon": "Choose folder icon",
+    "docCreateFailed": "Could not create the doc. Try again.",
+    "newFolder": "New folder",
+    "editFolder": "Edit folder",
+    "folderName": "Folder name",
+    "folderCreateIn": "In",
+    "folderSaved": "Folder saved",
+    "folderCreated": "Folder created",
+    "folderSaveFailed": "Could not save the folder. Try again.",
+    "saveFolder": "Save folder",
+    "createFolder": "Create folder",
+    "folderActions": "Actions for {name}",
+    "deleteFolder": "Delete folder",
+    "deleteFolderTitle": "Delete “{name}”?",
+    "deleteFolderHint": "Its subfolders and artifacts move up one level. Their files and links stay available.",
+    "folderDeleted": "Folder deleted",
+    "folderDeleteFailed": "Could not delete the folder. Try again.",
+    "folderNavigation": "Artifact folders",
+    "folderPathMore": "Show folder path",
+    "folderUnavailable": "Folder unavailable",
+    "folderLoadFailed": "Could not load folders",
+    "moveToFolder": "Move to folder",
+    "movedToFolder": "Moved to {name}",
+    "emptyUnfiled": "No unfiled artifacts",
+    "emptyFolder": "No artifacts in this folder",
+    "folderRoot": "No folder",
     "title": "Artifacts",
     "type": {
       "doc": "Doc",
@@ -9584,6 +9667,25 @@ const catalog = {
     "turnNote": "Said in a voice call and answered by the voice.",
     "close": "Close"
   },
+  "dictation": {
+    "start": "Dictate a message",
+    "price": "{credits, plural, one {# credit} other {# credits}} per minute",
+    "recording": "Dictation",
+    "discard": "Discard recording",
+    "finish": "Add the words",
+    "transcribing": "Transcribing…",
+    "nothingHeard": "No speech heard. Try again closer to the microphone.",
+    "retry": "Try again",
+    "failed": "Could not transcribe the recording. Try again.",
+    "busy": "Could not transcribe the recording now. Try again in a moment.",
+    "unavailable": "Dictation is not available on this server.",
+    "limitReached": "Recording stopped at {minutes} minutes",
+    "micDenied": "Could not use the microphone. Allow it for this site in your browser settings.",
+    "micDeniedDesktop": "Could not use the microphone. Allow Kortix in your system privacy settings.",
+    "micMissing": "Could not find a microphone. Connect one and try again.",
+    "micBusy": "Could not use the microphone. Another app is using it.",
+    "micUnsupported": "Could not use the microphone in this browser."
+  },
   "agentCapabilities": {
     "skillsTitle": "Skills",
     "skillsDescription": "Each skill this agent may load. Built-in skills come with Kortix.",
@@ -9769,6 +9871,7 @@ const catalog = {
       },
       "workingFor": "working · {elapsed}",
       "runsAs": "runs as {agent}",
+      "stateCount": "{count} {state}",
       "teamRole": "Role for this session only",
       "attention": {
         "question": "Has a question for you",

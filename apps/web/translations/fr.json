@@ -1293,10 +1293,6 @@
       "permission": "Vous avez besoin de l’autorisation de paramètres de l’espace de travail pour modifier un indicateur de fonctionnalité.",
       "updateFailed": "Impossible de mettre à jour {key}",
       "flags": {
-        "secrets_egress": {
-          "name": "Secrets protégés par le réseau",
-          "description": "Contrôlez les outils et destinations autorisés à recevoir les secrets de l’espace de travail."
-        },
         "reminders": {
           "name": "Boucles",
           "description": "Permet aux agents et aux personnes de planifier des points de contrôle sur une session, une fois ou de façon récurrente. Chaque déclenchement relance cette session. Ajoute les boucles à la liste des Déclencheurs, l’indicateur de boucles de la session et `kortix loop`."
@@ -1313,25 +1309,17 @@
           "name": "Objectifs",
           "description": "Confiez à un agent un objectif dont il reste responsable jusqu’à ce qu’une vérification indépendante confirme le résultat. Il planifie, travaille, attend, relance les personnes et conserve son état dans un dossier Goals dans Fichiers. Nécessite Volumes et Boucles activés."
         },
-        "workspace_volume": {
-          "name": "Sandboxes sans état",
-          "description": "Chaque session ne garde que /workspace, sur son propre volume. Une sandbox arrêtée depuis une heure est supprimée, et la prochaine ouverture en démarre une nouvelle avec les mêmes fichiers et la même conversation. Les programmes de l'ancienne sandbox ne tournent plus. Kortix l'active par espace de travail."
-        },
         "email_channel": {
           "name": "Canal e-mail",
           "description": "Donnez à l'agent une boîte e-mail sur Resend : les e-mails reçus démarrent et poursuivent des sessions, et l'agent lit, répond et envoie depuis la boîte. Utilisez votre propre clé API Resend et votre domaine."
         },
         "chat": {
-          "name": "Canaux",
-          "description": "Des canaux avec Kortix, comme dans Slack : chaque message est un fil, la dernière réponse de Kortix s'affiche dessous, Kortix peut lancer des fils et vous partagez les canaux avec d'autres personnes. Remplace la liste des sessions dans la barre latérale."
+          "name": "Espaces de style Slack",
+          "description": "Utilisez des canaux et messages directs de style Slack, où chaque message démarre un fil. Passe la barre latérale en mode chat. Indépendant des Espaces qui regroupent sessions, fichiers et onglets."
         },
         "session_groups": {
           "name": "Espaces",
           "description": "Regroupez les sessions dans des espaces, chacun avec ses fichiers et ses onglets. Un nouvel espace est privé ; partagez-le avec des personnes ou avec tout le workspace. Lancez une session dans un espace depuis sa page ou depuis le sélecteur d'espace sous le compositeur. Chaque session d'un espace sait à quoi il sert et monte son dossier Files."
-        },
-        "chrome": {
-          "name": "Kortix dans Chrome",
-          "description": "Autorisez une session à utiliser votre navigateur Chrome connecté. Vous pouvez reprendre le contrôle ou l’arrêter à tout moment."
         },
         "agent_teams": {
           "name": "Équipes d’agents",
@@ -1351,11 +1339,11 @@
         },
         "chat_front": {
           "name": "Spaces-Router",
-          "description": "Avec Spaces activé, l’agent avec qui vous discutez dans un fil est un routeur : il fait lui-même le travail rapide (une réponse, un texte court, un coup d’œil aux fichiers du fil) et confie le travail plus long aux agents de l’espace. Il répond comme une personne, en messages courts. Un agent enregistre son résultat complet dans un fichier du fil, et le routeur met un lien vers ce fichier au lieu de le recopier. « Voir le travail » sous un message ouvre le travail derrière. Nécessite My Kortix activé dans kortix.yaml."
+          "description": "Avec les Espaces de style Slack activés, l’agent avec qui vous discutez dans un fil est un routeur : il fait lui-même le travail rapide (une réponse, un texte court, un coup d’œil aux fichiers du fil) et confie le travail plus long aux agents de l’espace. Il répond comme une personne, en messages courts. Un agent enregistre son résultat complet dans un fichier du fil, et le routeur met un lien vers ce fichier au lieu de le recopier. « Voir le travail » sous un message ouvre le travail derrière. Nécessite My Kortix activé dans kortix.yaml."
         },
         "spaces_proactive": {
           "name": "Spaces-Proactive",
-          "description": "Avec les Espaces activés, un espace peut se surveiller lui-même : activez Proactif dans ses détails, et un agent lit ce qui s’y passe (fils terminés, questions restées ouvertes, personnes qui arrivent) et n’écrit dans le chat que lorsque c’est utile : un résultat à partager, une décision à prendre ou un retard. Il peut aussi lancer un fil qui fait le travail. Point quotidien facultatif à 9 h."
+          "description": "Avec les Espaces de style Slack activés, un espace peut se surveiller lui-même : activez Proactif dans ses détails, et un agent lit ce qui s’y passe (fils terminés, questions restées ouvertes, personnes qui arrivent) et n’écrit dans le chat que lorsque c’est utile : un résultat à partager, une décision à prendre ou un retard. Il peut aussi lancer un fil qui fait le travail. Point quotidien facultatif à 9 h."
         },
         "program_agents": {
           "name": "Agents programme",
@@ -1372,15 +1360,19 @@
         "calendar": {
           "name": "Calendrier",
           "description": "Un calendrier partagé pour les personnes et les agents : des éléments avec une date, des participants et des commentaires, à côté des déclencheurs et Loops planifiés. Mentionnez quelqu’un avec @ pour le notifier. Les agents utilisent `kortix calendar`."
+        },
+        "review_swipe": {
+          "name": "Cartes de revue",
+          "description": "« Vous attend » sur la page Revue s’ouvre en pile de cartes : un élément par carte. Glissez à droite pour approuver ou fusionner, à gauche pour le renvoyer à l’agent avec ce qui doit changer."
         }
       },
       "channelsSwitch": {
-        "onTitle": "Activer les Espaces pour {project} ?",
-        "onBody": "Tout le monde dans cet espace de travail obtient les Espaces à la place de la liste des sessions. Toutes les sessions existantes passent dans #general. Vous pouvez le désactiver à tout moment ; rien n’est supprimé.",
+        "onTitle": "Activer les Espaces de style Slack pour {project} ?",
+        "onBody": "Tout le monde dans cet espace de travail obtient les Espaces de style Slack à la place de la liste des sessions. Toutes les sessions existantes passent dans #general. Vous pouvez le désactiver à tout moment ; rien n’est supprimé.",
         "drive": "Activer aussi Drive, pour que les espaces aient des Fichiers.",
         "turnOn": "Activer",
         "cancel": "Annuler",
-        "offTitle": "Désactiver les Espaces ?",
+        "offTitle": "Désactiver les Espaces de style Slack ?",
         "offBody": "Les espaces, la mémoire, les fichiers et les liens restent enregistrés. La liste des sessions revient pour tout le monde.",
         "turnOff": "Désactiver"
       },
@@ -2260,6 +2252,10 @@
     "panel": {
       "outputNew": "Nouveau",
       "outputUpdated": "Mis à jour",
+      "backgroundTasks": "Tâches en arrière-plan",
+      "finished": "Terminées",
+      "finishedCount": "{count} terminées",
+      "running": "En cours",
       "resizePane": "Redimensionner le panneau"
     }
   },
@@ -2462,7 +2458,8 @@
     "collapseQueue": "Réduire les messages en attente",
     "expandQueue": "Développer les messages en attente",
     "myKortixRoutes": "Confie chaque tâche au bon agent",
-    "chatInputReset": "Reset"
+    "chatInputReset": "Reset",
+    "queuedDisconnected": "Cette session a perdu sa connexion à Kortix. Démarrez une nouvelle session pour continuer."
   },
   "billing": {
     "plan": {
@@ -3090,7 +3087,7 @@
     "unified": {
       "welcome": "Bienvenue sur {name}",
       "email": "E-mail",
-      "emailPlaceholder": "Votre adresse e-mail",
+      "emailPlaceholder": "Saisissez votre adresse e-mail…",
       "password": "Mot de passe",
       "showPassword": "Afficher le mot de passe",
       "hidePassword": "Masquer le mot de passe",
@@ -3156,7 +3153,7 @@
         "title": "Réinitialiser votre mot de passe",
         "description": "Nous vous enverrons un lien de réinitialisation.",
         "email": "E-mail",
-        "emailPlaceholder": "Votre adresse e-mail",
+        "emailPlaceholder": "Saisissez votre adresse e-mail…",
         "sending": "Envoi du lien…",
         "submit": "Envoyer le lien de réinitialisation"
       },
@@ -3196,6 +3193,13 @@
       "errorTitle": "Connexion impossible",
       "errorBody": "Connectez-vous à Kortix dans un onglet du navigateur, puis rouvrez ce panneau.",
       "signIn": "Se connecter"
+    },
+    "story": {
+      "label": "À propos de Kortix CompanyOS",
+      "outcome": "Fixez un objectif. Des agents IA s’en chargent 24 h/24.",
+      "repo": "Vos agents, skills et votre mémoire dans un dépôt qui vous appartient.",
+      "approve": "Les agents font le travail. Vous validez ce qui est publié.",
+      "worksWith": "Compatible avec les outils que votre équipe utilise déjà"
     }
   },
   "onboarding": {
@@ -3436,7 +3440,18 @@
         "completed": "Terminé",
         "failed": "N’a pas terminé",
         "stopped": "Arrêté"
-      }
+      },
+      "card": {
+        "session": "Session",
+        "copyId": "Copier l’ID de session",
+        "openNewTab": "Ouvrir dans un nouvel onglet",
+        "model": "Modèle",
+        "runsAs": "S’exécute en tant que",
+        "inline": "Exécuté dans cette session : il n’a pas de session propre à ouvrir."
+      },
+      "notStarted": "Pas démarré",
+      "notStartedSentence": "Kortix n’a pas pu démarrer ce collègue. Rien n’a été exécuté.",
+      "policyBlocked": "Bloqué par la politique de cet espace de travail. Demandez à un administrateur de l’espace de travail de l’autoriser."
     }
   },
   "agentRunLimit": {
@@ -10455,6 +10470,7 @@
       "authEmailRateLimit": "Impossible d’envoyer l’e-mail. Réessaie dans environ une heure.",
       "authRequestRateLimit": "Trop de demandes. Réessaie dans quelques minutes.",
       "text03217276a5f1": "Solde {value0} crédits",
+      "text041fb4e77d8e": "Identifiant de site web",
       "text0b6a47661327": "Propriétaire inconnu",
       "text1a9030082a20": "Créer la compétence",
       "text25ab55af92b1": "Téléversement de la pièce jointe démarré",
@@ -10819,6 +10835,7 @@
       "text0b2e0f1bf47e": "Chaque appel effectué, et la personne qui l’a autorisé",
       "text0b2ecc210632": "Le seul canal en direct. Posez la question dans le fil où elle est apparue ; la réponse, le graphique et la requête reviennent dans ce même fil.",
       "text0b348466332c": "Aucune modification pour le moment",
+      "text93d50ea93ca0": "Saisi par le navigateur de la session uniquement sur ses sites. N’entre jamais dans l’environnement.",
       "textf83916135509": "utilisé",
       "texta251c18205f1": "En cache",
       "text64cd989efc14": "Espace libre",
@@ -18332,7 +18349,6 @@
       "texte59a1d133be1": "Les modifications s’appliqueront à la prochaine connexion. Les jetons déjà émis continueront de fonctionner jusqu’à leur expiration.",
       "texte59eaa3acaf1": "le mur",
       "texte5a4af9b350f": "J’ai créé, activé et testé la connexion SCIM",
-      "texte5a718af362a": "Les deux premières",
       "texte5ab168f1943": "Le brief pré-appel",
       "texte5b104783abd": "Votre agent peut utiliser les outils dont il a besoin, comme sur un ordinateur classique.",
       "texte5bd74e98514": "autre — source uniquement",
@@ -21512,6 +21528,17 @@
       "grant": "{names} {count, plural, one {ne fait pas} other {ne font pas}} partie des secrets de l'agent {agent}. Ouvrez Personnaliser → Agents → {agent} → Secrets et {count, plural, one {activez-le} other {activez-les}}.",
       "allowlist": "{names} {count, plural, one {est} other {sont}} hors des secrets de cette session. Démarrez une nouvelle session pour {count, plural, one {l'utiliser} other {les utiliser}}."
     },
+    "secretIntakeLogin": {
+      "delivery": "Un identifiant de site web pour {sites}. Le navigateur de cette session le saisit uniquement sur ces sites. L’agent ne voit que son nom.",
+      "username": "Nom d’utilisateur ou e-mail",
+      "password": "Mot de passe",
+      "missing": "Saisissez un nom d’utilisateur et un mot de passe.",
+      "savedTitle": "Identifiant enregistré",
+      "savedDescription": "L’agent peut maintenant se connecter. Il ne voit que le nom de l’identifiant.",
+      "modalTitle": "Ajouter un identifiant de site web",
+      "modalDescription": "Vérifiez le site avant de saisir le mot de passe.",
+      "pageDescription": "Vérifiez le site avant de saisir le mot de passe. L’identifiant est chiffré au repos."
+    },
     "sessionEmbed": {
       "sectionTitle": "Intégrer",
       "sectionDescription": "Uniquement pour les pages du même site. Les visiteurs doivent déjà être connectés et avoir accès à cette session ; la connexion dans un iframe intersites n’est pas prise en charge.",
@@ -21558,6 +21585,37 @@
     "reviewPane": {
       "emptyTitle": "Sélectionnez un élément",
       "emptyDescription": "Ses détails s’ouvrent ici. Appuyez sur J et K pour parcourir la liste."
+    },
+    "reviewDeck": {
+      "label": "Cartes de revue",
+      "remaining": "{count, plural, one {# carte restante} other {# cartes restantes}}",
+      "merge": "Fusionner",
+      "close": "Fermer",
+      "approve": "Approuver",
+      "deny": "Refuser",
+      "dismiss": "Ignorer",
+      "yes": "Oui",
+      "no": "Non",
+      "skip": "Passer",
+      "open": "Ouvrir",
+      "undo": "Annuler",
+      "staged": "{verdict} : {title}",
+      "needsChoice": "Ouvrez-la pour choisir une réponse",
+      "noVerdict": "Vous ne pouvez pas décider ici. Ouvrez-la pour les détails.",
+      "emptyTitle": "Tout est à jour",
+      "emptyDescription": "Rien ne vous attend pour l’instant.",
+      "highRisk": "Risque élevé",
+      "files": "{count, plural, one {# fichier} other {# fichiers}}",
+      "conflicts": "{count, plural, one {# conflit} other {# conflits}}",
+      "items": "{count, plural, one {# élément} other {# éléments}}",
+      "showCards": "Afficher en cartes",
+      "showList": "Afficher en liste",
+      "sendBack": "Renvoyer",
+      "whatShouldChange": "Que faut-il changer ?",
+      "sendToAgent": "Envoyer à l’agent",
+      "cancel": "Annuler",
+      "reviews": "Revues",
+      "questions": "Questions"
     }
   },
   "commandPalette": {
@@ -22371,6 +22429,8 @@
     "redirectsTo": "Vous renvoie vers",
     "workspaceLabel": "Espace de travail",
     "workspaceHint": "{client} accède uniquement à cet espace de travail.",
+    "workspaceAll": "Tous mes espaces de travail",
+    "workspaceAllHint": "{client} agit en votre nom dans chaque espace de travail que vous pouvez ouvrir, maintenant et plus tard, et peut créer de nouveaux espaces de travail. Choisissez cette option uniquement pour une app que vous utilisez vous-même.",
     "scopes": {
       "profile": "Voir votre profil",
       "email": "Voir votre adresse e-mail",
@@ -25117,6 +25177,32 @@
     "stopNote": "Le lien cessera de fonctionner."
   },
   "artifacts": {
+    "folderIcon": "Choisir l’icône du dossier",
+    "docCreateFailed": "Impossible de créer le document. Réessayez.",
+    "newFolder": "Nouveau dossier",
+    "editFolder": "Modifier le dossier",
+    "folderName": "Nom du dossier",
+    "folderCreateIn": "Dans",
+    "folderSaved": "Dossier enregistré",
+    "folderCreated": "Dossier créé",
+    "folderSaveFailed": "Impossible d’enregistrer le dossier. Réessayez.",
+    "saveFolder": "Enregistrer le dossier",
+    "createFolder": "Créer un dossier",
+    "folderActions": "Actions pour {name}",
+    "deleteFolder": "Supprimer le dossier",
+    "deleteFolderTitle": "Supprimer « {name} » ?",
+    "deleteFolderHint": "Ses sous-dossiers et artefacts remontent d’un niveau. Les fichiers et les liens restent disponibles.",
+    "folderDeleted": "Dossier supprimé",
+    "folderDeleteFailed": "Impossible de supprimer le dossier. Réessayez.",
+    "folderNavigation": "Dossiers d’artefacts",
+    "folderPathMore": "Afficher le chemin des dossiers",
+    "folderUnavailable": "Dossier indisponible",
+    "folderLoadFailed": "Impossible de charger les dossiers",
+    "moveToFolder": "Déplacer vers un dossier",
+    "movedToFolder": "Déplacé vers {name}",
+    "emptyUnfiled": "Aucun artefact sans dossier",
+    "emptyFolder": "Aucun artefact dans ce dossier",
+    "folderRoot": "Aucun dossier",
     "title": "Artefacts",
     "type": {
       "doc": "Document",
@@ -26259,6 +26345,25 @@
     "turnNote": "Dit pendant un appel vocal, et la voix a répondu.",
     "close": "Fermer"
   },
+  "dictation": {
+    "start": "Dicter un message",
+    "price": "{credits, plural, one {# crédit} other {# crédits}} par minute",
+    "recording": "Dictée",
+    "discard": "Supprimer l'enregistrement",
+    "finish": "Ajouter les mots",
+    "transcribing": "Transcription…",
+    "nothingHeard": "Aucune parole détectée. Réessayez plus près du micro.",
+    "retry": "Réessayer",
+    "failed": "Impossible de transcrire l'enregistrement. Réessayez.",
+    "busy": "Impossible de transcrire l'enregistrement pour le moment. Réessayez dans un instant.",
+    "unavailable": "La dictée n'est pas disponible sur ce serveur.",
+    "limitReached": "Enregistrement arrêté à {minutes} minutes",
+    "micDenied": "Impossible d'utiliser le micro. Autorisez-le pour ce site dans les réglages du navigateur.",
+    "micDeniedDesktop": "Impossible d'utiliser le micro. Autorisez Kortix dans les réglages de confidentialité du système.",
+    "micMissing": "Aucun micro trouvé. Branchez-en un et réessayez.",
+    "micBusy": "Impossible d'utiliser le micro. Une autre app l'utilise.",
+    "micUnsupported": "Impossible d'utiliser le micro dans ce navigateur."
+  },
   "agentMounts": {
     "lead": "Dossiers de Fichiers montés par les sessions de cet agent. Une modification s’applique aussitôt à chaque nouvelle session.",
     "mount": "Mount folder",
@@ -26404,6 +26509,7 @@
       },
       "workingFor": "en cours · {elapsed}",
       "runsAs": "s’exécute en tant que {agent}",
+      "stateCount": "{count} {state}",
       "teamRole": "Rôle pour cette session uniquement",
       "attention": {
         "question": "A une question pour vous",

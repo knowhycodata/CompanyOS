@@ -56,6 +56,7 @@ import { isWorkflowRunner, WORKFLOW_TOOL, WorkflowRuns, type WorkflowControlAnsw
 import { contextRecord } from './extensions/context-record'
 import { listCheckout } from './extensions/workflow-store'
 import { promptOrigin, TRIGGER_EVENT_TAG, ULTRACODE_SYSTEM_LINE, ultracodeRequested, type PromptOrigin } from './prompt-origin'
+import { modelPromptText, PROMPT_AUTHOR_SECTION, type PromptAuthor } from './prompt-author'
 import { enabledFeatureFlags } from '@/lib/config/feature-flags'
 import { PROGRAM_AGENTS_FLAG, PROGRAM_PROVIDER_ID, programStep, type ProgramRun } from './program'
 import type { WorkflowRunMetadata } from '@kortix/api-contract/kortix-tool-card'
@@ -63,7 +64,7 @@ import type { WorkflowControlBody } from '@kortix/api-contract/multi-agent'
 import type { RuntimeCapability } from '@kortix/api-contract/runtime-relay'
 import { PARKED, PermissionBroker, QuestionBroker, compilePermissionPolicy, type AskRelayAnswer, resolvePolicyRule, skillGranted, type PermissionPolicy, type PermissionRule, type SessionPermissionRule } from './interactions'
 import type { CatalogModel, PiModels, SelectedModel } from './model'
-import { IMAGE_RESIZE, KORTIX_PROVIDER_ID, compactionSettings, nativeModelId, promptModelId, selectId } from './model'
+import { IMAGE_RESIZE, KORTIX_PROVIDER_ID, compactionSettings, createPiModels, nativeModelId, promptModelId, selectId } from './model'
 import { claudeSessions } from './claude/provider'
 import { CLAUDE_AGENT_PROVIDER_ID } from '@kortix/api-contract/claude-agent'
 import { TranscriptStore, type RuntimeFrame } from './transcript'
@@ -138,6 +139,30 @@ export class CommandNotEnabled extends Error {
 export const DEFAULT_SYSTEM_PROMPT = [
   'You are a coding agent working inside a Kortix sandbox. The working directory starts empty: the project repository is not checked out. Run `kortix workspaces clone` to work on its files.',
   'Use the tools to read, search and change files and to run commands. Prefer small, verifiable steps. Report what you did and what remains.',
+].join('\n')
+
+/**
+ * How every agent writes, root and subagent: direct, concise, warm and professional, with no filler.
+ * Before it, Worker, custom workspace agents and subagents had no writing guidance and answered in
+ * generic assistant prose. An agent's own instructions, a skill or the person win over it, so My Kortix
+ * keeps its own voice (brand decision D31) and a brand-voice skill keeps its rules.
+ */
+export const HOW_YOU_WRITE = [
+  '## How you write',
+  'A person reads what you write. Make it easy to understand on the first read.',
+  '- Lead with the answer, the result or the decision. Add the reason or the detail after it, only when it helps. When the answer needs a check first, run the check before you write.',
+  '- Fit the length to the question. A simple question gets one to three sentences. A larger one gets more, and every sentence earns its place.',
+  '- Be direct and concise: short sentences, one idea each, active voice. Cut any sentence that adds nothing.',
+  '- Be warm and professional, like a capable colleague: friendly, calm and respectful. Never stiff, never gushing. When the news is bad or the person is stuck, acknowledge it in a few words, then help.',
+  '- Use plain words. Match the reader: technical with a technical person, plain with everyone else. Explain a term they may not know, or replace it.',
+  '- Be specific: names, numbers, dates and links. "3 of 5 checks pass", not "most checks pass".',
+  '- Report only what you did or saw. Never write the result of a step you did not run, and never present a guess as a fact. Say plainly what you are not sure of. Own a mistake in one sentence: what went wrong and what you did about it.',
+  '- When something is left, end with the next step or the one thing you need from the person.',
+  '- Format only when it helps the reader: a short list for steps or options, a table to compare, a code block for code, headings only in a long document. A short answer is plain sentences, with no headings and no bold.',
+  '- No filler. Do not open with "Great question", "Sure!", "Certainly" or "I\'d be happy to". Do not restate the question or recap what you just said. Do not close with "Let me know if you need anything else" or "I hope this helps".',
+  '- No AI tics: no em dashes, no "It\'s not X, it\'s Y", no lists of three adjectives, no "delve", "seamless", "robust", "leverage", "elevate" or "game-changer".',
+  '- Write in the language the person writes in.',
+  '- Your own instructions, a skill you loaded, or the person can set a different voice, length or format. Follow them over this section.',
 ].join('\n')
 
 /**
@@ -237,6 +262,13 @@ export interface PromptInput {
    * prompt's context part rides along a real prompt).
    */
   synthetic?: boolean
+  /**
+   * The person who wrote the prompt (`author`, KRTX-5121): the model reads
+   * their name above it (prompt-author.ts). Only the Kortix turn verbs set it
+   * (`turns.ts`): apps/api's proxy rewrites `author` on that route alone, so
+   * the OpenCode-shaped `prompt_async` body never carries one.
+   */
+  author?: PromptAuthor
 }
 
 export class PromptRejected extends Error {}
@@ -799,8 +831,7 @@ export class PiRuntime {
       this.bindRoot()
     }
     try {
-      const [{ createPiModels }, { createWorkspaceTools, createQuestionTool }, core, coding, host, { subagents }, { workflow }, { codemodeExtensions }, prebuiltRoot] = await Promise.all([
-        import('./model'),
+      const [{ createWorkspaceTools, createQuestionTool }, core, coding, host, { subagents }, { workflow }, { codemodeExtensions }, prebuiltRoot] = await Promise.all([
         import('./tools'),
         import('@earendil-works/pi-agent-core'),
         import('@earendil-works/pi-coding-agent'),
@@ -819,12 +850,7 @@ export class PiRuntime {
       // A restart keeps the list it has; the first start takes the one fetched since construction.
       const catalog = this.models?.live ? this.models.catalog : await this.prefetchCatalog()
       this.catalogFetch = null
-      this.models = await createPiModels({
-        env: this.env,
-        defaultModelRef: this.env.KORTIX_MODEL ?? this.compiledAgent()?.model ?? this.compiled?.model ?? null,
-        catalog,
-        claude: this.claudeOptions(),
-      })
+      this.models = await this.buildModels(catalog)
       this.selected = this.models.select(nativeModelId(this.env.KORTIX_MODEL) ?? nativeModelId(this.compiledAgent()?.model ?? this.compiled?.model))
       // `KORTIX_PI_CODEMODE` (the API sends the session agent's), else the session agent's compiled
       // `codemode`, else `on`. Extensions load once, so a later agent switch or config push keeps it.
@@ -992,16 +1018,11 @@ export class PiRuntime {
   private async applyReconfigure(): Promise<{ changed: boolean }> {
     this.reconfigurePending = false
     if (!this.agent || !this.models) return { changed: false }
-    const { createPiModels } = await import('./model')
     const before = `${this.selected?.modelID}|${this.agentName}|${this.env.KORTIX_COMPILED_AGENT_CONFIG_ETAG ?? ''}`
     this.compiled = parseCompiledAgentConfig(compiledAgentConfigFromEnv(this.env))
     this.sessionAgentName = this.agentName = this.resolveAgentName()
     // The list it has: an env push never waits for the gateway. The refresh below picks up a newly connected provider.
-    this.models = await createPiModels({
-      env: this.env,
-      defaultModelRef: this.env.KORTIX_MODEL ?? this.compiledAgent()?.model ?? this.compiled?.model ?? null,
-      catalog: this.models.live ? this.models.catalog : null,
-    })
+    this.models = await this.buildModels(this.models.live ? this.models.catalog : null)
     this.refreshModelsSoon()
     this.selected = this.models.select(nativeModelId(this.env.KORTIX_MODEL) ?? nativeModelId(this.compiledAgent()?.model ?? this.compiled?.model))
     this.policy = compilePermissionPolicy(this.compiledAgent()?.permission)
@@ -1032,12 +1053,7 @@ export class PiRuntime {
 
   private async reloadModels(): Promise<void> {
     if (!this.agent || !this.models) return
-    const { createPiModels } = await import('./model')
-    this.models = await createPiModels({
-      env: this.env,
-      defaultModelRef: this.env.KORTIX_MODEL ?? this.compiledAgent()?.model ?? this.compiled?.model ?? null,
-      claude: this.claudeOptions(),
-    })
+    this.models = await this.buildModels()
     this.selected = this.models.select(this.selected ? selectId(this.selected.providerID, this.selected.modelID) : null)
     this.agent.state.model = this.selected.model
     // A model whose limits the catalog now reports differently compacts at a different threshold.
@@ -1110,7 +1126,8 @@ export class PiRuntime {
         const images = await this.images(input)
         if (slot.retracted) return
         const session = this.pi!.session
-        const message = { role: 'user' as const, content: images.length ? [{ type: 'text' as const, text: input.text }, ...images] : input.text, timestamp: this.now() }
+        const text = modelPromptText(input.text, input)
+        const message = { role: 'user' as const, content: images.length ? [{ type: 'text' as const, text }, ...images] : text, timestamp: this.now() }
         this.nativeIds.set(message, messageId)
         const entryId = session.sessionManager.appendMessage(message)
         this.unreadNoReply.set(messageId, entryId)
@@ -1169,7 +1186,7 @@ export class PiRuntime {
       this.clock.observe(messageId)
       const message: AgentMessage = {
         role: 'user',
-        content: [{ type: 'text', text: input.text || '(attachment)' }, ...images],
+        content: [{ type: 'text', text: modelPromptText(input.text || '(attachment)', input) }, ...images],
         timestamp: this.now(),
       }
       this.steered.push({ messageId, input, message })
@@ -1562,7 +1579,7 @@ export class PiRuntime {
       const images = await this.images(turn.input)
       // A transient model error continues the turn at the settle boundary (`turnExtension`).
       armWatchdog()
-      await this.promptWhenIdle(turn, turn.input.text || '(attachment)', { source: 'rpc', ...(images.length ? { images } : {}) })
+      await this.promptWhenIdle(turn, modelPromptText(turn.input.text || '(attachment)', turn.input), { source: 'rpc', ...(images.length ? { images } : {}) })
       for (const frame of this.adapter!.settleRetry()) this.publish(frame)
       if (timedOut) {
         outcome = 'error'
@@ -2849,7 +2866,10 @@ export class PiRuntime {
         ...(child ? [] : ['Use question to collect answers through the interactive question UI.']),
       ].join('\n'),
     )
+    parts.push(HOW_YOU_WRITE)
     parts.push(ACT_BEFORE_YOU_ASK)
+    // People write to the root; a subagent's task comes from its parent agent.
+    if (!child) parts.push(PROMPT_AUTHOR_SECTION)
     if (!child && this.subagentContext.frontThread) parts.push(FRONT_WORKER_NOTE)
     return parts.join('\n\n')
   }
@@ -2903,9 +2923,20 @@ export class PiRuntime {
 
   // ── projections ──────────────────────────────────────────────────────────
 
-  /** Where Claude subscription models run: the workspace, with their state beside pi's. */
-  private claudeOptions() {
-    return { stateDir: this.cfg.piStateDir, cwd: this.workspace, env: this.env }
+  /**
+   * The served models: the gateway's and the Claude subscription's. Every path that rebuilds the
+   * list goes through here. A rebuild without the Claude provider sent a `claude-agent/<id>` turn
+   * to the gateway's chat completions, which refuse it (400 `model_not_found`).
+   * `catalog` undefined fetches the live list; null means it did not answer. Claude subscription
+   * models run in the workspace, with their state beside pi's.
+   */
+  private buildModels(catalog?: Record<string, CatalogModel> | null): Promise<PiModels> {
+    return createPiModels({
+      env: this.env,
+      defaultModelRef: this.env.KORTIX_MODEL ?? this.compiledAgent()?.model ?? this.compiled?.model ?? null,
+      catalog,
+      claude: { stateDir: this.cfg.piStateDir, cwd: this.workspace, env: this.env },
+    })
   }
 
   selectedModel(): SelectedModel | null {

@@ -16,8 +16,12 @@
  */
 
 import { useTranslations } from '@/i18n/use-translations';
-import { EyeIcon as Eye, EyeSlashIcon as EyeOff } from '@phosphor-icons/react';
-import { m, useReducedMotion } from 'motion/react';
+import {
+  EyeIcon as Eye,
+  EyeSlashIcon as EyeOff,
+  PencilSimpleIcon,
+} from '@phosphor-icons/react';
+import { m } from 'motion/react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { type FormEvent, Suspense, useEffect, useMemo, useRef, useState } from 'react';
@@ -36,6 +40,7 @@ import Loading from '@kortix/ui/loading';
 import { errorToast } from '@kortix/ui/toast';
 import { AuthFrame } from '@kortix/ui/internal/auth/auth-card-shell';
 import { useBrandName } from '@kortix/ui/internal/branding/branding-provider';
+import { useKortixAuthFrame } from '@/features/auth/kortix-auth-frame';
 import {
   FieldError,
   FieldLabel,
@@ -83,7 +88,6 @@ type Step = 'entry' | 'sso' | 'credentials' | 'link';
 // The API's per-address window (apps/api/src/auth/email-cooldown.ts): a resend
 // offered sooner would only be answered "already sent".
 const RESEND_COOLDOWN_SECONDS = AUTH_EMAIL_COOLDOWN_SECONDS;
-const EASE = [0.23, 1, 0.32, 1] as const;
 
 // sessionStorage key holding the address a stale-bundle recovery is handing
 // back to the form with. Consumed by the prefill effect on the next mount.
@@ -246,7 +250,6 @@ function AuthCardForm({
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const t = useTranslations('auth.unified');
   const brandName = useBrandName();
-  const prefersReducedMotion = useReducedMotion();
   const enabledMethods = useMemo(() => parseAuthMethods(getEnv().AUTH_METHODS), []);
   const magicLinkEnabled = enabledMethods.includes('magic');
   const passwordEnabled = enabledMethods.includes('password');
@@ -282,12 +285,9 @@ function AuthCardForm({
   const [resendIn, setResendIn] = useState(0);
   const emailRef = useRef<HTMLInputElement>(null);
 
-  // Gentle two-part entrance per step: header first, body 60ms behind.
-  const rise = (delay = 0) => ({
-    initial: { opacity: 0, y: prefersReducedMotion ? 0 : 8 },
-    animate: { opacity: 1, y: 0 },
-    transition: { duration: 0.3, delay, ease: EASE },
-  });
+  // The form column holds still: the story pane beside it carries the motion,
+  // and a sign-in form is the task, not a show. Each step paints in place.
+  const rise = (_delay = 0) => ({ initial: false as const });
 
   useEffect(() => {
     // The cooldown ticks on every step, not just the link step: a rate-limited
@@ -1019,22 +1019,7 @@ function AuthCardForm({
     return (
       <>
         <m.div {...rise(0)}>
-          <StepHeader
-            title={t(`credentials.${credentialKey}.title`)}
-            description={
-              <span className="flex min-w-0 items-center gap-2">
-                <span className="text-foreground truncate">{email}</span>
-                <button
-                  type="button"
-                  onClick={goToEntry}
-                  aria-label={t('changeEmail')}
-                  className="hover:text-foreground -my-2 shrink-0 py-2 transition-colors"
-                >
-                  {t('edit')}
-                </button>
-              </span>
-            }
-          />
+          <StepHeader title={t(`credentials.${credentialKey}.title`)} />
         </m.div>
 
         <m.div {...rise(0.06)}>
@@ -1043,15 +1028,32 @@ function AuthCardForm({
           {info && <InfoStrip message={info} />}
 
           <form onSubmit={handleCredentialsSubmit} className="space-y-5">
-            {/* Password managers pair the password with this account. */}
-            <input
-              type="email"
-              name="username"
-              autoComplete="username"
-              value={email}
-              readOnly
-              hidden
-            />
+            {/* The address this password is for. Read-only: the pen goes back
+                to the entry step to change it. Password managers pair the
+                password with this field (autoComplete="username"). */}
+            <div className="space-y-3">
+              <FieldLabel htmlFor="credentials-email">{t('email')}</FieldLabel>
+              <div className="relative">
+                <Input
+                  id="credentials-email"
+                  type="email"
+                  name="username"
+                  size="md"
+                  autoComplete="username"
+                  value={email}
+                  readOnly
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={goToEntry}
+                  aria-label={t('changeEmail')}
+                  className="text-muted-foreground hover:text-foreground absolute inset-y-0 right-0 flex w-10 items-center justify-center transition-colors"
+                >
+                  <PencilSimpleIcon className="size-4" />
+                </button>
+              </div>
+            </div>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <FieldLabel htmlFor="password">{t('password')}</FieldLabel>
@@ -1107,21 +1109,11 @@ function AuthCardForm({
       <m.div {...rise(0)}>
         {/* One system: no sign-in/sign-up toggle. Continue routes new emails
             into registration and existing ones into sign-in automatically. */}
-        <StepHeader title={t('welcome', { name: brandName })} description={t('automaticAccount')} />
+        <StepHeader title={t('welcome', { name: brandName })} />
       </m.div>
 
       <m.div {...rise(0.06)}>
         {info && <InfoStrip message={info} />}
-
-        {googleEnabled && (
-          <>
-            <GoogleSignIn
-              returnUrl={returnUrl}
-              mobileCallbackState={mobileCallbackState ?? undefined}
-            />
-            <OrDivider label={t('or')} />
-          </>
-        )}
 
         {/* The pre-hydration submit guard targets this attribute. It ships
             from the root layout <head> (lib/auth/entry-hydration-guard.ts):
@@ -1162,6 +1154,17 @@ function AuthCardForm({
             {t('continue')}
           </Button>
         </form>
+
+        {/* Email leads; the provider sits under an "or", one tap away. */}
+        {googleEnabled && (
+          <>
+            <OrDivider label={t('or')} />
+            <GoogleSignIn
+              returnUrl={returnUrl}
+              mobileCallbackState={mobileCallbackState ?? undefined}
+            />
+          </>
+        )}
 
         {/* The alternatives share one quiet row. SSO is the discoverable
             counterpart of the silent home-realm discovery Continue already
@@ -1206,6 +1209,7 @@ const STALE_SESSION_FALLBACK_MS = 2500;
 
 function AuthContent() {
   const t = useTranslations('auth.unified');
+  const frame = useKortixAuthFrame();
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1386,7 +1390,7 @@ function AuthContent() {
   // A stale/invalidated session (sessionExpired, or forceForm from the
   // safety-net timeout) also lands here — never a dead shell.
   return (
-    <AuthFrame>
+    <AuthFrame {...frame}>
       <AuthCardForm
         callbackError={searchParams.get('expired') === 'true' || searchParams.has('error') || searchParams.has('error_code')}
         returnUrl={returnUrl}

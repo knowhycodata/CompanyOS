@@ -1293,10 +1293,6 @@
       "permission": "Sie benötigen die Einstellungsberechtigung des Workspace, um ein Feature-Flag zu ändern.",
       "updateFailed": "{key} konnte nicht aktualisiert werden",
       "flags": {
-        "secrets_egress": {
-          "name": "Netzwerkerzwungene Geheimnisse",
-          "description": "Steuern Sie, welche Werkzeuge und Ziele Workspace-Geheimnisse empfangen dürfen."
-        },
         "reminders": {
           "name": "Schleifen",
           "description": "Agenten und Personen können Check-ins für eine Sitzung planen, einmalig oder wiederkehrend. Jede Auslösung spricht diese Sitzung erneut an. Fügt Schleifen zur Trigger-Liste, den Schleifen-Chip der Sitzung und `kortix loop` hinzu."
@@ -1313,25 +1309,17 @@
           "name": "Ziele",
           "description": "Gib einem Agenten ein Ziel, für das er verantwortlich bleibt, bis eine unabhängige Prüfung das Ergebnis bestätigt. Er plant, arbeitet, wartet, fragt bei Personen nach und speichert seinen Stand in einem Ordner „Goals“ unter Dateien. Erfordert aktivierte Volumes und Schleifen."
         },
-        "workspace_volume": {
-          "name": "Zustandslose Sandboxes",
-          "description": "Jede Session behält nur /workspace, auf einem eigenen Volume. Eine Sandbox, die eine Stunde gestoppt ist, wird gelöscht, und beim nächsten Öffnen startet eine neue mit denselben Dateien und derselben Unterhaltung. Programme aus der alten Sandbox laufen nicht mehr. Kortix aktiviert es pro Workspace."
-        },
         "email_channel": {
           "name": "E-Mail-Kanal",
           "description": "Gib dem Agenten ein E-Mail-Postfach bei Resend: eingehende Mails starten und setzen Sessions fort, und der Agent liest, antwortet und sendet aus dem Postfach. Bring deinen eigenen Resend-API-Schlüssel und deine Domain mit."
         },
         "chat": {
-          "name": "Channels",
-          "description": "Channels mit Kortix, wie in Slack: Jede Nachricht ist ein Thread, die neueste Antwort von Kortix steht darunter, Kortix kann Threads starten, und du teilst Channels mit anderen. Ersetzt die Sitzungsliste in der Seitenleiste."
+          "name": "Spaces im Slack-Stil",
+          "description": "Nutze Channels und Direktnachrichten im Slack-Stil, in denen jede Nachricht einen Thread startet. Wechselt die Seitenleiste zum Chat-Layout. Unabhängig von Spaces zum Gruppieren von Sitzungen, Dateien und Tabs."
         },
         "session_groups": {
           "name": "Spaces",
           "description": "Fasse Sitzungen in Spaces zusammen, jeder mit eigenen Dateien und Tabs. Ein neuer Space gehört nur dir; teile ihn mit Personen oder dem ganzen Workspace. Starte eine Sitzung in einem Space auf seiner Seite oder über die Space-Auswahl unter dem Eingabefeld. Jede Sitzung in einem Space weiß, wofür er da ist, und bindet seinen Files-Ordner ein."
-        },
-        "chrome": {
-          "name": "Kortix in Chrome",
-          "description": "Lass eine Session deinen verbundenen Chrome-Browser nutzen. Du kannst jederzeit übernehmen oder sie stoppen."
         },
         "agent_teams": {
           "name": "Agenten-Teams",
@@ -1351,11 +1339,11 @@
         },
         "chat_front": {
           "name": "Spaces-Router",
-          "description": "Mit Spaces ist der Agent, mit dem du in einem Thread chattest, ein Router: Kurze Aufgaben erledigt er selbst (eine Antwort, ein kurzer Text, ein Blick in die Thread-Dateien), längere gibt er an die Agents des Space ab. Er antwortet wie ein Mensch, in kurzen Nachrichten. Ein Agent speichert sein vollständiges Ergebnis als Datei im Thread, und der Router verlinkt diese Datei, statt sie abzutippen. „Arbeit anzeigen“ unter einer Nachricht öffnet die Arbeit dahinter. Braucht My Kortix in kortix.yaml."
+          "description": "Mit Spaces im Slack-Stil ist der Agent, mit dem du in einem Thread chattest, ein Router: Kurze Aufgaben erledigt er selbst (eine Antwort, ein kurzer Text, ein Blick in die Thread-Dateien), längere gibt er an die Agents des Space ab. Er antwortet wie ein Mensch, in kurzen Nachrichten. Ein Agent speichert sein vollständiges Ergebnis als Datei im Thread, und der Router verlinkt diese Datei, statt sie abzutippen. „Arbeit anzeigen“ unter einer Nachricht öffnet die Arbeit dahinter. Braucht My Kortix in kortix.yaml."
         },
         "spaces_proactive": {
           "name": "Spaces-Proactive",
-          "description": "Mit Spaces kann ein Space sich selbst beobachten: Schalten Sie in seinen Details Proaktiv ein, und ein Agent liest, was dort passiert (fertige Threads, offene Fragen, neue Mitglieder), und schreibt nur dann in den Chat, wenn es wichtig ist: ein Ergebnis, das sich zu teilen lohnt, eine Entscheidung, die Sie treffen müssen, oder etwas Überfälliges. Er kann auch einen Thread starten, der die Arbeit erledigt. Optional ein tägliches Briefing um 9:00."
+          "description": "Mit Spaces im Slack-Stil kann ein Space sich selbst beobachten: Schalten Sie in seinen Details Proaktiv ein, und ein Agent liest, was dort passiert (fertige Threads, offene Fragen, neue Mitglieder), und schreibt nur dann in den Chat, wenn es wichtig ist: ein Ergebnis, das sich zu teilen lohnt, eine Entscheidung, die Sie treffen müssen, oder etwas Überfälliges. Er kann auch einen Thread starten, der die Arbeit erledigt. Optional ein tägliches Briefing um 9:00."
         },
         "program_agents": {
           "name": "Programm-Agenten",
@@ -1372,15 +1360,19 @@
         "calendar": {
           "name": "Kalender",
           "description": "Ein gemeinsamer Kalender für Menschen und Agenten: Einträge mit Datum, Beteiligten und Kommentaren, neben den geplanten Triggern und Loops. Erwähne jemanden mit @, um ihn zu benachrichtigen. Agenten nutzen `kortix calendar`."
+        },
+        "review_swipe": {
+          "name": "Review-Karten",
+          "description": "„Braucht dich“ auf der Review-Seite öffnet sich als Kartenstapel: ein Eintrag pro Karte. Nach rechts wischen genehmigt oder mergt, nach links schickt es mit deinem Änderungswunsch an den Agenten zurück."
         }
       },
       "channelsSwitch": {
-        "onTitle": "Spaces für {project} einschalten?",
-        "onBody": "Alle in diesem Workspace bekommen Spaces statt der Sitzungsliste. Alle bestehenden Sitzungen ziehen nach #general um. Du kannst es jederzeit ausschalten; nichts wird gelöscht.",
+        "onTitle": "Spaces im Slack-Stil für {project} einschalten?",
+        "onBody": "Alle in diesem Workspace bekommen Spaces im Slack-Stil statt der Sitzungsliste. Alle bestehenden Sitzungen ziehen nach #general um. Du kannst es jederzeit ausschalten; nichts wird gelöscht.",
         "drive": "Auch Drive einschalten, damit Spaces Dateien bekommen.",
         "turnOn": "Einschalten",
         "cancel": "Abbrechen",
-        "offTitle": "Spaces ausschalten?",
+        "offTitle": "Spaces im Slack-Stil ausschalten?",
         "offBody": "Spaces, Speicher, Dateien und Links bleiben gespeichert. Die Sitzungsliste kommt für alle zurück.",
         "turnOff": "Ausschalten"
       },
@@ -2260,6 +2252,10 @@
     "panel": {
       "outputNew": "Neu",
       "outputUpdated": "Aktualisiert",
+      "backgroundTasks": "Hintergrundaufgaben",
+      "finished": "Erledigt",
+      "finishedCount": "{count} erledigt",
+      "running": "Läuft",
       "resizePane": "Bereichsgröße ändern"
     }
   },
@@ -2462,7 +2458,8 @@
     "collapseQueue": "Wartende Nachrichten einklappen",
     "expandQueue": "Wartende Nachrichten ausklappen",
     "myKortixRoutes": "Leitet jede Aufgabe an den passenden Agenten",
-    "chatInputReset": "Reset"
+    "chatInputReset": "Reset",
+    "queuedDisconnected": "Diese Sitzung hat die Verbindung zu Kortix verloren. Starte eine neue Sitzung, um weiterzumachen."
   },
   "billing": {
     "plan": {
@@ -3090,7 +3087,7 @@
     "unified": {
       "welcome": "Willkommen bei {name}",
       "email": "E-Mail",
-      "emailPlaceholder": "Deine E-Mail-Adresse",
+      "emailPlaceholder": "E-Mail-Adresse eingeben…",
       "password": "Passwort",
       "showPassword": "Passwort anzeigen",
       "hidePassword": "Passwort ausblenden",
@@ -3156,7 +3153,7 @@
         "title": "Passwort zurücksetzen",
         "description": "Wir senden dir einen Link zum Zurücksetzen.",
         "email": "E-Mail",
-        "emailPlaceholder": "Ihre E-Mail-Adresse",
+        "emailPlaceholder": "E-Mail-Adresse eingeben…",
         "sending": "Link wird gesendet …",
         "submit": "Link zum Zurücksetzen senden"
       },
@@ -3196,6 +3193,13 @@
       "errorTitle": "Anmeldung nicht möglich",
       "errorBody": "Melde dich in einem Browser-Tab bei Kortix an und öffne dieses Panel dann erneut.",
       "signIn": "Anmelden"
+    },
+    "story": {
+      "label": "Über Kortix CompanyOS",
+      "outcome": "Gib ein Ergebnis vor. KI-Agenten arbeiten rund um die Uhr daran.",
+      "repo": "Deine Agenten, Skills und dein Wissen in einem Repo, das dir gehört.",
+      "approve": "Agenten erledigen die Arbeit. Du gibst frei, was live geht.",
+      "worksWith": "Funktioniert mit den Tools, die dein Team schon nutzt"
     }
   },
   "onboarding": {
@@ -3436,7 +3440,18 @@
         "completed": "Erledigt",
         "failed": "Nicht abgeschlossen",
         "stopped": "Gestoppt"
-      }
+      },
+      "card": {
+        "session": "Sitzung",
+        "copyId": "Sitzungs-ID kopieren",
+        "openNewTab": "In neuem Tab öffnen",
+        "model": "Modell",
+        "runsAs": "Läuft als",
+        "inline": "Lief in dieser Sitzung und hat keine eigene Sitzung zum Öffnen."
+      },
+      "notStarted": "Nicht gestartet",
+      "notStartedSentence": "Kortix konnte diesen Kollegen nicht starten. Es lief nichts.",
+      "policyBlocked": "Durch die Richtlinie dieses Workspaces blockiert. Bitte einen Workspace-Admin, es zu erlauben."
     }
   },
   "agentRunLimit": {
@@ -10455,6 +10470,7 @@
       "authEmailRateLimit": "Die E-Mail konnte nicht gesendet werden. Versuche es in etwa einer Stunde erneut.",
       "authRequestRateLimit": "Zu viele Anfragen. Versuche es in einigen Minuten erneut.",
       "text03217276a5f1": "Guthaben {value0} Credits",
+      "text041fb4e77d8e": "Website-Login",
       "text0b6a47661327": "Unbekannter Eigentümer",
       "text1a9030082a20": "Skill erstellen",
       "text25ab55af92b1": "Anhang-Upload gestartet",
@@ -10819,6 +10835,7 @@
       "text0b2e0f1bf47e": "Jeder Aufruf – und wer ihn freigegeben hat",
       "text0b2ecc210632": "Der eine Live-Kanal. Stellen Sie die Frage in dem Thread, in dem sie aufgekommen ist; Antwort, Diagramm und Abfrage kommen in denselben Thread zurück.",
       "text0b348466332c": "Noch nichts geändert",
+      "text93d50ea93ca0": "Wird vom Browser der Sitzung nur auf seinen Websites eingegeben. Gelangt nie in die Umgebung.",
       "textf83916135509": "belegt",
       "texta251c18205f1": "Zwischengespeichert",
       "text64cd989efc14": "Frei",
@@ -18332,7 +18349,6 @@
       "texte59a1d133be1": "Änderungen gelten für die nächste Anmeldung. Bereits ausgegebene Tokens funktionieren weiter, bis sie ablaufen.",
       "texte59eaa3acaf1": "die Grenze",
       "texte5a4af9b350f": "Ich habe die SCIM-Verbindung erstellt, aktiviert und getestet",
-      "texte5a718af362a": "Die ersten beiden",
       "texte5ab168f1943": "Das Gesprächsbriefing",
       "texte5b104783abd": "Ihr Agent kann die benötigten Tools verwenden, genau wie auf einem normalen Computer.",
       "texte5bd74e98514": "Sonstiges – nur Quelltext",
@@ -21512,6 +21528,17 @@
       "grant": "{names} {count, plural, one {gehört} other {gehören}} nicht zu den Geheimnissen des Agenten {agent}. Öffne Anpassen → Agenten → {agent} → Geheimnisse und aktiviere {count, plural, one {es} other {sie}}.",
       "allowlist": "{names} {count, plural, one {liegt} other {liegen}} außerhalb der Geheimnisse dieser Sitzung. Starte eine neue Sitzung, um {count, plural, one {es} other {sie}} zu verwenden."
     },
+    "secretIntakeLogin": {
+      "delivery": "Ein Website-Login für {sites}. Der Browser dieser Sitzung gibt ihn nur auf diesen Websites ein. Der Agent sieht nur seinen Namen.",
+      "username": "Benutzername oder E-Mail",
+      "password": "Passwort",
+      "missing": "Gib einen Benutzernamen und ein Passwort ein.",
+      "savedTitle": "Login gespeichert",
+      "savedDescription": "Der Agent kann sich jetzt anmelden. Er sieht nur den Namen des Logins.",
+      "modalTitle": "Website-Login hinzufügen",
+      "modalDescription": "Prüfe die Website, bevor du das Passwort eingibst.",
+      "pageDescription": "Prüfe die Website, bevor du das Passwort eingibst. Der Login wird verschlüsselt gespeichert."
+    },
     "sessionEmbed": {
       "sectionTitle": "Einbetten",
       "sectionDescription": "Nur für Seiten derselben Website. Betrachter müssen bereits angemeldet sein und Zugriff auf diese Sitzung haben; die Anmeldung innerhalb eines websiteübergreifenden iframes wird nicht unterstützt.",
@@ -21558,6 +21585,37 @@
     "reviewPane": {
       "emptyTitle": "Wähle einen Eintrag",
       "emptyDescription": "Die Details öffnen sich hier. Mit J und K bewegst du dich durch die Liste."
+    },
+    "reviewDeck": {
+      "label": "Review-Karten",
+      "remaining": "{count, plural, one {# Karte übrig} other {# Karten übrig}}",
+      "merge": "Mergen",
+      "close": "Schließen",
+      "approve": "Genehmigen",
+      "deny": "Ablehnen",
+      "dismiss": "Verwerfen",
+      "yes": "Ja",
+      "no": "Nein",
+      "skip": "Überspringen",
+      "open": "Öffnen",
+      "undo": "Rückgängig",
+      "staged": "{verdict}: {title}",
+      "needsChoice": "Öffnen, um eine Antwort zu wählen",
+      "noVerdict": "Du kannst hier nicht entscheiden. Öffne es für Details.",
+      "emptyTitle": "Alles erledigt",
+      "emptyDescription": "Gerade wartet nichts auf dich.",
+      "highRisk": "Hohes Risiko",
+      "files": "{count, plural, one {# Datei} other {# Dateien}}",
+      "conflicts": "{count, plural, one {# Konflikt} other {# Konflikte}}",
+      "items": "{count, plural, one {# Eintrag} other {# Einträge}}",
+      "showCards": "Als Karten zeigen",
+      "showList": "Als Liste zeigen",
+      "sendBack": "Zurückschicken",
+      "whatShouldChange": "Was soll sich ändern?",
+      "sendToAgent": "An Agenten senden",
+      "cancel": "Abbrechen",
+      "reviews": "Reviews",
+      "questions": "Fragen"
     }
   },
   "commandPalette": {
@@ -22371,6 +22429,8 @@
     "redirectsTo": "Leitet dich zurück zu",
     "workspaceLabel": "Workspace",
     "workspaceHint": "{client} erreicht nur diesen Workspace.",
+    "workspaceAll": "Alle meine Workspaces",
+    "workspaceAllHint": "{client} handelt als du in jedem Workspace, den du öffnen kannst, jetzt und später, und kann neue Workspaces erstellen. Wähle das nur für eine App, die du selbst betreibst.",
     "scopes": {
       "profile": "Dein Profil ansehen",
       "email": "Deine E-Mail-Adresse ansehen",
@@ -25117,6 +25177,32 @@
     "stopNote": "Der Link funktioniert dann nicht mehr."
   },
   "artifacts": {
+    "folderIcon": "Ordnersymbol auswählen",
+    "docCreateFailed": "Dokument konnte nicht erstellt werden. Erneut versuchen.",
+    "newFolder": "Neuer Ordner",
+    "editFolder": "Ordner bearbeiten",
+    "folderName": "Ordnername",
+    "folderCreateIn": "In",
+    "folderSaved": "Ordner gespeichert",
+    "folderCreated": "Ordner erstellt",
+    "folderSaveFailed": "Ordner konnte nicht gespeichert werden. Erneut versuchen.",
+    "saveFolder": "Ordner speichern",
+    "createFolder": "Ordner erstellen",
+    "folderActions": "Aktionen für {name}",
+    "deleteFolder": "Ordner löschen",
+    "deleteFolderTitle": "„{name}“ löschen?",
+    "deleteFolderHint": "Unterordner und Artefakte rücken eine Ebene nach oben. Dateien und Links bleiben verfügbar.",
+    "folderDeleted": "Ordner gelöscht",
+    "folderDeleteFailed": "Ordner konnte nicht gelöscht werden. Erneut versuchen.",
+    "folderNavigation": "Artefaktordner",
+    "folderPathMore": "Ordnerpfad anzeigen",
+    "folderUnavailable": "Ordner nicht verfügbar",
+    "folderLoadFailed": "Ordner konnten nicht geladen werden",
+    "moveToFolder": "In Ordner verschieben",
+    "movedToFolder": "Verschoben nach {name}",
+    "emptyUnfiled": "Keine Artefakte ohne Ordner",
+    "emptyFolder": "Keine Artefakte in diesem Ordner",
+    "folderRoot": "Kein Ordner",
     "title": "Artefakte",
     "type": {
       "doc": "Dokument",
@@ -26259,6 +26345,25 @@
     "turnNote": "In einem Sprachanruf gesagt und von der Stimme beantwortet.",
     "close": "Schließen"
   },
+  "dictation": {
+    "start": "Nachricht diktieren",
+    "price": "{credits, plural, one {# Credit} other {# Credits}} pro Minute",
+    "recording": "Diktat",
+    "discard": "Aufnahme verwerfen",
+    "finish": "Wörter einfügen",
+    "transcribing": "Wird transkribiert…",
+    "nothingHeard": "Keine Sprache erkannt. Sprich näher am Mikrofon und versuche es erneut.",
+    "retry": "Erneut versuchen",
+    "failed": "Die Aufnahme konnte nicht transkribiert werden. Versuche es erneut.",
+    "busy": "Die Aufnahme kann gerade nicht transkribiert werden. Versuche es gleich noch einmal.",
+    "unavailable": "Diktat ist auf diesem Server nicht verfügbar.",
+    "limitReached": "Aufnahme nach {minutes} Minuten beendet",
+    "micDenied": "Das Mikrofon kann nicht verwendet werden. Erlaube es für diese Seite in den Browser-Einstellungen.",
+    "micDeniedDesktop": "Das Mikrofon kann nicht verwendet werden. Erlaube Kortix in den Datenschutzeinstellungen deines Systems.",
+    "micMissing": "Kein Mikrofon gefunden. Schließe eines an und versuche es erneut.",
+    "micBusy": "Das Mikrofon kann nicht verwendet werden. Eine andere App nutzt es.",
+    "micUnsupported": "Das Mikrofon kann in diesem Browser nicht verwendet werden."
+  },
   "agentMounts": {
     "lead": "Ordner aus Dateien, die Sitzungen dieses Agenten einbinden. Änderungen gelten sofort für jede neue Sitzung.",
     "mount": "Mount folder",
@@ -26404,6 +26509,7 @@
       },
       "workingFor": "arbeitet · {elapsed}",
       "runsAs": "läuft als {agent}",
+      "stateCount": "{count} {state}",
       "teamRole": "Rolle nur für diese Sitzung",
       "attention": {
         "question": "Hat eine Frage an dich",
