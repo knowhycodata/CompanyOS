@@ -4,10 +4,10 @@
  * apps/api/src/projects/routes/bots.ts + projects/lib/bots.ts. A bot's chat
  * is the caller's DM space (§ 7a, SPACE-4).
  */
-import { BotListSchema, BotSchema, type BotList, SpaceSchema } from '@kortix/api-contract';
+import { BotListSchema, BotPauseResultSchema, type BotList, SpaceSchema } from '@kortix/api-contract';
 import { webhookSignature } from '../fixtures/chat';
 import { flow, flowMeta } from '../core/flow';
-import { openWorld } from '../fixtures/agent-principals';
+import { insertSession, openWorld } from '../fixtures/agent-principals';
 import type { Space } from '../fixtures/space';
 
 const ROUTES = {
@@ -124,9 +124,14 @@ flow(
         (await ctx.client.as(member).post(PAUSE, { paused: true }, { params: { ...params, name: 'kortix' } })).status(403);
       });
 
-      await ctx.step('the owner pauses kortix → 200 status paused, and the list says paused', async () => {
+      await ctx.step('the owner pauses kortix → 200 status paused, stopping its 2 running tasks (one per person); the list says paused', async () => {
+        // Two running tasks of kortix, from two people, and one of another agent's that the pause leaves alone.
+        const member = await team.addMember('member');
+        const running = [await insertSession(world, world.ownerUserId, 'private'), await insertSession(world, member.userId!, 'private')];
+        const other = await insertSession(world, world.ownerUserId, 'private', { agentName: 'writer' });
+        await world.db.query("UPDATE kortix.project_sessions SET status = 'running' WHERE session_id = ANY($1::text[])", [[...running, other]]);
         (await world.owner.post(PAUSE, { paused: true }, { params: { ...params, name: 'kortix' } }))
-          .status(200).body().schema(BotSchema).has('$.name', 'kortix').has('$.status', 'paused');
+          .status(200).body().schema(BotPauseResultSchema).has('$.bot.name', 'kortix').has('$.bot.status', 'paused').has('$.stopped_sessions', 2);
         const bot = (await world.owner.get(BOTS, { params })).status(200).json<BotList>().bots.find((b) => b.name === 'kortix');
         if (bot?.status !== 'paused') throw new Error(`listed status ${bot?.status}, want paused`);
       });
@@ -137,7 +142,7 @@ flow(
 
       await ctx.step('resume → 200 status active; the next delivery is no longer held by the pause', async () => {
         (await world.owner.post(PAUSE, { paused: false }, { params: { ...params, name: 'kortix' } }))
-          .status(200).body().has('$.status', 'active');
+          .status(200).body().has('$.bot.status', 'active').has('$.stopped_sessions', 0);
         const res = await deliver();
         const body = res.json<{ reason?: string }>();
         if (body.reason === 'bot kortix is paused') throw new Error('the delivery after resume was still held by the bot pause');

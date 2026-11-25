@@ -3,12 +3,13 @@
 // adds no table. The chat is the person's DM space with the agent
 // (`project_spaces`, kind `dm`), created on first open by `getOrCreateDm`.
 import type { Bot } from '@kortix/api-contract';
-import { projectSpaces } from '@kortix/db';
+import { projectSessions, projectSpaces } from '@kortix/db';
 import { MY_KORTIX_AGENT_NAME, MY_KORTIX_DISPLAY_NAME } from '@kortix/shared';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { resolveFeatureFlag } from '../../feature-flags/registry';
 import { db } from '../../shared/db';
 import type { LoadedAgents } from '../agents/types';
+import { abortRuntimeTurn } from '../session-lifecycle/abort-runtime-turn';
 import { projectsView, updateProjectRowsReturning } from '../../workspaces/rows';
 
 /**
@@ -103,4 +104,20 @@ export async function setBotPaused(projectId: string, agentName: string, paused:
     updatedAt: new Date(),
   });
   return row && row.status !== 'archived' ? row.metadata : null;
+}
+
+/**
+ * Stop every running task of a paused bot, for every person: abort the live
+ * turn of each `running` session of the agent, the same call the Stop button
+ * makes. The turn is stamped "Stopped by" the person who paused. Best effort:
+ * a box that is parked or gone is not a failure. Returns how many sessions
+ * were asked to stop.
+ */
+export async function stopBotRuns(projectId: string, agentName: string, stoppedBy: string): Promise<number> {
+  const rows = await db
+    .select({ sessionId: projectSessions.sessionId })
+    .from(projectSessions)
+    .where(and(eq(projectSessions.projectId, projectId), eq(projectSessions.agentName, agentName), eq(projectSessions.status, 'running')));
+  await Promise.all(rows.map((row) => abortRuntimeTurn(row.sessionId, { requestedStop: true, stoppedBy })));
+  return rows.length;
 }

@@ -1880,6 +1880,7 @@
     "WorkspaceAction",
     "WorkspaceAgentResourceItem",
     "WorkspaceBot",
+    "WorkspaceBotPauseResult",
     "WorkspaceBranch",
     "WorkspaceBranchSession",
     "WorkspaceBranchesResponse",

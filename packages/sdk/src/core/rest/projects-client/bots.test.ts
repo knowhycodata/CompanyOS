@@ -46,8 +46,9 @@ test('listWorkspaceBots rejects with feature_disabled while kortix_bot is off an
 });
 
 test('setWorkspaceBotPaused POSTs { paused } to the bot pause route and returns the bot', async () => {
-  nextResponse = { status: 200, body: { ...marketing, status: 'paused' } };
-  const bot = await setWorkspaceBotPaused('P1', 'marketing', true);
+  nextResponse = { status: 200, body: { bot: { ...marketing, status: 'paused' }, stopped_sessions: 2 } };
+  const result = await setWorkspaceBotPaused('P1', 'marketing', true);
   expect(calls).toEqual([{ url: 'http://test.local/v1/workspaces/P1/bots/marketing/pause', method: 'POST' }]);
-  expect(bot.status).toBe('paused');
+  expect(result.bot.status).toBe('paused');
+  expect(result.stopped_sessions).toBe(2);
 });

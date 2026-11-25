@@ -1637,6 +1637,10 @@ export const BotListSchema = z.object({ bots: z.array(BotSchema) }).strict();
 
 export const BotPauseInputSchema = z.object({ paused: z.boolean() }).strict();
 export type BotPauseInput = z.infer<typeof BotPauseInputSchema>;
+
+/** The bot after a pause or resume, and how many of its running tasks the pause stopped (0 on resume). */
+export const BotPauseResultSchema = z.object({ bot: BotSchema, stopped_sessions: z.number().int().nonnegative() }).strict();
+export type BotPauseResult = z.infer<typeof BotPauseResultSchema>;
 export type BotList = z.infer<typeof BotListSchema>;
 
 /** A link pinned to a channel: `/projects/:id/spaces/:spaceId/links`. */

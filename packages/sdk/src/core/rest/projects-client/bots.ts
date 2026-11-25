@@ -37,14 +37,20 @@ export async function listWorkspaceBots(workspaceId: string): Promise<WorkspaceB
   return res.bots;
 }
 
+/** The bot after a pause or resume, and how many of its running tasks the pause stopped (0 on resume). */
+export interface WorkspaceBotPauseResult {
+  bot: WorkspaceBot;
+  stopped_sessions: number;
+}
+
 /**
  * Pause or resume a bot. A paused bot still gets messages, but no schedule,
  * webhook, event or monitor starts it; a person firing a trigger by hand still
- * runs it. Needs the trigger-update permission (else 403). Resolves the bot
- * after the change.
+ * runs it. Pausing also stops every running task of the bot, for every person.
+ * Needs the trigger-update permission (else 403).
  */
-export async function setWorkspaceBotPaused(workspaceId: string, name: string, paused: boolean): Promise<WorkspaceBot> {
+export async function setWorkspaceBotPaused(workspaceId: string, name: string, paused: boolean): Promise<WorkspaceBotPauseResult> {
   return unwrap(
-    await backendApi.post<WorkspaceBot>(`/workspaces/${workspaceId}/bots/${encodeURIComponent(name)}/pause`, { paused }, { showErrors: false }),
+    await backendApi.post<WorkspaceBotPauseResult>(`/workspaces/${workspaceId}/bots/${encodeURIComponent(name)}/pause`, { paused }, { showErrors: false }),
   );
 }
